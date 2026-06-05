@@ -1,0 +1,84 @@
+@page "/dashboard"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject IHabitService HabitService
+@inject AuthenticationStateProvider AuthState
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>Dashboard</PageTitle>
+
+<div class="dashboard-page">
+    <h3 class="mb-3">Dashboard</h3>
+    <p class="text-muted">An overview of all your habits. The darker the day, the more habits you completed.</p>
+
+    @if (TotalHabits == 0)
+    {
+        <div class="alert alert-info">No habits yet. <a href="/habits">Add some habits</a> to see your dashboard.</div>
+    }
+    else
+    {
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center p-3">
+                    <h2>@TotalHabits</h2>
+                    <small class="text-muted">Total Habits</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center p-3">
+                    <h2>@TotalCompletionsThisYear</h2>
+                    <small class="text-muted">Completions this year</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center p-3">
+                    <h2>@BestDayLabel</h2>
+                    <small class="text-muted">Best day (@BestDayCount)</small>
+                </div>
+            </div>
+        </div>
+
+        <h5>Aggregated Heatmap</h5>
+        <AggregatedHeatmap Entries="AggregatedData"
+                           BaseColor="#4CAF50"
+                           Year="@CurrentYear" />
+    }
+</div>
+
+@code {
+    private List<Habit> Habits = new();
+    private Dictionary<DateOnly, int> AggregatedData = new();
+    private int CurrentYear = DateTime.UtcNow.Year;
+    private int TotalHabits;
+    private int TotalCompletionsThisYear;
+    private int BestDayCount;
+    private string BestDayLabel = "-";
+    private string CurrentUserId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state = await AuthState.GetAuthenticationStateAsync();
+            var appUser = await UserManager.GetUserAsync(state.User);
+            if (appUser is not null)
+                CurrentUserId = await UserManager.GetUserIdAsync(appUser);
+        }
+        catch { }
+
+        if (string.IsNullOrEmpty(CurrentUserId)) return;
+
+        Habits = await HabitService.GetUserHabitsAsync(CurrentUserId);
+        TotalHabits = Habits.Count;
+        AggregatedData = await HabitService.GetAggregatedYearDataAsync(CurrentUserId, CurrentYear);
+
+        TotalCompletionsThisYear = AggregatedData.Values.Sum();
+
+        if (AggregatedData.Count > 0)
+        {
+            BestDayCount = AggregatedData.Values.Max();
+            var bestDay = AggregatedData.First(kv => kv.Value == BestDayCount).Key;
+            BestDayLabel = bestDay.ToString("MMM d");
+        }
+    }
+}

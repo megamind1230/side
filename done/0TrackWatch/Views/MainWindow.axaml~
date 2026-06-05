@@ -1,0 +1,24 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TrackWatch.ViewModels"
+        xmlns:views="using:TrackWatch.Views"
+        x:Class="TrackWatch.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="TrackWatch" Width="600" Height="500">
+  <TabControl SelectedIndex="{Binding SelectedTabIndex}">
+    <TabControl.Styles>
+      <Style Selector="TabControl > TabStrip">
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+      </Style>
+    </TabControl.Styles>
+    <TabItem Header="Timer">
+      <views:TimerView DataContext="{Binding Timer}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </TabItem>
+    <TabItem Header="Stopwatch">
+      <views:StopwatchView DataContext="{Binding Stopwatch}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </TabItem>
+    <TabItem Header="Stats">
+      <views:StatsView DataContext="{Binding Stats}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </TabItem>
+  </TabControl>
+</Window>

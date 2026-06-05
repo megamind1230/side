@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TrackWatch.ViewModels"
+             x:Class="TrackWatch.Views.StatsView"
+             x:DataType="vm:StatsViewModel"
+             Padding="20">
+  <StackPanel Spacing="15">
+    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+      <TextBlock Text="Statistics" FontSize="24" FontWeight="Bold"/>
+      <Button Content="Refresh" Command="{Binding LoadStatsCommand}"/>
+      <Button Content="Reset All" Command="{Binding ResetStatsCommand}" Classes="danger"/>
+    </StackPanel>
+    
+    <Grid ColumnDefinitions="*,100,150,80" RowDefinitions="Auto,*">
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="Task" FontWeight="Bold" Padding="5"/>
+      <TextBlock Grid.Row="0" Grid.Column="1" Text="Times" FontWeight="Bold" Padding="5"/>
+      <TextBlock Grid.Row="0" Grid.Column="2" Text="Total Time" FontWeight="Bold" Padding="5"/>
+      
+      <ListBox Grid.Row="1" Grid.ColumnSpan="3" ItemsSource="{Binding Stats}">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Grid ColumnDefinitions="*,100,150,80">
+              <TextBlock Grid.Column="0" Text="{Binding Tag}" Padding="5"/>
+              <TextBlock Grid.Column="1" Text="{Binding Count}" Padding="5" TextAlignment="Center"/>
+              <TextBlock Grid.Column="2" Text="{Binding TotalTime}" Padding="5" TextAlignment="Right"/>
+              <Button Grid.Column="3" Content="Delete" Command="{Binding $parent[UserControl].DataContext.DeleteEntryCommand}" CommandParameter="{Binding Tag}" 
+                      Classes="danger" Margin="5"/>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Grid>
+  </StackPanel>
+</UserControl>

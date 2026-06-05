@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TrackWatch.ViewModels"
+             x:Class="TrackWatch.Views.StopwatchView"
+             x:DataType="vm:StopwatchViewModel"
+             Padding="20">
+  <StackPanel Spacing="15" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="400">
+    <TextBlock Text="Stopwatch" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center"/>
+    
+    <TextBox Text="{Binding TaskName}" Watermark="Task name" FontSize="16"/>
+    
+    <TextBlock Text="{Binding ElapsedTime}" FontSize="48" HorizontalAlignment="Center" FontWeight="Bold"/>
+    
+    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+      <Button Content="Start" Command="{Binding StartStopwatchCommand}" 
+              IsEnabled="{Binding !IsRunning}" FontSize="16" Padding="20,10"/>
+      
+      <Button Content="Stop" Command="{Binding StopAndSaveCommand}" 
+              IsEnabled="{Binding IsRunning}" FontSize="16" Padding="20,10"
+              Classes="danger"/>
+    </StackPanel>
+    
+    <Button Content="Reset" Command="{Binding ResetCommand}" 
+            IsEnabled="{Binding !IsRunning}" FontSize="16" Padding="20,10"
+            HorizontalAlignment="Center"/>
+  </StackPanel>
+</UserControl>

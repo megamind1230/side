@@ -1,0 +1,77 @@
+#+TITLE: Bugs
+
+* B1: Prev/Next buttons appear on middle of screen
+
+** Location
+- Views/MainWindow.axaml (learning view layout)
+
+** Root Cause
+- DockPanel doesn't allocate space correctly when the nested Grid
+  has proportional rows. Bottom bar ends up in the middle.
+
+** Fix
+1. Replace outer DockPanel with ~Grid RowDefinitions="Auto,*,Auto"~
+2. Row 0: top bar | Row 1: content | Row 2: bottom bar
+
+* FIXED B3: Marketplace panel overlaps home panel
+
+** Status
+- ✅ FIXED — Marketplace panel and ~IsMarketplace~ property removed
+- Marketplace button now opens ~https://google.com~ in browser (no in-app page)
+
+* FIXED B13: Hamburger ☰ button opens editor, not a sidebar
+
+** Status
+- ✅ FIXED — Learning view ☰ now opens global sidebar (~ToggleSidebarCommand~)
+- "Edit" button (text label) remains for opening editor
+- ☰ in home nav bar also opens sidebar
+
+* FIXED B14: Duplicate nav bars across panels
+
+** Status
+- ✅ FIXED — Marketplace panel removed, single nav bar in home panel
+
+* FIXED B19: DownloadedDecksViewModel creates its own AppDbContext
+
+** Status
+- ✅ FIXED — ~MarketplaceViewModel.cs~ deleted (both ~MarketplaceViewModel~ and ~DownloadedDecksViewModel~)
+
+* B20: Home search Enter handler closed popup (now irrelevant)
+
+** Location
+- Views/MainWindow.axaml.cs (removed)
+
+** Status
+- IRRELEVANT — home search popup was removed (inline search now)
+- / focuses search bar, Esc unfocuses, no Enter action needed
+
+* FIXED B2/B11: File-based decks get new GUID on every load
+
+** Status
+- ✅ FIXED by ~Services/DeckFileIdentity.cs~
+- SHA256 of full file path → deterministic GUID
+- Progress survives restarts
+
+* FIXED B20: Teal box shows no content on first load (AvaloniaEdit)
+
+** Location
+- ~Views/MainWindow.axaml.cs~ (~OnLoaded~)
+
+** Root Cause
+- ~OnLoaded~ subscribed to ~PropertyChanged~ event for ~RenderedContent~
+  *after* the initial value was already set. ~UpdateEditor()~ was never
+  called for the first page, leaving the ~TextEditor~ empty.
+
+** Fix
+- Added ~UpdateEditor();~ call at the end of ~OnLoaded~ to pull the
+  current ~RenderedContent~ value right after subscribing to future
+  changes. Subsequent page navigations continue to update via the
+  ~PropertyChanged~ handler.
+
+* FIXED B15: ExtractCategory keyword matching
+
+** Status
+- ✅ REPLACED by frontmatter tag system
+- ~ExtractCategory()~ removed entirely
+- Tags come from ~tags:~ in YAML frontmatter
+- ~#tag~ search with incremental prefix matching

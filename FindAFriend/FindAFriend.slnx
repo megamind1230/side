@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FindAFriend.Core/FindAFriend.Core.csproj" />
+    <Project Path="src/FindAFriend.Infrastructure/FindAFriend.Infrastructure.csproj" />
+    <Project Path="src/FindAFriend.Web/FindAFriend.Web.csproj" />
+  </Folder>
+</Solution>

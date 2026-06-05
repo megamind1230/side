@@ -1,0 +1,304 @@
+proj/nextLearn-19-3/
+├── file-tree
+├── NextLearn
+│   ├── App.axaml
+│   ├── App.axaml.cs
+│   ├── app.manifest
+│   ├── Assets
+│   │   └── avalonia-logo.ico
+│   ├── bin
+│   │   └── Debug
+│   │       └── net10.0
+│   │           ├── Avalonia.Base.dll
+│   │           ├── Avalonia.Controls.ColorPicker.dll
+│   │           ├── Avalonia.Controls.dll
+│   │           ├── Avalonia.DesignerSupport.dll
+│   │           ├── Avalonia.Desktop.dll
+│   │           ├── Avalonia.Diagnostics.dll
+│   │           ├── Avalonia.Dialogs.dll
+│   │           ├── Avalonia.dll
+│   │           ├── Avalonia.Fonts.Inter.dll
+│   │           ├── Avalonia.FreeDesktop.dll
+│   │           ├── Avalonia.Markup.dll
+│   │           ├── Avalonia.Markup.Xaml.dll
+│   │           ├── Avalonia.Metal.dll
+│   │           ├── Avalonia.MicroCom.dll
+│   │           ├── Avalonia.Native.dll
+│   │           ├── Avalonia.OpenGL.dll
+│   │           ├── Avalonia.Remote.Protocol.dll
+│   │           ├── Avalonia.Skia.dll
+│   │           ├── Avalonia.Themes.Fluent.dll
+│   │           ├── Avalonia.Themes.Simple.dll
+│   │           ├── Avalonia.Vulkan.dll
+│   │           ├── Avalonia.Win32.Automation.dll
+│   │           ├── Avalonia.Win32.dll
+│   │           ├── Avalonia.X11.dll
+│   │           ├── CommunityToolkit.Mvvm.dll
+│   │           ├── cs
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           ├── de
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           ├── es
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           ├── fr
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           ├── HarfBuzzSharp.dll
+│   │           ├── Humanizer.dll
+│   │           ├── it
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           ├── ja
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           ├── ko
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           ├── MicroCom.Runtime.dll
+│   │           ├── Microsoft.Bcl.AsyncInterfaces.dll
+│   │           ├── Microsoft.CodeAnalysis.CSharp.dll
+│   │           ├── Microsoft.CodeAnalysis.CSharp.Workspaces.dll
+│   │           ├── Microsoft.CodeAnalysis.dll
+│   │           ├── Microsoft.CodeAnalysis.Workspaces.dll
+│   │           ├── Microsoft.Data.Sqlite.dll
+│   │           ├── Microsoft.EntityFrameworkCore.Abstractions.dll
+│   │           ├── Microsoft.EntityFrameworkCore.Design.dll
+│   │           ├── Microsoft.EntityFrameworkCore.dll
+│   │           ├── Microsoft.EntityFrameworkCore.Relational.dll
+│   │           ├── Microsoft.EntityFrameworkCore.Sqlite.dll
+│   │           ├── Microsoft.Extensions.Caching.Abstractions.dll
+│   │           ├── Microsoft.Extensions.Caching.Memory.dll
+│   │           ├── Microsoft.Extensions.Configuration.Abstractions.dll
+│   │           ├── Microsoft.Extensions.DependencyInjection.Abstractions.dll
+│   │           ├── Microsoft.Extensions.DependencyInjection.dll
+│   │           ├── Microsoft.Extensions.DependencyModel.dll
+│   │           ├── Microsoft.Extensions.Logging.Abstractions.dll
+│   │           ├── Microsoft.Extensions.Logging.dll
+│   │           ├── Microsoft.Extensions.Options.dll
+│   │           ├── Microsoft.Extensions.Primitives.dll
+│   │           ├── Mono.TextTemplating.dll
+│   │           ├── NextLearn
+│   │           ├── NextLearn.deps.json
+│   │           ├── NextLearn.dll
+│   │           ├── NextLearn.pdb
+│   │           ├── NextLearn.runtimeconfig.json
+│   │           ├── pl
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           ├── pt-BR
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           ├── ru
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           ├── runtimes
+│   │           │   ├── browser-wasm
+│   │           │   │   └── nativeassets
+│   │           │   │       └── net8.0
+│   │           │   │           └── e_sqlite3.a
+│   │           │   ├── linux-arm
+│   │           │   │   └── native
+│   │           │   │       ├── libe_sqlite3.so
+│   │           │   │       ├── libHarfBuzzSharp.so
+│   │           │   │       └── libSkiaSharp.so
+│   │           │   ├── linux-arm64
+│   │           │   │   └── native
+│   │           │   │       ├── libe_sqlite3.so
+│   │           │   │       ├── libHarfBuzzSharp.so
+│   │           │   │       └── libSkiaSharp.so
+│   │           │   ├── linux-armel
+│   │           │   │   └── native
+│   │           │   │       └── libe_sqlite3.so
+│   │           │   ├── linux-loongarch64
+│   │           │   │   └── native
+│   │           │   │       └── libHarfBuzzSharp.so
+│   │           │   ├── linux-mips64
+│   │           │   │   └── native
+│   │           │   │       └── libe_sqlite3.so
+│   │           │   ├── linux-musl-arm
+│   │           │   │   └── native
+│   │           │   │       ├── libe_sqlite3.so
+│   │           │   │       └── libHarfBuzzSharp.so
+│   │           │   ├── linux-musl-arm64
+│   │           │   │   └── native
+│   │           │   │       ├── libe_sqlite3.so
+│   │           │   │       └── libHarfBuzzSharp.so
+│   │           │   ├── linux-musl-loongarch64
+│   │           │   │   └── native
+│   │           │   │       └── libHarfBuzzSharp.so
+│   │           │   ├── linux-musl-riscv64
+│   │           │   │   └── native
+│   │           │   │       └── libHarfBuzzSharp.so
+│   │           │   ├── linux-musl-x64
+│   │           │   │   └── native
+│   │           │   │       ├── libe_sqlite3.so
+│   │           │   │       ├── libHarfBuzzSharp.so
+│   │           │   │       └── libSkiaSharp.so
+│   │           │   ├── linux-ppc64le
+│   │           │   │   └── native
+│   │           │   │       └── libe_sqlite3.so
+│   │           │   ├── linux-riscv64
+│   │           │   │   └── native
+│   │           │   │       └── libHarfBuzzSharp.so
+│   │           │   ├── linux-s390x
+│   │           │   │   └── native
+│   │           │   │       └── libe_sqlite3.so
+│   │           │   ├── linux-x64
+│   │           │   │   └── native
+│   │           │   │       ├── libe_sqlite3.so
+│   │           │   │       ├── libHarfBuzzSharp.so
+│   │           │   │       └── libSkiaSharp.so
+│   │           │   ├── linux-x86
+│   │           │   │   └── native
+│   │           │   │       ├── libe_sqlite3.so
+│   │           │   │       └── libHarfBuzzSharp.so
+│   │           │   ├── maccatalyst-arm64
+│   │           │   │   └── native
+│   │           │   │       └── libe_sqlite3.dylib
+│   │           │   ├── maccatalyst-x64
+│   │           │   │   └── native
+│   │           │   │       └── libe_sqlite3.dylib
+│   │           │   ├── osx
+│   │           │   │   └── native
+│   │           │   │       ├── libAvaloniaNative.dylib
+│   │           │   │       ├── libHarfBuzzSharp.dylib
+│   │           │   │       └── libSkiaSharp.dylib
+│   │           │   ├── osx-arm64
+│   │           │   │   └── native
+│   │           │   │       └── libe_sqlite3.dylib
+│   │           │   ├── osx-x64
+│   │           │   │   └── native
+│   │           │   │       └── libe_sqlite3.dylib
+│   │           │   ├── win-arm
+│   │           │   │   └── native
+│   │           │   │       └── e_sqlite3.dll
+│   │           │   ├── win-arm64
+│   │           │   │   └── native
+│   │           │   │       ├── av_libglesv2.dll
+│   │           │   │       ├── e_sqlite3.dll
+│   │           │   │       ├── libHarfBuzzSharp.dll
+│   │           │   │       └── libSkiaSharp.dll
+│   │           │   ├── win-x64
+│   │           │   │   └── native
+│   │           │   │       ├── av_libglesv2.dll
+│   │           │   │       ├── e_sqlite3.dll
+│   │           │   │       ├── libHarfBuzzSharp.dll
+│   │           │   │       └── libSkiaSharp.dll
+│   │           │   └── win-x86
+│   │           │       └── native
+│   │           │           ├── av_libglesv2.dll
+│   │           │           ├── e_sqlite3.dll
+│   │           │           ├── libHarfBuzzSharp.dll
+│   │           │           └── libSkiaSharp.dll
+│   │           ├── SkiaSharp.dll
+│   │           ├── SQLitePCLRaw.batteries_v2.dll
+│   │           ├── SQLitePCLRaw.core.dll
+│   │           ├── SQLitePCLRaw.provider.e_sqlite3.dll
+│   │           ├── System.CodeDom.dll
+│   │           ├── System.Composition.AttributedModel.dll
+│   │           ├── System.Composition.Convention.dll
+│   │           ├── System.Composition.Hosting.dll
+│   │           ├── System.Composition.Runtime.dll
+│   │           ├── System.Composition.TypedParts.dll
+│   │           ├── Tmds.DBus.Protocol.dll
+│   │           ├── tr
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           ├── zh-Hans
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │           │   ├── Microsoft.CodeAnalysis.resources.dll
+│   │           │   └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   │           └── zh-Hant
+│   │               ├── Microsoft.CodeAnalysis.CSharp.resources.dll
+│   │               ├── Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+│   │               ├── Microsoft.CodeAnalysis.resources.dll
+│   │               └── Microsoft.CodeAnalysis.Workspaces.resources.dll
+│   ├── Constants.cs
+│   ├── Data
+│   │   └── AppDbContext.cs
+│   ├── Models
+│   │   ├── ActiveLearning.cs
+│   │   ├── DailyActivity.cs
+│   │   ├── Deck.cs
+│   │   ├── Feedback.cs
+│   │   ├── Flashcard.cs
+│   │   ├── Page.cs
+│   │   ├── User.cs
+│   │   └── UserProgress.cs
+│   ├── NextLearn.csproj
+│   ├── obj
+│   │   ├── Debug
+│   │   │   └── net10.0
+│   │   │       ├── apphost
+│   │   │       ├── Avalonia
+│   │   │       │   ├── references
+│   │   │       │   ├── resources
+│   │   │       │   └── Resources.Inputs.cache
+│   │   │       ├── NextLearn.AssemblyInfo.cs
+│   │   │       ├── NextLearn.AssemblyInfoInputs.cache
+│   │   │       ├── NextLearn.assets.cache
+│   │   │       ├── NextLearn.csproj.AssemblyReference.cache
+│   │   │       ├── NextLearn.csproj.CoreCompileInputs.cache
+│   │   │       ├── NextLearn.csproj.FileListAbsolute.txt
+│   │   │       ├── NextLearn.csproj.Up2Date
+│   │   │       ├── NextLearn.dll
+│   │   │       ├── NextLearn.GeneratedMSBuildEditorConfig.editorconfig
+│   │   │       ├── NextLearn.genruntimeconfig.cache
+│   │   │       ├── NextLearn.pdb
+│   │   │       ├── ref
+│   │   │       │   └── NextLearn.dll
+│   │   │       └── refint
+│   │   │           └── NextLearn.dll
+│   │   ├── NextLearn.csproj.nuget.dgspec.json
+│   │   ├── NextLearn.csproj.nuget.g.props
+│   │   ├── NextLearn.csproj.nuget.g.targets
+│   │   ├── project.assets.json
+│   │   └── project.nuget.cache
+│   ├── Program.cs
+│   ├── Services
+│   │   ├── DatabaseService.cs
+│   │   ├── DeckService.cs
+│   │   ├── FlashcardService.cs
+│   │   └── UserService.cs
+│   ├── ViewLocator.cs
+│   ├── ViewModels
+│   │   ├── Converters.cs
+│   │   ├── EditorViewModel.cs
+│   │   ├── FlashcardListViewModel.cs
+│   │   ├── HomeViewModel.cs
+│   │   ├── LearningViewModel.cs
+│   │   ├── MainWindowViewModel.cs
+│   │   ├── MarketplaceViewModel.cs
+│   │   └── ViewModelBase.cs
+│   └── Views
+│       ├── MainWindow.axaml
+│       └── MainWindow.axaml.cs
+└── readme.md
+
+82 directories, 220 files

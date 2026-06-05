@@ -1,0 +1,115 @@
+@page "/export"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject IHabitService HabitService
+@inject IStreakService StreakService
+@inject AuthenticationStateProvider AuthState
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>Export Data</PageTitle>
+
+<div class="export-page">
+    <h3 class="mb-3">Export Data</h3>
+    <p class="text-muted">Download your habit data as CSV or JSON.</p>
+
+    @if (Habits.Count == 0)
+    {
+        <div class="alert alert-info">No habits to export.</div>
+    }
+    else
+    {
+        <div class="mb-3">
+            <h5>@Habits.Count habit(s)</h5>
+            <ul class="list-group mb-3">
+                @foreach (var habit in Habits)
+                {
+                    var entries = AllEntries.GetValueOrDefault(habit.Id, new());
+                    var done = entries.Count(e => e.Value);
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>
+                            <span class="color-dot" style="background-color: @habit.Color;"></span>
+                            @habit.Name
+                        </span>
+                        <span class="badge bg-secondary rounded-pill">@done entries</span>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" @onclick="ExportCsv">Download CSV</button>
+            <button class="btn btn-secondary" @onclick="ExportJson">Download JSON</button>
+        </div>
+    }
+</div>
+
+@code {
+    [Inject] private IJSRuntime JS { get; set; } = null!;
+
+    private List<Habit> Habits = new();
+    private Dictionary<int, Dictionary<DateOnly, bool>> AllEntries = new();
+    private string CurrentUserId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state = await AuthState.GetAuthenticationStateAsync();
+            var appUser = await UserManager.GetUserAsync(state.User);
+            if (appUser is not null)
+                CurrentUserId = await UserManager.GetUserIdAsync(appUser);
+        }
+        catch { }
+
+        if (string.IsNullOrEmpty(CurrentUserId)) return;
+
+        Habits = await HabitService.GetUserHabitsAsync(CurrentUserId);
+        var year = DateTime.UtcNow.Year;
+
+        foreach (var habit in Habits)
+        {
+            var entries = await HabitService.GetYearEntriesAsync(habit.Id, year, CurrentUserId);
+            AllEntries[habit.Id] = entries;
+        }
+    }
+
+    private async Task ExportCsv()
+    {
+        var lines = new List<string> { "Habit,Date,Completed" };
+        foreach (var habit in Habits)
+        {
+            var entries = AllEntries.GetValueOrDefault(habit.Id, new());
+            var start = new DateOnly(DateTime.UtcNow.Year, 1, 1);
+            var end = new DateOnly(DateTime.UtcNow.Year, 12, 31);
+            for (var d = start; d <= end; d = d.AddDays(1))
+            {
+                var completed = entries.GetValueOrDefault(d, false);
+                lines.Add($"\"{habit.Name}\",{d:yyyy-MM-dd},{completed}");
+            }
+        }
+        await DownloadFile("habits.csv", string.Join(Environment.NewLine, lines), "text/csv");
+    }
+
+    private async Task ExportJson()
+    {
+        var data = Habits.Select(h => new
+        {
+            habit = h.Name,
+            color = h.Color,
+            entries = AllEntries.GetValueOrDefault(h.Id, new())
+                .Select(e => new { date = e.Key.ToString("yyyy-MM-dd"), completed = e.Value })
+                .OrderBy(e => e.date)
+                .ToList()
+        }).ToList();
+
+        var json = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        await DownloadFile("habits.json", json, "application/json");
+    }
+
+    private async Task DownloadFile(string fileName, string content, string mimeType)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("downloadFile", fileName, base64, mimeType);
+    }
+}

@@ -1,0 +1,57 @@
+@page "/"
+
+<PageTitle>HeatMapStreak</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="text-center mt-5">
+            <h2>Welcome back!</h2>
+            <p class="lead text-muted">Track your habits and build your streaks.</p>
+            <a href="/habits" class="btn btn-success btn-lg me-2">My Habits</a>
+            <a href="/dashboard" class="btn btn-outline-success btn-lg">Dashboard</a>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="text-center mt-5">
+            <div class="mb-4">
+                <h1 class="display-4">HeatMapStreak</h1>
+                <p class="lead text-muted">Build better habits, one day at a time.</p>
+            </div>
+
+            <div class="row justify-content-center mb-5">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-body p-4">
+                            <h4 class="card-title">How it works</h4>
+                            <div class="row mt-4">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <h5>1. Create habits</h5>
+                                        <small class="text-muted">Add any habits you want to track — unlimited.</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <h5>2. Toggle days</h5>
+                                        <small class="text-muted">Click on any day to mark it as done. Watch your heatmap grow.</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <h5>3. Track progress</h5>
+                                        <small class="text-muted">View streaks, goals, and an aggregated dashboard of all habits.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-3 justify-content-center">
+                <a href="/Account/Register" class="btn btn-success btn-lg">Get Started</a>
+                <a href="/Account/Login" class="btn btn-outline-success btn-lg">Sign In</a>
+            </div>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>

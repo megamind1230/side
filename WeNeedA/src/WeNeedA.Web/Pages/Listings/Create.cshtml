@@ -1,0 +1,129 @@
+@page "/listings/create"
+@model CreateModel
+@{
+    ViewData["Title"] = "Create Listing";
+}
+
+<h2><i class="bi bi-person-plus-fill text-primary"></i> Create a New Listing</h2>
+<p class="text-muted">Add yourself or someone else to the directory</p>
+
+<form method="post">
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label asp-for="Input.Name" class="form-label">Full Name</label>
+            <input asp-for="Input.Name" class="form-control" required />
+            <span asp-validation-for="Input.Name" class="text-danger"></span>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label asp-for="Input.PhoneNumber" class="form-label">Phone Number</label>
+            <input asp-for="Input.PhoneNumber" class="form-control" />
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Input.LocationDetail" class="form-label">Location Detail (street, landmark, etc.)</label>
+        <input asp-for="Input.LocationDetail" class="form-control" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Country</label>
+        <select id="countrySelect" class="form-select" asp-items="Model.CountriesSelectList">
+            <option value="">-- Select Country --</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Governorate</label>
+        <select id="governorateSelect" class="form-select" asp-items="Model.GovernoratesSelectList">
+            <option value="">-- Select Governorate --</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">City</label>
+        <select id="citySelect" class="form-select" asp-items="Model.CitiesSelectList">
+            <option value="">-- Select City --</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Input.VillageId" class="form-label">Village / Area</label>
+        <select asp-for="Input.VillageId" class="form-select" asp-items="Model.VillagesSelectList" required>
+            <option value="">-- Select Village --</option>
+        </select>
+        <span asp-validation-for="Input.VillageId" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Profession Tags</label>
+        <div class="row">
+            @foreach (var tag in Model.Tags)
+            {
+                <div class="col-md-4 col-lg-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="SelectedTagIds" value="@tag.Id" id="tag_@tag.Id" />
+                        <label class="form-check-label" for="tag_@tag.Id">@tag.Name</label>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Create Listing</button>
+    <a asp-page="/Index" class="btn btn-outline-secondary">Cancel</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        const countrySelect = document.getElementById('countrySelect');
+        const governorateSelect = document.getElementById('governorateSelect');
+        const citySelect = document.getElementById('citySelect');
+        const villageSelect = document.getElementById('Input_VillageId');
+
+        countrySelect.addEventListener('change', async () => {
+            const countryId = countrySelect.value;
+            governorateSelect.innerHTML = '<option value="">-- Select Governorate --</option>';
+            citySelect.innerHTML = '<option value="">-- Select City --</option>';
+            villageSelect.innerHTML = '<option value="">-- Select Village --</option>';
+            if (!countryId) return;
+            const response = await fetch(`/api/locations/governorates?countryId=${countryId}`);
+            const data = await response.json();
+            data.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g.id;
+                opt.textContent = g.name;
+                governorateSelect.appendChild(opt);
+            });
+        });
+
+        governorateSelect.addEventListener('change', async () => {
+            const governorateId = governorateSelect.value;
+            citySelect.innerHTML = '<option value="">-- Select City --</option>';
+            villageSelect.innerHTML = '<option value="">-- Select Village --</option>';
+            if (!governorateId) return;
+            const response = await fetch(`/api/locations/cities?governorateId=${governorateId}`);
+            const data = await response.json();
+            data.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                citySelect.appendChild(opt);
+            });
+        });
+
+        citySelect.addEventListener('change', async () => {
+            const cityId = citySelect.value;
+            villageSelect.innerHTML = '<option value="">-- Select Village --</option>';
+            if (!cityId) return;
+            const response = await fetch(`/api/locations/villages?cityId=${cityId}`);
+            const data = await response.json();
+            data.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v.id;
+                opt.textContent = v.name;
+                villageSelect.appendChild(opt);
+            });
+        });
+    </script>
+}

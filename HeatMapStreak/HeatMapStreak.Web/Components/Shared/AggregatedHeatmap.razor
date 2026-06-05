@@ -1,0 +1,86 @@
+@using System.Globalization
+
+<div class="heatmap-wrapper">
+    <div class="heatmap-months">
+        @foreach (var month in Months)
+        {
+            <span style="width: @(month.Width)px;">@month.Name</span>
+        }
+    </div>
+    <div class="heatmap-grid" style="grid-template-rows: repeat(7, 13px);">
+        @for (int row = 0; row < 7; row++)
+        {
+            <div class="heatmap-day-label">@DayNames[row]</div>
+            @for (int col = 0; col < Weeks; col++)
+            {
+                var date = GetDate(col, row);
+                var count = date.HasValue ? Entries.GetValueOrDefault(date.Value, 0) : 0;
+                var opacity = MaxCount > 0 ? Math.Max(0.1, (double)count / MaxCount) : 0.1;
+                var style = date.HasValue
+                    ? $"background-color: {BaseColor}; opacity: {opacity:F2};"
+                    : "background-color: transparent;";
+                <div class="heatmap-cell"
+                     style="@style"
+                     title="@(date.HasValue ? date.Value.ToString("ddd, MMM d, yyyy") + $": {count} habit(s)" : "")">
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public Dictionary<DateOnly, int> Entries { get; set; } = new();
+    [Parameter] public string BaseColor { get; set; } = "#4CAF50";
+    [Parameter] public int Year { get; set; } = DateTime.UtcNow.Year;
+
+    private int MaxCount => Entries.Count > 0 ? Entries.Values.Max() : 1;
+
+    private static readonly string[] DayNames = ["Mon", "", "Wed", "", "Fri", "", ""];
+    private readonly string[] MonthNames = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedMonthNames[..12];
+
+    private int Weeks => (int)Math.Ceiling((LastDay.DayNumber - FirstDay.DayNumber + 1) / 7.0);
+    private DateOnly FirstDay => GetFirstDisplayDate();
+    private DateOnly LastDay => GetLastDisplayDate();
+
+    private List<(string Name, int Width)> Months
+    {
+        get
+        {
+            var result = new List<(string Name, int Width)>();
+            for (int m = 1; m <= 12; m++)
+            {
+                var monthStart = new DateOnly(Year, m, 1);
+                var monthEnd = new DateOnly(Year, m, DateTime.DaysInMonth(Year, m));
+                int startCol = (monthStart.DayNumber - FirstDay.DayNumber) / 7;
+                int endCol = (monthEnd.DayNumber - FirstDay.DayNumber) / 7;
+                int width = (endCol - startCol + 1) * 14;
+                result.Add((MonthNames[m - 1], width));
+            }
+            return result;
+        }
+    }
+
+    private DateOnly GetFirstDisplayDate()
+    {
+        var jan1 = new DateOnly(Year, 1, 1);
+        var daysToSubtract = ((int)jan1.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+        return jan1.AddDays(-daysToSubtract);
+    }
+
+    private DateOnly GetLastDisplayDate()
+    {
+        var dec31 = new DateOnly(Year, 12, 31);
+        var daysToAdd = ((int)DayOfWeek.Sunday - (int)dec31.DayOfWeek + 7) % 7;
+        return dec31.AddDays(daysToAdd);
+    }
+
+    private DateOnly? GetDate(int col, int row)
+    {
+        var date = FirstDay.AddDays(col * 7 + row);
+        if (date.Year > Year || date.Year < Year)
+            return null;
+        if (date < new DateOnly(Year, 1, 1) || date > new DateOnly(Year, 12, 31))
+            return null;
+        return date;
+    }
+}

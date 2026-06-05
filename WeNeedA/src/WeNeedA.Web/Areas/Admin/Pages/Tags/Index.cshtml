@@ -1,0 +1,92 @@
+@page "/admin/tags"
+@model WeNeedA.Web.Areas.Admin.Pages.Tags.TagsModel
+@{
+    ViewData["Title"] = "Manage Tags";
+}
+
+<h2><i class="bi bi-tags text-primary"></i> Manage Tags</h2>
+
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success">@success</div>
+}
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Create New Tag</h5></div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="Create">
+                    <div class="input-group">
+                        <input name="name" class="form-control" placeholder="Tag name..." required />
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.PendingTags.Any())
+{
+    <h4>Pending Approval</h4>
+    <div class="table-responsive mb-4">
+        <table class="table table-hover">
+            <thead class="table-warning">
+                <tr>
+                    <th>Name</th>
+                    <th>Submitted By</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var tag in Model.PendingTags)
+                {
+                    <tr>
+                        <td>@tag.Name</td>
+                        <td>@tag.CreatedByUserId</td>
+                        <td>@tag.CreatedAt.ToLocalTime().ToString("g")</td>
+                        <td>
+                            <form method="post" asp-page-handler="Approve" asp-route-tagId="@tag.Id" style="display:inline">
+                                <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                            </form>
+                            <form method="post" asp-page-handler="Delete" asp-route-tagId="@tag.Id" style="display:inline">
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<h4>All Approved Tags</h4>
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Name</th>
+                <th>Slug</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var tag in Model.ApprovedTags)
+            {
+                <tr>
+                    <td>@tag.Name</td>
+                    <td>@tag.Slug</td>
+                    <td>@tag.CreatedAt.ToLocalTime().ToString("g")</td>
+                    <td>
+                        <form method="post" asp-page-handler="Delete" asp-route-tagId="@tag.Id" style="display:inline">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

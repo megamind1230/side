@@ -1,0 +1,202 @@
+#+TITLE: nextlearn
+#+DESCRIPTION: Learn anything. Fight distraction.
+#+DATE: <2026-06-04 Thu>
+
+* Description
+
+nextlearn is a distraction-free desktop app for learning anything
+through bite-sized decks. You write decks as ~.md~ files with YAML
+frontmatter in ~~/nextlearn/decks/~, the app reads them, and you
+flip through pages like a slideshow. Built with Avalonia UI + EF Core
+SQLite.
+
+This repo contains only ~nextlearn.Desktop~ — the offline Avalonia UI
+desktop app. The companion website (for browsing/downloading decks)
+is a separate project.
+
+* Features
+
+| Feature                         | Status         | Note                                               |
+|---------------------------------+----------------+----------------------------------------------------|
+| Fully offline                   | ✅ Done        | No network calls ever                              |
+| File-based decks (.md / .org)   | ✅ Done        | YAML frontmatter + `#` / `##` headings             |
+| Frontmatter metadata            | ✅ Done        | title, description, tags in --- block              |
+| Tag system from frontmatter     | ✅ Done        | ~tags: health, morning, sleep~                     |
+| #tag search (incremental)       | ✅ Done        | ~#st~ matches ~study~ (prefix match)               |
+| Search by title/desc/filename   | ✅ Done        | Plain text tokens search all three                 |
+| Page-by-page learning           | ✅ Done        | Prev/Next with keyboard shortcuts                  |
+| Section breadcrumb              | ✅ Done        | Shows ~# Section → ## Page~ with heading markers    |
+| Syntax-highlighted content      | ✅ Done        | AvaloniaEdit + TextMate (DarkPlus theme)            |
+| .org file headings (~~** ~~)    | ✅ Done        | Parser regex matches ~*~/~~~** ~~ and ~#~/~~~## ~~    |
+| Deterministic deck identity     | ✅ Done        | SHA256 of file path → stable GUID                  |
+| Dark mode theming               | ✅ Done        | #1E293B cards, amber Name: line                    |
+| vim-style j/k scroll            | ✅ Done        | J/K scrolls home deck list                         |
+| Inline search (no popup)        | ✅ Done        | `/` focuses bar, Esc unfocuses                     |
+| Sidebar (☰ → settings, info)    | ✅ Done        | Backdrop click + Esc to close                      |
+| Settings overlay page           | ✅ Done        | ⚙ in sidebar, placeholder content                 |
+| Marketplace                     | ✅ Done        | Opens ~https://google.com~ in browser              |
+| Get Plugins                     | ✅ Done        | Opens ~https://github.com/megamind1230~ in browser |
+| Stable progress across restarts | ✅ Done        | DeckFileIdentity + DeckService save                |
+| Auto-refresh on file change     | ✅ Done        | FileSystemWatcher watches decks dir                |
+| Markdown editor + import        | ✅ Done        | Sync edits back to deck file                       |
+| Streak tracking & daily log     | ✅ Done        | Built-in                                           |
+| Keyboard shortcuts              | ✅ Done        | N/P/J/K/Q/D/E//Esc (see table below)               |
+| Configurable editor             | 🚧 In progress | nvim/emacs/code/subl + custom                      |
+| Settings (sidebar → ⚙)         | 🚧 In progress | Editor, theme, font, decks path                    |
+| Flashcards                      | 🚧 Plugin      | Will be extracted                                  |
+| Theme switching                 | 🚧 Plugin      | Will be extracted (Dark/Light)                     |
+| Tag cloud / tag filter          | ❌ Not yet     | Planned (P27)                                      |
+| Image/video content types       | ❌ Not yet     | Models exist, UI missing                           |
+| Spaced repetition algorithm     | ❌ Not yet     | Basic 24h review only                              |
+
+* Tech Stack
+
+- .NET 10.0, Avalonia UI 11.3.12 (cross-platform desktop)
+- CommunityToolkit.Mvvm 8.2.1 (source-generated MVVM)
+- Entity Framework Core 8.0.0 + SQLite
+- Serilog (file + console logging to ~~/nextlearn/log.txt~)
+- AvaloniaEdit + TextMate (syntax-highlighted content display)
+- Markdown files as deck source (YAML frontmatter + `#` headings)
+
+* Architecture
+
+** Design philosophy — fully offline
+
+The desktop app NEVER makes HTTP/S calls. Downloads are always
+manual: user → website → download → drop into local folder.
+
+** Data Sources
+
+- ~~/.config/nextlean/nextlearn.db~ — users, progress, activity, feedback
+- ~~/nextlearn/decks/*.md~ / ~*.org~ — deck content with YAML frontmatter
+- ~~/nextlearn/plugins/*.dll~ — extensions (downloaded manually)
+
+** Project Structure
+
+| Path                            | Purpose                               |
+|---------------------------------+---------------------------------------|
+| ~nextlearn.Desktop/~            | Avalonia UI desktop app (C#, .NET 10) |
+| ~nextlearn.Desktop/Models/~     | Deck, Page, Flashcard, User, etc.     |
+| ~nextlearn.Desktop/Data/~       | AppDbContext (SQLite)                 |
+| ~nextlearn.Desktop/Services/~   | Business logic layer                  |
+| ~nextlearn.Desktop/ViewModels/~ | MVVM view models                      |
+| ~nextlearn.Desktop/Views/~      | MainWindow.axaml (single window)      |
+
+** Key Services
+
+| Service          | Role                                        |
+|------------------+---------------------------------------------|
+| DeckFileParser   | Static parser: frontmatter + heading → Deck |
+| DeckFileIdentity | SHA256 of path → deterministic GUID         |
+| DeckService      | CRUD for decks in SQLite, progress tracking |
+| UserService      | Current user, daily activity, streak        |
+| SettingsService  | Persists editor/theme/font to JSON          |
+| EditorLauncher   | Builds CLI command for selected editor      |
+
+* Deck File Format
+
+All ~.md~ files go in ~~/nextlearn/decks/~. Each file is a single deck.
+The parser reads YAML frontmatter and section headings:
+
+** With frontmatter (recommended)
+
+#+BEGIN_SRC markdown
+---
+title: Wake Up Properly
+description: Fix morning face puffiness with these simple changes.
+tags: health, morning, sleep, face, self-care
+---
+
+# Section Title
+Content here...
+
+## Page Title
+Page content here...
+
+## Another Page
+More content...
+#+END_SRC
+
+** No frontmatter (fallback)
+
+#+BEGIN_SRC markdown
+# Deck Title (becomes the deck title)
+First non-empty line after title (becomes description)
+
+## Page One
+Content
+
+## Page Two
+Content
+#+END_SRC
+
+** Heading rules
+- `# Section` → sets section context (shown in breadcrumb: ~DeckTitle → Section~)
+- `## Page` → creates a page with ~SectionTitle~ from nearest parent `#`
+- No `##` headings → `#` headings become pages directly (legacy)
+
+* Keyboard Shortcuts
+
+| Key           | Context       | Action                                   |
+|---------------+---------------+------------------------------------------|
+| n / Right     | Learning      | Next page                                |
+| p / Left      | Learning      | Previous page                            |
+| j             | Home          | Scroll deck list down 40px               |
+| k             | Home          | Scroll deck list up 40px                 |
+| q / d         | Any           | Go home                                  |
+| q / d         | Settings      | Close settings + go home                 |
+| e             | Learning      | Open deck in editor (configurable in ⚙) |
+| `g` then `i`  | Home          | Focus inline search bar (clear search)   |
+| `/`           | Home          | Focus inline search bar                  |
+| `/`           | Learning      | Toggle in-deck search                    |
+| Esc           | Home          | Unfocus search bar                       |
+| Esc           | Sidebar       | Close sidebar                            |
+| Esc           | Settings      | Close settings                           |
+| Enter         | Search (deck) | Open in editor                           |
+| Button: Done  | Last page     | Complete deck + navigate home            |
+| Key: n        | Last page     | Complete but stay (allows revision)      |
+
+* How to Use
+
+1. Create a ~.md~ file in ~~/nextlearn/decks/~ with YAML frontmatter:
+   #+BEGIN_SRC markdown
+   ---
+   title: My Deck
+   description: What this deck is about
+   tags: topic1, topic2, keyword
+   ---
+   #+END_SRC
+
+2. Add sections and pages:
+   #+BEGIN_SRC markdown
+   # Section Name
+   ## Page One
+   Content for this page...
+   #+END_SRC
+
+3. Run the app — decks appear on the home view
+4. Search by title, description, filename, or ~#tag~ (prefix matching)
+5. Click a deck or press N to start learning
+6. Navigate pages with ← → or N / P keys
+7. Press / to search within a deck, Enter to open in neovim
+8. Press E to open the deck file in your editor (configurable in ⚙ Settings)
+
+* Known Limitations
+
+** .org file support is partial
+- Parsing exists but the editor always produces ~.md~ output
+- ~GetDeckMarkdownPath()~ creates a ~.md~ fallback, potentially
+  creating duplicate files when the original is ~.org~
+
+** File-based decks bypass the database
+- Deck content lives in ~.md~ files, DB stores progress/activity only
+- Deck IDs are deterministic (SHA256 of path), so progress is stable
+- But deck content is never persisted to DB — files are the source of truth
+
+** Single-window architecture
+- All views stack in one ~Panel~ — visibility managed by boolean flags
+- ~IsLearning~, ~IsEditorOpen~, ~IsSettingsOpen~, ~IsSidebarOpen~ instead of a single enum
+
+** LoadDecks re-reads all files on every keystroke
+- ~OnSearchTextChanged~ calls ~LoadDecks()~ which re-parses every file
+- No in-memory caching of parsed decks (see P23)

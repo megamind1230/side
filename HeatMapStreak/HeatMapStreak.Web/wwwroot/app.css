@@ -1,0 +1,276 @@
+html, body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+a, .btn-link {
+    color: #006bb7;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: #1b6ec2;
+    border-color: #1861ac;
+}
+
+/* Fix: use Bootstrap CSS variable instead of hardcoded white */
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+    box-shadow: 0 0 0 0.1rem var(--bs-body-bg, white), 0 0 0 0.25rem #258cfb;
+}
+
+.content {
+    padding-top: 1.1rem;
+}
+
+h1:focus {
+    outline: none;
+}
+
+.valid.modified:not([type=checkbox]) {
+    outline: 1px solid #26b050;
+}
+
+.invalid {
+    outline: 1px solid #e50000;
+}
+
+.validation-message {
+    color: #e50000;
+}
+
+.blazor-error-boundary {
+    background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIG92ZXJmbG93PSJoaWRkZW4iPjxkZWZzPjxjbGlwUGF0aCBpZD0iY2xpcDAiPjxyZWN0IHg9IjIzNSIgeT0iNTEiIHdpZHRoPSI1NiIgaGVpZ2h0PSI0OSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMzUgLTUxKSI+PHBhdGggZD0iTTI2My41MDYgNTFDMjY0LjcxNyA1MSAyNjUuODEzIDUxLjQ4MzcgMjY2LjYwNiA1Mi4yNjU4TDI2Ny4wNTIgNTIuNzk4NyAyNjcuNTM5IDUzLjYyODMgMjkwLjE4NSA5Mi4xODMxIDI5MC41NDUgOTIuNzk1IDI5MC42NTYgOTIuOTk2QzI5MC44NzcgOTMuNTEzIDI5MSA5NC4wODE1IDI5MSA5NC42NzgyIDI5MSA5Ny4wNjUxIDI4OS4wMzggOTkgMjg2LjYxNyA5OUwyNDAuMzgzIDk5QzIzNy45NjMgOTkgMjM2IDk3LjA2NTEgMjM2IDk0LjY3ODIgMjM2IDk0LjM3OTkgMjM2LjAzMSA5NC4wODg2IDIzNi4wODkgOTMuODA3MkwyMzYuMzM4IDkzLjAxNjIgMjM2Ljg1OCA5Mi4xMzE0IDI1OS40NzMgNTMuNjI5NCAyNTkuOTYxIDUyLjc5ODUgMjYwLjQwNyA1Mi4yNjU4QzI2MS4yIDUxLjQ4MzcgMjYyLjI5NiA1MSAyNjMuNTA2IDUxWk0yNjMuNTg2IDY2LjAxODNDMjYwLjczNyA2Ni4wMTgzIDI1OS4zMTMgNjcuMTI0NSAyNTkuMzEzIDY5LjMzNyAyNTkuMzEzIDY5LjYxMDIgMjU5LjMzMiA2OS44NjA4IDI1OS4zNzEgNzAuMDg4N0wyNjEuNzk1IDg0LjAxNjEgMjY1LjM4IDg0LjAxNjEgMjY3LjgyMSA2OS43NDc1QzI2Ny44NiA2OS43MzA5IDI2Ny44NzkgNjkuNTg3NyAyNjcuODc5IDY5LjMxNzkgMjY3Ljg3OSA2Ny4xMTgyIDI2Ni40NDggNjYuMDE4MyAyNjMuNTg2IDY2LjAxODNaTTI2My41NzYgODYuMDU0N0MyNjEuMDQ5IDg2LjA1NDcgMjU5Ljc4NiA4Ny4zMDA1IDI1OS43ODYgODkuNzkyMSAyNTkuNzg2IDkyLjI4MzcgMjYxLjA0OSA5My41Mjk1IDI2My41NzYgOTMuNTI5NSAyNjYuMTE2IDkzLjUyOTUgMjY3LjM4NyA5Mi4yODM3IDI2Ny4zODcgODkuNzkyMSAyNjcuMzg3IDg3LjMwMDUgMjY2LjExNiA4Ni4wNTQ3IDI2My41NzYgODYuMDU0N1oiIGZpbGw9IiNGRkU1MDAiIGZpbGwtcnVsZT0iZXZlbm9kZCIvPjwvZz48L3N2Zz4=) no-repeat 1rem/1.8rem, #b32121;
+    padding: 1rem 1rem 1rem 3.7rem;
+    color: white;
+}
+
+    .blazor-error-boundary::after {
+        content: "An error has occurred."
+    }
+
+.darker-border-checkbox.form-check-input {
+    border-color: #929292;
+}
+
+/* Dark mode toggle */
+.dark-mode-toggle {
+    border-radius: 20px;
+    padding: 2px 12px;
+    font-size: 13px;
+}
+
+/* Heatmap styles */
+.heatmap-wrapper {
+    overflow-x: auto;
+    padding: 8px 0;
+}
+
+.heatmap-months {
+    display: flex;
+    gap: 2px;
+    padding-left: 32px;
+    margin-bottom: 2px;
+    font-size: 10px;
+    color: #767676;
+}
+
+.heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(53, 13px);
+    gap: 2px;
+}
+
+.heatmap-cell {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.heatmap-cell.clickable {
+    cursor: pointer;
+}
+
+/* Fix: dark hover outline so it's visible in dark mode */
+.heatmap-cell.clickable:hover {
+    outline: 2px solid #999;
+    outline-offset: -1px;
+}
+
+.heatmap-day-label {
+    width: 30px;
+    font-size: 10px;
+    color: #767676;
+    line-height: 14px;
+}
+
+/* Color dot for habit tabs */
+.color-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+/* Habit detail */
+.habit-detail {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+/* Streak badges */
+.streak-badge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 12px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 20px;
+    font-size: 13px;
+}
+
+.streak-item {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.streak-value {
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.streak-label {
+    color: #767676;
+    font-size: 11px;
+}
+
+.streak-divider {
+    width: 1px;
+    height: 20px;
+    background: #dee2e6;
+}
+
+/* Goal progress */
+.goal-progress {
+    font-size: 13px;
+    color: #555;
+}
+
+.progress {
+    background-color: #e9ecef;
+}
+
+/* Modal overlay */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 1040;
+}
+
+.modal-custom {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1050;
+    width: 90%;
+    max-width: 480px;
+}
+
+.modal-content-custom {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+
+/* Dashboard cards */
+.dashboard-page .card h2 {
+    margin: 0;
+    font-weight: 700;
+    color: #198754;
+}
+
+/* =============================================================
+   DARK MODE OVERRIDES
+   Fix: all selectors prefixed with html[] to raise specificity
+   above scoped CSS bundles (which load last at equal specificity)
+   ============================================================= */
+
+html[data-bs-theme="dark"] .sidebar {
+    background-image: linear-gradient(180deg, #0f172a 0%, #1e1b4b 70%);
+}
+
+html[data-bs-theme="dark"] .top-row {
+    background-color: #1a1d23;
+    border-bottom-color: #2d323b;
+}
+
+html[data-bs-theme="dark"] .habit-detail {
+    background: #1e2128;
+}
+
+html[data-bs-theme="dark"] .streak-badge {
+    background: #2d323b;
+    border-color: #404650;
+}
+
+html[data-bs-theme="dark"] .streak-divider {
+    background: #404650;
+}
+
+html[data-bs-theme="dark"] .streak-label {
+    color: #9ca3af;
+}
+
+html[data-bs-theme="dark"] .modal-content-custom {
+    background: #1e2128;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+html[data-bs-theme="dark"] .goal-progress {
+    color: #9ca3af;
+}
+
+/* Fix: removed !important so per-cell inline background-color (green gradient) is preserved */
+html[data-bs-theme="dark"] .heatmap-cell {
+    background-color: #2d323b;
+}
+
+html[data-bs-theme="dark"] .heatmap-cell.clickable:hover {
+    outline-color: #adb5bd;
+}
+
+html[data-bs-theme="dark"] .heatmap-day-label {
+    color: #9ca3af;
+}
+
+html[data-bs-theme="dark"] .heatmap-months {
+    color: #9ca3af;
+}
+
+html[data-bs-theme="dark"] .progress {
+    background-color: #2d323b;
+}
+
+html[data-bs-theme="dark"] #blazor-error-ui {
+    background: #4a1d1d;
+    color: #fca5a5;
+}
+
+html[data-bs-theme="dark"] .dashboard-page .card h2 {
+    color: #4ade80;
+}
+
+/* Fix: dark mode link color with sufficient contrast */
+html[data-bs-theme="dark"] a,
+html[data-bs-theme="dark"] .btn-link {
+    color: #60a5fa;
+}

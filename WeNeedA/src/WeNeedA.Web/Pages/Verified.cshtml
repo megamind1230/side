@@ -1,0 +1,49 @@
+@page "/verified"
+@model VerifiedModel
+@{
+    ViewData["Title"] = "Verified People";
+}
+
+<h2><i class="bi bi-check-circle-fill text-success"></i> Verified People</h2>
+<p class="text-muted">Listings from identity-verified professionals</p>
+
+@if (!Model.Listings.Any())
+{
+    <div class="alert alert-info">No verified listings yet.</div>
+}
+else
+{
+    <div class="row">
+        @foreach (var listing in Model.Listings)
+        {
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100 border-success">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center me-2" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                                @listing.Name[0]
+                            </div>
+                            <div>
+                                <h5 class="card-title mb-0">@listing.Name</h5>
+                                <span class="badge bg-success">Verified</span>
+                            </div>
+                        </div>
+                        <p class="card-text small text-muted">
+                            <i class="bi bi-geo-alt"></i> @listing.Village.Name, @listing.Village.City.Name
+                        </p>
+                        @if (listing.PersonListingTags.Any())
+                        {
+                            <p>
+                                @foreach (var pt in listing.PersonListingTags)
+                                {
+                                    <span class="badge bg-info me-1">@pt.Tag.Name</span>
+                                }
+                            </p>
+                        }
+                        <a asp-page="/Listings/Details" asp-route-id="@listing.Id" class="btn btn-sm btn-outline-success">View Details</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

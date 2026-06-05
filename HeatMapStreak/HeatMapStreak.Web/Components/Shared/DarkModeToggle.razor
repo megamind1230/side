@@ -1,0 +1,35 @@
+@inject IThemeService ThemeService
+@implements IDisposable
+
+<button class="btn btn-sm @(ThemeService.IsDark ? "btn-light" : "btn-dark") dark-mode-toggle"
+        title="Toggle dark mode"
+        @onclick="ToggleTheme">
+    @(ThemeService.IsDark ? "☀️ Light" : "🌙 Dark")
+</button>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ThemeService.InitializeAsync();
+            ThemeService.OnThemeChanged += OnThemeChanged;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        await ThemeService.SetThemeAsync(!ThemeService.IsDark);
+    }
+
+    private void OnThemeChanged()
+    {
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        ThemeService.OnThemeChanged -= OnThemeChanged;
+    }
+}

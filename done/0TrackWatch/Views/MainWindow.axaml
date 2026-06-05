@@ -1,0 +1,65 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TrackWatch.ViewModels"
+        xmlns:views="using:TrackWatch.Views"
+        x:Class="TrackWatch.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="TrackWatch"
+        Width="600"
+        Height="500">
+
+    <Window.DataTemplates>
+        <DataTemplate DataType="vm:TimerViewModel">
+            <views:TimerView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:StopwatchViewModel">
+            <views:StopwatchView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:StatsViewModel">
+            <views:StatsView />
+        </DataTemplate>
+    </Window.DataTemplates>
+
+    <DockPanel>
+
+        <!-- Top Buttons -->
+        <StackPanel DockPanel.Dock="Top"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Spacing="10"
+                    Margin="0,15">
+
+            <Button Content="Stopwatch"
+                    Command="{Binding ShowStopwatchCommand}"
+                    FontSize="16"
+                    Padding="15,10"
+                    MinWidth="100"
+                    MinHeight="40"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"/>
+
+            <Button Content="Timer"
+                    Command="{Binding ShowTimerCommand}"
+                    FontSize="16"
+                    Padding="15,10"
+                    MinWidth="100"
+                    MinHeight="40"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"/>
+
+            <Button Content="Stats"
+                    Command="{Binding ShowStatsCommand}"
+                    FontSize="16"
+                    Padding="15,10"
+                    MinWidth="100"
+                    MinHeight="40"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"/>
+
+        </StackPanel>
+
+        <!-- Main Content -->
+        <ContentControl Content="{Binding CurrentView}"/>
+
+    </DockPanel>
+</Window>

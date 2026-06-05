@@ -1,0 +1,18 @@
+@if (Streak is not null)
+{
+    <div class="streak-badge">
+        <div class="streak-item">
+            <span class="streak-value">@Streak.CurrentStreak</span>
+            <span class="streak-label">day streak</span>
+        </div>
+        <div class="streak-divider"></div>
+        <div class="streak-item">
+            <span class="streak-value">@Streak.LongestStreak</span>
+            <span class="streak-label">longest</span>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public StreakInfo? Streak { get; set; }
+}

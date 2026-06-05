@@ -1,0 +1,92 @@
+@page "/listing/{id:int}"
+@model DetailsModel
+@{
+    ViewData["Title"] = Model.Listing?.Name ?? "Not Found";
+}
+
+@if (Model.Listing == null)
+{
+    <div class="alert alert-danger">Listing not found.</div>
+    return;
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-page="/Index">Home</a></li>
+        <li class="breadcrumb-item"><a asp-page="/Locations/Country" asp-route-slug="@Model.Listing.Village.City.Governorate.Country.Slug">@Model.Listing.Village.City.Governorate.Country.Name</a></li>
+        <li class="breadcrumb-item"><a asp-page="/Locations/Governorate" asp-route-slug="@Model.Listing.Village.City.Governorate.Slug">@Model.Listing.Village.City.Governorate.Name</a></li>
+        <li class="breadcrumb-item"><a asp-page="/Locations/City" asp-route-slug="@Model.Listing.Village.City.Slug">@Model.Listing.Village.City.Name</a></li>
+        <li class="breadcrumb-item"><a asp-page="/Locations/Village" asp-route-slug="@Model.Listing.Village.Slug">@Model.Listing.Village.Name</a></li>
+        <li class="breadcrumb-item active">@Model.Listing.Name</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 120px; height: 120px; font-size: 3rem;">
+                    @Model.Listing.Name[0]
+                </div>
+                <h3>@Model.Listing.Name</h3>
+                @if (Model.Listing.VerificationStatus == VerificationStatus.Verified)
+                {
+                    <span class="badge bg-success fs-6">Verified</span>
+                }
+                else if (Model.Listing.VerificationStatus == VerificationStatus.Admin)
+                {
+                    <span class="badge bg-primary fs-6">Admin Added</span>
+                }
+                else
+                {
+                    <span class="badge bg-warning text-dark fs-6">Unverified</span>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Contact Information</h5></div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(Model.Listing.PhoneNumber))
+                {
+                    <p><i class="bi bi-telephone-fill"></i> <strong>Phone:</strong> <a href="tel:@Model.Listing.PhoneNumber">@Model.Listing.PhoneNumber</a></p>
+                }
+                @if (!string.IsNullOrEmpty(Model.Listing.LocationDetail))
+                {
+                    <p><i class="bi bi-geo-alt-fill"></i> <strong>Location:</strong> @Model.Listing.LocationDetail</p>
+                }
+                <p><i class="bi bi-geo"></i> <strong>Area:</strong> @Model.Listing.Village.Name, @Model.Listing.Village.City.Name, @Model.Listing.Village.City.Governorate.Name</p>
+
+                @if (!string.IsNullOrEmpty(Model.Listing.SocialLinksJson))
+                {
+                    var links = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(Model.Listing.SocialLinksJson);
+                    if (links != null && links.Any())
+                    {
+                        <hr />
+                        <h6>Social Media</h6>
+                        @foreach (var link in links)
+                        {
+                            <a href="@link.Value" target="_blank" class="btn btn-outline-primary btn-sm me-1 mb-1">
+                                <i class="bi bi-link-45deg"></i> @link.Key
+                            </a>
+                        }
+                    }
+                }
+            </div>
+        </div>
+
+        @if (Model.Listing.PersonListingTags.Any())
+        {
+            <div class="card mt-3">
+                <div class="card-header"><h5 class="mb-0">Professions / Skills</h5></div>
+                <div class="card-body">
+                    @foreach (var pt in Model.Listing.PersonListingTags)
+                    {
+                        <span class="badge bg-info fs-6 me-1">@pt.Tag.Name</span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>

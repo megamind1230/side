@@ -1,0 +1,65 @@
+@page "/admin/listings"
+@model WeNeedA.Web.Areas.Admin.Pages.Listings.ListingsModel
+@{
+    ViewData["Title"] = "Manage Listings";
+}
+
+<h2><i class="bi bi-card-list text-primary"></i> Manage Listings</h2>
+
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success">@success</div>
+}
+
+<div class="mb-3">
+    <a asp-page="" asp-route-status="All" class="btn btn-outline-secondary @(Model.CurrentStatus == "All" ? "active" : "")">All</a>
+    <a asp-page="" asp-route-status="Verified" class="btn btn-outline-success @(Model.CurrentStatus == "Verified" ? "active" : "")">Verified</a>
+    <a asp-page="" asp-route-status="Unverified" class="btn btn-outline-warning @(Model.CurrentStatus == "Unverified" ? "active" : "")">Unverified</a>
+    <a asp-page="" asp-route-status="Admin" class="btn btn-outline-primary @(Model.CurrentStatus == "Admin" ? "active" : "")">Admin</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Name</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Created By</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var listing in Model.Listings)
+            {
+                <tr>
+                    <td>@listing.Name</td>
+                    <td>@listing.Village?.Name</td>
+                    <td>
+                        @if (listing.VerificationStatus == VerificationStatus.Verified)
+                        {
+                            <span class="badge bg-success">Verified</span>
+                        }
+                        else if (listing.VerificationStatus == VerificationStatus.Admin)
+                        {
+                            <span class="badge bg-primary">Admin</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Unverified</span>
+                        }
+                    </td>
+                    <td>@listing.CreatedByUserId</td>
+                    <td>@listing.CreatedAt.ToLocalTime().ToString("g")</td>
+                    <td>
+                        <a asp-page="/Listings/Details" asp-area="" asp-route-id="@listing.Id" class="btn btn-sm btn-outline-primary">View</a>
+                        <form method="post" asp-page-handler="Delete" asp-route-listingId="@listing.Id" style="display:inline" onsubmit="return confirm('Delete this listing?')">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

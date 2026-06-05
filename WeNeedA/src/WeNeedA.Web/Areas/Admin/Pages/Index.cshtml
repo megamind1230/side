@@ -1,0 +1,69 @@
+@page "/admin"
+@model IndexModel
+@{
+    ViewData["Title"] = "Admin Dashboard";
+}
+
+<h2><i class="bi bi-shield-lock-fill text-warning"></i> Admin Dashboard</h2>
+
+<div class="row mt-4">
+    <div class="col-md-3 mb-3">
+        <div class="card text-bg-primary">
+            <div class="card-body text-center">
+                <h3>@Model.TotalUsers</h3>
+                <p class="mb-0">Total Users</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-bg-success">
+            <div class="card-body text-center">
+                <h3>@Model.VerifiedListings</h3>
+                <p class="mb-0">Verified Listings</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-bg-warning">
+            <div class="card-body text-center">
+                <h3>@Model.UnverifiedListings</h3>
+                <p class="mb-0">Unverified Listings</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-bg-info">
+            <div class="card-body text-center">
+                <h3>@Model.PendingSsidUsers</h3>
+                <p class="mb-0">Pending SSID</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-2">
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Users</h5></div>
+            <div class="card-body">
+                <a asp-page="/Users/Index" class="btn btn-outline-primary w-100">Manage Users</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Tags</h5></div>
+            <div class="card-body">
+                <a asp-page="/Tags/Index" class="btn btn-outline-primary w-100">Manage Tags</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Listings</h5></div>
+            <div class="card-body">
+                <a asp-page="/Listings/Index" class="btn btn-outline-primary w-100">Manage Listings</a>
+            </div>
+        </div>
+    </div>
+</div>

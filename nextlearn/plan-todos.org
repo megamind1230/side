@@ -1,0 +1,490 @@
+#+TITLE: Plans & Todos
+
+* DONE P28: add logging for better debugging
+Superseded by P11 (Serilog file + console logging, all catch blocks logged).
+
+* DONE P29: Markdown.Avalonia → NativeWebView (WebView rendering)
+
+** Why
+Markdown.Avalonia rendering had limitations: no clickable links, poor .org
+support, no syntax highlighting. Replaced with NativeWebView (by wieslawsoltes)
+for full HTML rendering with CSS styling.
+
+** Resolution
+- Replaced ~Markdown.Avalonia~ 11.0.3 with ~NativeWebView~ 0.1.0-alpha.3
+- Removed ~ColorTextBlock.Avalonia~ (dependency of Markdown.Avalonia)
+- Created ~Services/HtmlContentBuilder.cs~ — converts Page content to HTML
+  with dark-theme CSS, handles both .md and .org inline formatting
+- ~md:MarkdownScrollViewer~ replaced by ~nwv:NativeWebView~ in MainWindow.axaml
+- ~RenderedContent~ (markdown string) → ~RenderedHtml~ (HTML string)
+- WebView loads HTML via ~Source~ with ~data:text/html;base64,...~ URI
+- ~NavigationStarted~ handler intercepts external links → opens in system browser
+- WebView set to ~Focusable=False~ to preserve keyboard shortcuts (n/p/q/e)
+- Added ~NativeWebView.Platform.Linux~ for Linux WPE WebKit support
+
+** Linux prerequisites
+- ~libwpewebkit-2.0~, ~libwpe-1.0~, ~libWPEBackend-fdo-1.0~
+
+** Files changed
+- ~NextLearn.Desktop.csproj~ — removed Markdown.Avalonia, added NativeWebView + NativeWebView.Platform.Linux
+- ~Services/HtmlContentBuilder.cs~ — new file (HTML generation from Page model)
+- ~ViewModels/LearningViewModel.cs~ — RenderedContent → RenderedHtml, uses HtmlContentBuilder
+- ~Views/MainWindow.axaml~ — replace MarkdownScrollViewer + inline code style with NativeWebView
+- ~Views/MainWindow.axaml.cs~ — WebView content loading, link interception, keyboard shortcut preserved
+- ~README.org~ — updated tech stack
+
+* DONE AvaloniaEdit → Markdown.Avalonia (trial)  —  Superseded by P29
+
+** Why
+User wants to try Markdown.Avalonia rendering (formatted headings/bold
+instead of raw source markers) to see if the trade-off is acceptable.
+
+** Resolution
+- Replaced ~Avalonia.AvaloniaEdit~, ~AvaloniaEdit.TextMate~, ~TextMateSharp.Grammars~
+  with ~Markdown.Avalonia~ 11.0.3 (compatible with Avalonia 11.3.12)
+- ~ae:TextEditor~ replaced by ~md:MarkdownScrollViewer~ with
+  ~Markdown="{Binding LearningViewModel.RenderedContent}"~
+- Removed ~TextMate.Installation~, ~SetupEditor()~, ~UpdateEditor()~ from code-behind
+- Binding handles content updates automatically; ~OnLoaded~ simplified
+- Inline code (`~code~`) styled yellow (~#FBBF24~) on dark amber (~#78350F~)
+  via ~ctxt|CCode~ selector in ~MarkdownScrollViewer.Styles~
+
+** Impact
+- ~~## ~~/~~~** ~~ heading markers now render as formatted headings (hidden markers)
+- .org files (~*~/~~~** ~~ syntax) render poorly — ~~** ~~ becomes bold,
+  ~~*** ~~ becomes horizontal rule, ~/italic/~ is plain text
+- Syntax highlighting (TextMate) no longer available
+- ~Markdown.Avalonia.Full~ merged assembly contains all sub-packages
+
+** Files changed
+- ~NextLearn.Desktop.csproj~ — removed 3 packages, added Markdown.Avalonia
+- ~Views/MainWindow.axaml~ — ~ae:TextEditor~ → ~md:MarkdownScrollViewer~ + CCode style
+- ~Views/MainWindow.axaml.cs~ — removed TextMate imports, fields, methods
+
+* DONE Breadcrumb heading markers
+
+** What
+- Breadcrumbs now show heading markers: ~# VS Code Shortcuts → ## Command Palette & Quick Open~
+- ~#~ / ~*~ for H1 section, ~~## ~~/~~~** ~~ for H2 page
+- ~IsOrgFile~ flag controls which prefix set to use
+- Breadcrumb moved from DockPanel top bar into teal content border
+  header (sitting directly above the editor)
+
+** Files changed
+- ~ViewModels/LearningViewModel.cs~ — +CurrentSectionBreadcrumb,
+  +CurrentPageBreadcrumb; h1Prefix/h2Prefix based on IsOrgFile
+- ~Views/MainWindow.axaml~ — removed breadcrumb DockPanel row, added
+  ~Border~ header inside teal ~DockPanel~
+
+* DONE DeckFileParser org heading support
+
+** What
+- Regex updated to match both ~~## ~~and ~~** ~~for H2, both ~#~ and ~*~ for H1
+- Org files (~~.org~) use ~*~ / ~~** ~~, md files (~~.md~) use ~#~ / ~~## ~~
+- Both heading styles can coexist in the same file (though unusual)
+- ~RenderedContent~ uses ~~## ~~or ~~** ~~prefix based on file extension
+
+** Files changed
+- ~Services/DeckFileParser.cs~ — regex patterns on lines 125, 135-136
+
+* DONE P1: Refactor file-loading logic to eliminate duplication
+
+** Why
+HomeViewModel and LearningViewModel shared 4 identical methods
+(LoadDeckFromFile, ExtractDescription, ExtractCategory, ParsePagesFromContent).
+
+** Resolution
+Created ~Services/DeckFileParser.cs~ (static class) that handles all
+file-parsing in one place. Both ViewModels now call ~DeckFileParser.LoadDeckFromFile()~.
+The 4 methods were deleted from both ViewModels.
+
+* DONE P2: Stabilize deck identity
+
+** Why
+File-based decks got ~Guid.NewGuid()~ every session, so UserProgress
+was orphaned after restart.
+
+** Resolution
+Created ~Services/DeckFileIdentity.cs~ which generates a deterministic
+GUID from the SHA256 hash of the full file path. Same path → same GUID
+every session. Progress survives restarts.
+
+* DONE P26: Frontmatter + hierarchical headings
+
+** What
+- YAML frontmatter block (--- delimited) with ~title:~, ~description:~, ~tags:~
+- Optional — files without frontmatter fall back to first 2 content lines
+- `#` headings set section context for breadcrumb
+- `##` headings create pages with ~SectionTitle~ from parent `#`
+- No `##` fallback: `#` headings become pages directly
+
+* DONE Category → Tags migration
+
+** What
+- Removed ~ExtractCategory()~ (keyword-on-filename heuristic)
+- Removed ~SelectedCategory~, ~Categories[]~, ~SelectCategoryCommand~
+- Added ~Tags~ (string) to ~Deck~ model, parsed from frontmatter ~tags:~
+- Deck card bottom row now shows ~PageCount | Tags~ instead of ~Category~
+
+* DONE Tag-aware search with incremental prefix matching
+
+** What
+- ~#tagname~ tokens in search bar match against ~deck.Tags~ (comma-split, prefix match)
+- Plain text tokens match ~Title~ + ~Description~ + ~FileName~ (contains)
+- All tokens AND'ed — each must find a match in its respective field
+- As you type a tag, decks with matching tag prefix stay visible (incremental)
+
+* DONE Inline home search (popup removed)
+
+** What
+- `/` on home page focuses the inline search bar (no popup)
+- ~Esc~ clears focus
+- Search is live — filters as you type
+- Removed ~IsHomeSearchOpen~, ~ShowHomeSearchCommand~, ~CloseHomeSearchCommand~
+
+* DONE vim-style j/k scrolling
+
+** What
+- ~J~ scrolls home ScrollViewer down by 40px
+- ~K~ scrolls up by 40px
+- Only when search bar is not focused
+
+* DONE Dark mode styling
+
+** What
+- Deck cards: ~#1E293B~ background, ~#334155~ border, light text
+- Learning page outer background: ~#1E293B~ (teal content box unchanged)
+- Top/bottom bars: ~#1E293B~ background, ~#E2E8F0~ text
+- Image placeholder: ~#334155~
+- Page counter badge: teal ~#0D9488~
+- Name: filename rendered in amber ~#FBBF24~
+
+* DONE All 8 deck files updated
+
+** What
+- Each ~.md~ file now has ~title:~, ~description:~, ~tags:~ frontmatter
+- ~tags: health, morning, sleep, face, self-care~ etc.
+- Old database at ~~/.config/nextlean/nextlearn.db~ deleted for clean start
+
+* DONE Done ^_^ button navigates home
+
+** What
+- Last-page button says ~Done ^_^~ (green #10B981) instead of ~Next →~
+- Clicking ~Done ^_^~ completes the deck and navigates home
+- ~n~ key still completes but stays on the page (allows revision)
+- Button uses ~CompleteAndGoHomeCommand~; ~n~ key uses ~NextPageCommand~
+
+* DONE P4: Redesign nav bar
+
+** Why
+Remove redundant "Home" button. New nav: ~[ Marketplace ] [ Get Plugins ] [ ☰ ]~
+
+** Notes
+- Both buttons are URL-only — no in-app pages, no MarketplaceViewModel
+- "Marketplace" opens ~https://google.com~
+- "Get Plugins" opens ~https://github.com/megamind1230~
+
+** Steps
+1. Remove ~<Button Content="Home" .../>~ element ✓
+2. Add "Get Plugins" button between Marketplace and hamburger ✓
+3. Replace learning-view hamburger (opens editor) with a global ☰ ✓
+4. Add ~NavigateToPluginsCommand~, ~ToggleSidebarCommand~, ~IsSidebarOpen~ property ✓
+5. ☰ docked to far right edge via ~DockPanel.Dock="Right"~ ✓
+6. Learning view top bar changed from ~Grid~ to ~DockPanel~ for consistency ✓
+
+* DONE P6: Build right sidebar UI
+
+** Why
+Hamburger opens right sidebar showing settings and info.
+
+** Steps
+1. Add ~Panel~ overlay (ZIndex 200) with backdrop + 280px sidebar ✓
+2. Placeholder user info + settings buttons at top ✓
+3. Active plugins list with toggle switches (TODO)
+4. Settings (⚙) sub-panel for editor, theme, font, decks path (TODO)
+5. ~ToggleSidebarCommand~ toggles ~IsSidebarOpen~ ✓
+6. ~Esc~ key and backdrop click close sidebar ✓
+7. Sidebar header: ✕ docked left, "Sidebar" text docked right ✓
+
+* DONE Settings overlay page
+
+** What
+- ⚙ button in sidebar opens full-panel settings overlay (bg #1E293B)
+- ~CloseSettingsCommand~ + ← Back button + ~Esc~ to close
+- ~D~/~Q~ on settings page closes settings and navigates home
+- Placeholder "Coming soon" content for now
+
+* DONE P10: Add "gi" keyboard chord for home search focus
+
+* DONE P11: Add proper logging
+
+** Why
+All ~catch {}~ blocks are silent, making debugging impossible.
+
+** Steps
+1. Add Serilog (4.3.1) + Serilog.Sinks.File (7.0.0) + Serilog.Sinks.Console (6.1.1)
+2. Configure in ~Program.cs~ — log to ~~/nextlearn/log.txt~ (daily rolling) + console
+3. Replace ~catch {}~ in ~MainWindow.axaml.cs~ (~OpenInSystemEditor~)
+4. Replace ~catch { return null; }~ in ~DeckFileParser.cs~ (~LoadDeckFromFile~)
+5. Add logging to ~EditorViewModel.cs~ ~ImportToDeck~ catch (kept UI message)
+
+* DONE P13: Settings page — editor preference + error handling
+
+** Steps
+1. Create ~Models/AppSettings.cs~ (editor, theme, font, decks path)
+2. Create ~Services/SettingsService.cs~ (JSON persistence to ~~/.config/nextlean/settings.json~, ~TrySave~ with error reporting)
+3. Create ~Services/EditorLauncher.cs~ (dispatch by editor name: neovim/vscode/emacs/sublime)
+4. Wire into ~MainWindowViewModel~ — observable properties, ~SaveSettingsCommand~, ~ResetSettingsCommand~, ~SettingsStatus~ with auto-clear
+5. Replace "Coming soon" placeholder in ~MainWindow.axaml~ with editor combo, theme combo, font input, decks path input, save/reset buttons, status line
+6. Replace hardcoded nvim/Process.Start in ~OpenInSystemEditor~ with ~EditorLauncher.Open()~
+4. Settings UI in right sidebar (⚙ sub-panel)
+* DONE Code syntax highlighting via highlight.js
+
+** What
+- Embedded highlight.js 11.9.0 (highlight.min.js) + atom-one-dark theme
+- Languages auto-detected, matching ~class="language-xxx"~ on ~<code>~ blocks
+- Supports bash, C, JavaScript, Python, and 190+ other languages
+- Inline ~<script>hljs.highlightAll()</script>~ runs after page load
+- 121KB JS + 856B CSS loaded from ~Assets/~ at build output, inlined into data URI
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — added ~<!--HIGHLIGHT_CSS-->~ and ~/* HIGHLIGHT_JS */~ placeholders
+- ~Views/MainWindow.axaml.cs~ — reads JS/CSS from Assets dir, replaces placeholders
+- ~NextLearn.Desktop.csproj~ — added ~Content~ items for JS/CSS with ~CopyToOutputDirectory~
+
+* DONE Table rendering (pipe tables)
+
+** What
+- ~TryRenderTable()~ detects consecutive ~|~-starting lines
+- Renders ~<table>~ with ~<thead>~ / ~<tbody>~
+- Supports both Markdown (~|---|---|~) and Org (~|---+---|~) separator rows
+- Cell content processed through ~RenderInline()~ (bold/italic/links work inside cells)
+- CSS: bordered table with dark header row
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — ~TryRenderTable()~, ~IsTableSeparator()~, ~SplitTableCell()~, table CSS
+
+* DONE Inline code protection
+
+** What
+- ~[text](url)~ inside backticks now renders as literal code text, not a clickable link
+- Fixed by extracting backtick spans via placeholder BEFORE processing link/bold/italic regex
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — ~RenderMarkdownInline()~: code span extraction before formatting
+
+* DONE Code-block-aware page splitting
+
+** What
+- ~# Count lines~ inside a bash code block no longer triggers a page break
+- ~ParsePages()~ now tracks ~inCodeBlock~ state, toggling on ~~~ ~fences and ~#+BEGIN_SRC~ / ~#+END_SRC~
+- Inside code blocks, heading detection (~^[#*]\\s+~) is skipped entirely
+
+** Files changed
+- ~Services/DeckFileParser.cs~ — ~ParsePages()~: code block state tracking added
+
+* DONE j/k/h/l scrolling in study WebView
+
+** What
+- j/k scroll the study box content vertically via ~ExecuteScriptAsync("window.scrollBy(0, ±40)")~
+- h/l scroll the study box content horizontally
+- CSS: ~body { min-width: calc(100vw + 200px); overflow-x: auto; }~ ensures scrollable space
+
+** Files changed
+- ~Views/MainWindow.axaml.cs~ — Key.J/K/H/L cases in learning section
+- ~Services/HtmlContentBuilder.cs~ — body CSS changes for horizontal scroll
+
+* DONE Keyboard shortcuts after WebView click
+
+** What
+- Clicking the study box (WebView) no longer breaks keyboard shortcuts (n/p/q/e)
+- Two-layer fix: ~PointerPressed~ dispatches ~Focus()~ at Input priority;
+  ~GotFocus~ safety net immediately returns focus if WebView captures it
+
+** Files changed
+- ~Views/MainWindow.axaml.cs~ — ~OnContentWebViewPointerPressed~ + ~OnContentWebViewGotFocus~
+- ~Views/MainWindow.axaml~ — added ~GotFocus~ event on ~NativeWebView~
+
+* DONE Selection color in WebView
+
+** What
+- Text selection now shows blue background (~#2563EB~) with white text
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — ~::selection { background: #2563EB; color: #FFFFFF; }~ in CSS
+
+* DONE .org code block support (#+BEGIN_SRC / #+END_SRC)
+
+** What
+- ~TryStartCodeBlock()~ now accepts ~isOrgFile~ flag
+- For org files: recognizes ~#+BEGIN_SRC language~ / ~#+END_SRC~ blocks
+- Renders same ~<pre><code class="language-xxx">~ as markdown fenced blocks
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — ~TryStartCodeBlock()~ updated with org syntax branch
+
+* P5: Build plugin system
+
+** Why
+All non-core features become plugins: flashcards, theme switching, etc.
+
+** Important — offline architecture
+- The app NEVER downloads plugins over the network
+- Users download ~.dll~ files from the website manually
+- They drop them into ~~/nextlearn/plugins/~
+- The app scans that folder on startup, loads what it finds
+
+** Steps
+1. Create ~Plugins/InextlearnPlugin.cs~ with ~InitializeAsync~/~ShutdownAsync~
+2. Create ~Plugins/PluginContext.cs~ for registration + core service access
+3. Create ~Plugins/PluginLoader.cs~ to scan ~*.dll~ files
+4. Create ~Services/PluginService.cs~ for lifecycle management
+
+* P7: Extract flashcards as first plugin
+
+** Why
+Reference implementation of the plugin system.
+
+** Steps
+1. Create ~plugins/flashcards/FlashcardsPlugin.cs~ implementing ~InextlearnPlugin~
+2. Extract ~FlashcardService.cs~, ~FlashcardListViewModel.cs~ into plugin project
+3. Register as built-in in ~PluginLoader~
+4. Remove flashcard references from core project
+
+* P8: Extract theme switching as plugin
+
+** Steps
+1. Create ~plugins/theme-switcher/ThemePlugin.cs~
+2. Add sidebar item "Theme" with Dark/Light options
+3. Persist preference to settings.json
+4. Register as built-in
+
+* P9: Search results navigate to matched page
+
+** Why
+Entering in deck search opens neovim even when a result is selected.
+
+** Steps
+1. Add ~SelectedSearchResult~ to ~LearningViewModel~
+2. Switch ~ItemsControl~ to ~ListBox~ with ~SelectedItem~ binding
+3. Enter handler: if result selected → navigate to page; else → open neovim
+
+* P12: Wire up Marketplace
+
+** Why
+Current marketplace is just a URL string placeholder.
+
+** Steps
+1. Replace placeholder with "Browse Decks" button
+2. Click opens ~https://nextlearn.app/marketplace~ in browser
+
+* P14: In-app deck creation wizard
+
+** Why
+Users must write markdown files manually — barrier for non-technical users.
+
+** Steps
+1. "New Deck" button on home view
+2. ~CreateDeckViewModel~ with title, description, dynamic page list
+3. On save: generate ~.md~ file, refresh home, navigate to learning
+
+* P15: SM-2 spaced repetition for flashcards
+
+** Steps
+1. Add EF, interval, repetition fields to Flashcard model
+2. Implement SM-2 math in ~MarkReviewedAsync~
+3. Show quality rating buttons (Again/Hard/Good/Easy)
+
+* P16: Focus/reading mode
+
+** What
+Full-screen reading mode — strip all chrome except content.
+
+** Steps
+1. ~IsFocusMode~ toggle (F or Z key in learning view)
+2. Hide nav bar, image placeholder, bottom bar
+3. Teal content box expands to full window
+4. Minimal floating ← → arrows on hover
+
+* P17: Progress heatmap in sidebar
+
+** Steps
+1. Create ~Controls/HeatmapControl.axaml~ (7×53 grid of colored squares)
+2. Data from ~UserService.GetActivityHistory()~
+3. Color levels 0–4 based on pages viewed per day
+4. Show current streak text
+
+* P18: Anki APKG import
+
+** Steps
+1. Create ~Services/AnkiImporter.cs~ (unzip → read SQLite → generate .md files)
+2. "Import Anki Deck" button on home view
+3. Progress indicator during import
+
+* P19: Website — clarify it's a separate project
+
+** Design boundary
+- Desktop app is fully offline — never makes HTTP/S calls
+- Website is a separate repo for browsing/downloading decks & plugins
+
+* P20: Fix .org file roundtrip (editor + path resolution)
+
+** Why
+Editor always saves as .md, destroying .org format.
+
+** Steps
+1. Track original extension in ~EditorViewModel~
+2. Use original extension in ~Save()~ / ~LoadOrCreateMarkdown()~
+3. ~GetDeckMarkdownPath()~ respects original extension
+
+* P21: Kill DatabaseService.cs dead code
+
+** Steps
+1. Verify no references to ~DatabaseService~
+2. Delete ~Services/DatabaseService.cs~
+
+* P22: Fix hamburger icon — rename or implement sidebar
+
+** Why
+☰ implies sidebar/menu but opens editor.
+
+** Steps
+1. Either rename to "Edit" or implement sidebar (P6)
+
+* P23: Optimize LoadDecks — filter in-memory on search
+
+** Why
+Re-reading all files from disk on every keystroke is slow (B16).
+
+** Steps
+1. Store loaded decks in ~List<Deck> _allDecks~
+2. ~LoadDecks()~ populates ~_allDecks~ once
+3. ~OnSearchTextChanged~ filters in-memory
+
+* P24: Optimize StartLearning — avoid file re-scan
+
+** Why
+StartLearning re-parses all files when the deck is already loaded (B17).
+
+** Steps
+1. Pass ~Deck~ directly instead of scanning all files
+2. Remove file-scan fallback or keep only as last resort
+
+* P25: Clickable links
+
+Make links on the study page clickable.
+
+* P26: DONE (see above)
+
+* P27: Filter home view by tag cloud
+
+** Why
+Currently no way to browse decks by tag — only free-text search.
+
+** Steps
+1. Extract unique tags from all loaded decks
+2. Display as clickable chips/badges above the deck list
+3. Clicking a tag filters to decks containing that tag
+4. Multi-select: clicking additional tags adds to the filter (OR logic)
+5. Active tag chips show with highlight, click again to remove
+

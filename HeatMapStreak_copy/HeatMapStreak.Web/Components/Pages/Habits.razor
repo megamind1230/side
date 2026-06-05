@@ -1,0 +1,312 @@
+@page "/habits"
+@rendermode InteractiveServer
+@using System.Globalization
+@attribute [Authorize]
+@inject IHabitService HabitService
+@inject IStreakService StreakService
+@inject AuthenticationStateProvider AuthState
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>Habits</PageTitle>
+
+<div class="habits-page">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>My Habits</h3>
+        <button class="btn btn-success" @onclick="ShowAddForm">+ Add Habit</button>
+    </div>
+
+    @if (UserHabits.Count == 0)
+    {
+        <div class="alert alert-info">No habits yet. Click "+ Add Habit" to get started!</div>
+    }
+    else
+    {
+        <ul class="nav nav-tabs mb-3">
+            @foreach (var habit in UserHabits)
+            {
+                <li class="nav-item">
+                    <a class="nav-link @(SelectedHabitId == habit.Id ? "active" : "")"
+                       href="javascript:void(0)"
+                       @onclick="() => SelectHabit(habit.Id)">
+                        <span class="color-dot" style="background-color: @habit.Color;"></span>
+                        @habit.Name
+                    </a>
+                </li>
+            }
+        </ul>
+
+        @if (SelectedHabit is not null)
+        {
+            <div class="habit-detail">
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <h5 class="mb-0">@SelectedHabit.Name</h5>
+                    <StreakBadge Streak="@Streaks.GetValueOrDefault(SelectedHabit.Id)" />
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditHabit(SelectedHabit)">Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteHabit(SelectedHabit.Id)">Delete</button>
+                </div>
+
+                @if (SelectedHabit.GoalType != GoalType.None)
+                {
+                    <div class="goal-progress mb-2">
+                        @if (SelectedHabit.GoalType == GoalType.TotalDays)
+                        {
+                            var done = YearEntries.Values.Count(v => v);
+                            var pct = SelectedHabit.GoalValue > 0 ? Math.Min(100, (int)((double)done / SelectedHabit.GoalValue.Value * 100)) : 0;
+                            <div>
+                                <small>Progress: @done / @SelectedHabit.GoalValue days</small>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar" role="progressbar" style="width: @pct%; background-color: @SelectedHabit.Color;"></div>
+                                </div>
+                            </div>
+                        }
+                        else if (SelectedHabit.GoalType == GoalType.Periodic)
+                        {
+                            var period = SelectedHabit.GoalPeriod == GoalPeriod.Weekly ? "week" : "month";
+                            var done = CountPeriod(SelectedHabit.Id, SelectedHabit.GoalPeriod!.Value);
+                            <small>This @period: @done / @SelectedHabit.GoalValue</small>
+                        }
+                    </div>
+                }
+
+                <Heatmap Entries="YearEntries"
+                         Color="@SelectedHabit.Color"
+                         Year="@CurrentYear"
+                         OnDayClick="OnDayClicked" />
+            </div>
+        }
+    }
+</div>
+
+@if (ShowForm)
+{
+    <div class="modal-backdrop" @onclick="CloseForm"></div>
+    <div class="modal-custom" @onclick:stopPropagation="true">
+        <div class="modal-content-custom">
+            <h5>@(EditingHabit is null ? "Add Habit" : "Edit Habit")</h5>
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-control" @bind="FormName" @bind:event="oninput" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Color</label>
+                <input type="color" class="form-control form-control-color" @bind="FormColor" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Goal (optional)</label>
+                <select class="form-select" @bind="FormGoalType">
+                    <option value="@GoalType.None">No goal</option>
+                    <option value="@GoalType.TotalDays">Total days goal</option>
+                    <option value="@GoalType.Periodic">Periodic goal</option>
+                </select>
+            </div>
+            @if (FormGoalType == GoalType.TotalDays)
+            {
+                <div class="mb-3">
+                    <label class="form-label">Target days</label>
+                    <input type="number" class="form-control" @bind="FormGoalValue" min="1" />
+                </div>
+            }
+            @if (FormGoalType == GoalType.Periodic)
+            {
+                <div class="mb-3">
+                    <label class="form-label">Times per</label>
+                    <div class="row">
+                        <div class="col">
+                            <input type="number" class="form-control" @bind="FormGoalValue" min="1" placeholder="Count" />
+                        </div>
+                        <div class="col">
+                            <select class="form-select" @bind="FormGoalPeriod">
+                                <option value="@GoalPeriod.Weekly">Week</option>
+                                <option value="@GoalPeriod.Monthly">Month</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            }
+            <div class="d-flex gap-2 justify-content-end">
+                <button class="btn btn-secondary" @onclick="CloseForm">Cancel</button>
+                <button class="btn btn-primary" @onclick="SaveHabit" disabled="@(string.IsNullOrWhiteSpace(FormName))">Save</button>
+            </div>
+        </div>
+        @if (ErrorMsg is not null)
+        {
+            <div class="alert alert-danger mt-2">@ErrorMsg</div>
+        }
+    </div>
+}
+
+@code {
+    private List<Habit> UserHabits = new();
+    private int? SelectedHabitId;
+    private Habit? SelectedHabit => UserHabits.FirstOrDefault(h => h.Id == SelectedHabitId);
+    private Dictionary<DateOnly, bool> YearEntries = new();
+    private Dictionary<int, StreakInfo> Streaks = new();
+    private int CurrentYear = DateTime.UtcNow.Year;
+    private string? ErrorMsg;
+    private string CurrentUserId = "";
+
+    private bool ShowForm;
+    private Habit? EditingHabit;
+    private string FormName = "";
+    private string FormColor = "#4CAF50";
+    private GoalType FormGoalType = GoalType.None;
+    private int? FormGoalValue;
+    private GoalPeriod FormGoalPeriod = GoalPeriod.Weekly;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state = await AuthState.GetAuthenticationStateAsync();
+            var user = state.User;
+            var appUser = await UserManager.GetUserAsync(user);
+            if (appUser is not null)
+                CurrentUserId = await UserManager.GetUserIdAsync(appUser);
+        }
+        catch { }
+
+        if (string.IsNullOrEmpty(CurrentUserId))
+        {
+            try
+            {
+                var state = await AuthState.GetAuthenticationStateAsync();
+                CurrentUserId = state.User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier) ?? "";
+            }
+            catch { }
+        }
+
+        await LoadHabits();
+        if (UserHabits.Count > 0)
+            await SelectHabit(UserHabits[0].Id);
+    }
+
+    private async Task LoadHabits()
+    {
+        if (string.IsNullOrEmpty(CurrentUserId)) return;
+        UserHabits = await HabitService.GetUserHabitsAsync(CurrentUserId);
+    }
+
+    private async Task SelectHabit(int habitId)
+    {
+        SelectedHabitId = habitId;
+        if (SelectedHabit is not null)
+        {
+            YearEntries = await HabitService.GetYearEntriesAsync(habitId, CurrentYear, CurrentUserId);
+            var streak = await StreakService.GetStreakAsync(habitId, CurrentUserId);
+            Streaks[habitId] = streak;
+        }
+    }
+
+    private async Task OnDayClicked(DateOnly date)
+    {
+        if (SelectedHabit is null) return;
+        await HabitService.ToggleDayAsync(SelectedHabit.Id, date, CurrentUserId);
+        await SelectHabit(SelectedHabit.Id);
+    }
+
+    private int CountPeriod(int habitId, GoalPeriod period)
+    {
+        var now = DateTime.UtcNow;
+        var today = DateOnly.FromDateTime(now);
+        DateOnly start;
+
+        if (period == GoalPeriod.Weekly)
+        {
+            var diff = (int)today.DayOfWeek - (int)DayOfWeek.Monday;
+            start = today.AddDays(diff < 0 ? diff - 6 : -diff);
+        }
+        else
+        {
+            start = new DateOnly(today.Year, today.Month, 1);
+        }
+
+        return YearEntries.Count(kv => kv.Key >= start && kv.Key <= today && kv.Value);
+    }
+
+    private void ShowAddForm()
+    {
+        ErrorMsg = null;
+        EditingHabit = null;
+        FormName = "";
+        FormColor = "#4CAF50";
+        FormGoalType = GoalType.None;
+        FormGoalValue = null;
+        FormGoalPeriod = GoalPeriod.Weekly;
+        ShowForm = true;
+    }
+
+    private void EditHabit(Habit habit)
+    {
+        ErrorMsg = null;
+        EditingHabit = habit;
+        FormName = habit.Name;
+        FormColor = habit.Color;
+        FormGoalType = habit.GoalType;
+        FormGoalValue = habit.GoalValue;
+        FormGoalPeriod = habit.GoalPeriod ?? GoalPeriod.Weekly;
+        ShowForm = true;
+    }
+
+    private async Task SaveHabit()
+    {
+        try
+        {
+            if (EditingHabit is null)
+            {
+                await HabitService.CreateHabitAsync(new Habit
+                {
+                    Name = FormName,
+                    Color = FormColor,
+                    GoalType = FormGoalType,
+                    GoalValue = FormGoalType != GoalType.None ? FormGoalValue : null,
+                    GoalPeriod = FormGoalType == GoalType.Periodic ? FormGoalPeriod : null,
+                    UserId = CurrentUserId
+                });
+            }
+            else
+            {
+                EditingHabit.Name = FormName;
+                EditingHabit.Color = FormColor;
+                EditingHabit.GoalType = FormGoalType;
+                EditingHabit.GoalValue = FormGoalType != GoalType.None ? FormGoalValue : null;
+                EditingHabit.GoalPeriod = FormGoalType == GoalType.Periodic ? FormGoalPeriod : null;
+                await HabitService.UpdateHabitAsync(EditingHabit);
+            }
+
+            ShowForm = false;
+            await LoadHabits();
+            if (UserHabits.Count > 0)
+                await SelectHabit(UserHabits[0].Id);
+        }
+        catch (Exception ex)
+        {
+            ErrorMsg = ex.Message;
+        }
+    }
+
+    private async Task DeleteHabit(int habitId)
+    {
+        try
+        {
+            await HabitService.DeleteHabitAsync(habitId, CurrentUserId);
+            await LoadHabits();
+            if (UserHabits.Count > 0)
+                await SelectHabit(UserHabits[0].Id);
+            else
+            {
+                SelectedHabitId = null;
+                YearEntries = new();
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMsg = ex.Message;
+        }
+    }
+
+    private void CloseForm()
+    {
+        ShowForm = false;
+        ErrorMsg = null;
+    }
+}

@@ -1,0 +1,58 @@
+@page "/admin/users"
+@model WeNeedA.Web.Areas.Admin.Pages.Users.UsersModel
+@{
+    ViewData["Title"] = "Manage Users";
+}
+
+<h2><i class="bi bi-people text-primary"></i> Manage Users</h2>
+
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success">@success</div>
+}
+
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Email</th>
+                <th>Email Verified</th>
+                <th>SSID Submitted</th>
+                <th>SSID Verified</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in Model.Users)
+            {
+                <tr>
+                    <td>@user.Email</td>
+                    <td>@(user.IsEmailVerified ? "Yes" : "No")</td>
+                    <td>@(!string.IsNullOrEmpty(user.SsidNumber) ? user.SsidNumber : "—")</td>
+                    <td>
+                        @if (user.IsSsidVerified)
+                        {
+                            <span class="badge bg-success">Verified</span>
+                        }
+                        else if (!string.IsNullOrEmpty(user.SsidNumber))
+                        {
+                            <span class="badge bg-warning text-dark">Pending</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Not Submitted</span>
+                        }
+                    </td>
+                    <td>
+                        @if (!user.IsSsidVerified && !string.IsNullOrEmpty(user.SsidNumber))
+                        {
+                            <form method="post" asp-page-handler="ApproveSsid" asp-route-userId="@user.Id" style="display:inline">
+                                <button type="submit" class="btn btn-sm btn-success">Approve SSID</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

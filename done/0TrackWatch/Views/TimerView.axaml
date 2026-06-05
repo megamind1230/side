@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TrackWatch.ViewModels"
+             x:Class="TrackWatch.Views.TimerView"
+             x:DataType="vm:TimerViewModel"
+             Padding="20">
+  <StackPanel Spacing="15" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="400">
+    <TextBlock Text="Timer" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center"/>
+    
+    <TextBox Text="{Binding TaskName}" Watermark="Tag?" FontSize="16"/>
+    
+    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock Text="How much?" FontSize="18" VerticalAlignment="Center"/>
+      <StackPanel>
+        <TextBlock Text="Hours" HorizontalAlignment="Center"/>
+        <NumericUpDown Value="{Binding Hours}" Minimum="0" Maximum="99" Width="80"/>
+      </StackPanel>
+      <StackPanel>
+        <TextBlock Text="Minutes" HorizontalAlignment="Center"/>
+        <NumericUpDown Value="{Binding Minutes}" Minimum="0" Maximum="59" Width="80"/>
+      </StackPanel>
+      <StackPanel>
+        <TextBlock Text="Seconds" HorizontalAlignment="Center"/>
+        <NumericUpDown Value="{Binding Seconds}" Minimum="0" Maximum="59" Width="80"/>
+      </StackPanel>
+    </StackPanel>
+    
+    <TextBlock Text="{Binding RemainingTime}" FontSize="36" HorizontalAlignment="Center" FontWeight="Bold"/>
+    
+    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+      <Button Content="Start" Command="{Binding StartTimerCommand}" 
+              IsEnabled="{Binding !IsRunning}" FontSize="16" Padding="20,10"/>
+      
+      <Button Content="Stop" Command="{Binding StopTimerCommand}" 
+              IsEnabled="{Binding IsRunning}" FontSize="16" Padding="20,10"
+              Classes="danger"/>
+    </StackPanel>
+    
+    <Button Content="Reset" Command="{Binding ResetCommand}" FontSize="16" Padding="20,10"
+            HorizontalAlignment="Center"/>
+    
+    <TextBlock Text="Timer finished!" IsVisible="{Binding IsFinished}" 
+               FontSize="18" Foreground="Green" HorizontalAlignment="Center"/>
+  </StackPanel>
+</UserControl>

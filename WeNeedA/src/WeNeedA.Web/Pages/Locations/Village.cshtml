@@ -1,0 +1,102 @@
+@page "/village/{slug}"
+@model VillageModel
+@{
+    ViewData["Title"] = Model.Village?.Name ?? "Not Found";
+}
+
+@if (Model.Village == null)
+{
+    <div class="alert alert-danger">Village not found.</div>
+    return;
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-page="/Index">Home</a></li>
+        <li class="breadcrumb-item"><a asp-page="/Locations/Country" asp-route-slug="@Model.Village.City.Governorate.Country.Slug">@Model.Village.City.Governorate.Country.Name</a></li>
+        <li class="breadcrumb-item"><a asp-page="/Locations/Governorate" asp-route-slug="@Model.Village.City.Governorate.Slug">@Model.Village.City.Governorate.Name</a></li>
+        <li class="breadcrumb-item"><a asp-page="/Locations/City" asp-route-slug="@Model.Village.City.Slug">@Model.Village.City.Name</a></li>
+        <li class="breadcrumb-item active">@Model.Village.Name</li>
+    </ol>
+</nav>
+
+<h2><i class="bi bi-signpost-2 text-success"></i> @Model.Village.Name</h2>
+
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="btn-group" role="group">
+            <a asp-page="" asp-route-slug="@Model.Village.Slug" asp-route-tagId="" class="btn btn-outline-primary @(Model.SelectedTagId == null ? "active" : "")">All</a>
+            <a asp-page="" asp-route-slug="@Model.Village.Slug" asp-route-status="Verified" class="btn btn-outline-success @(Model.CurrentStatus == "Verified" ? "active" : "")">Verified</a>
+            <a asp-page="" asp-route-slug="@Model.Village.Slug" asp-route-status="Unverified" class="btn btn-outline-warning @(Model.CurrentStatus == "Unverified" ? "active" : "")">Unverified</a>
+        </div>
+    </div>
+</div>
+
+@if (Model.Tags.Any())
+{
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex flex-wrap gap-1">
+                @foreach (var tag in Model.Tags)
+                {
+                    <a asp-page="" asp-route-slug="@Model.Village.Slug" asp-route-tagId="@tag.Id" asp-route-status="@Model.CurrentStatus"
+                       class="btn btn-sm @(Model.SelectedTagId == tag.Id ? "btn-primary" : "btn-outline-secondary")">
+                        @tag.Name
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@if (!Model.Listings.Any())
+{
+    <div class="alert alert-info">No people listed in this area yet.</div>
+}
+else
+{
+    <div class="row">
+        @foreach (var listing in Model.Listings)
+        {
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                                @listing.Name[0]
+                            </div>
+                            <div>
+                                <h5 class="card-title mb-0">@listing.Name</h5>
+                                @if (listing.VerificationStatus == VerificationStatus.Verified)
+                                {
+                                    <span class="badge bg-success">Verified</span>
+                                }
+                                else if (listing.VerificationStatus == VerificationStatus.Admin)
+                                {
+                                    <span class="badge bg-primary">Admin</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark">Unverified</span>
+                                }
+                            </div>
+                        </div>
+                        <p class="card-text small text-muted mb-1">
+                            <i class="bi bi-geo-alt"></i> @listing.LocationDetail
+                        </p>
+                        @if (listing.PersonListingTags.Any())
+                        {
+                            <p class="mb-1">
+                                @foreach (var pt in listing.PersonListingTags)
+                                {
+                                    <span class="badge bg-info me-1">@pt.Tag.Name</span>
+                                }
+                            </p>
+                        }
+                        <a asp-page="/Listings/Details" asp-route-id="@listing.Id" class="btn btn-sm btn-outline-primary">View Details</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
