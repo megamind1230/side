@@ -1,0 +1,3 @@
+* P1: move logs
+move logs into this directory
+`~/magnus/PROJECTNAME/PROJECTNAME.log

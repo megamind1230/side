@@ -16,45 +16,45 @@ is a separate project.
 
 * Features
 
-| Feature                         | Status         | Note                                               |
-|---------------------------------+----------------+----------------------------------------------------|
-| Fully offline                   | ✅ Done        | No network calls ever                              |
-| File-based decks (.md / .org)   | ✅ Done        | YAML frontmatter + `#` / `##` headings             |
-| Frontmatter metadata            | ✅ Done        | title, description, tags in --- block              |
-| Tag system from frontmatter     | ✅ Done        | ~tags: health, morning, sleep~                     |
-| #tag search (incremental)       | ✅ Done        | ~#st~ matches ~study~ (prefix match)               |
-| Search by title/desc/filename   | ✅ Done        | Plain text tokens search all three                 |
-| Page-by-page learning           | ✅ Done        | Prev/Next with keyboard shortcuts                  |
-| Section breadcrumb              | ✅ Done        | Shows ~# Section → ## Page~ with heading markers    |
-| Rendered markdown content       | ✅ Done        | NativeWebView (HTML rendering via data URI)         |
-| Code syntax highlighting        | ✅ Done        | highlight.js embedded, lang auto-detect            |
-| Table rendering (pipe tables)   | ✅ Done        | Markdown + Org table syntax → HTML <table>         |
-| .org file headings (~~** ~~)    | ✅ Done        | Parser regex matches ~*~/~~~** ~~ and ~#~/~~~## ~~    |
-| .org code blocks (#+BEGIN_SRC)  | ✅ Done        | ~#+BEGIN_SRC lang~ / ~#+END_SRC~ → <pre><code>     |
-| Inline code protection          | ✅ Done        | ~[text](url)~ inside backticks renders literally   |
-| Code-block-aware page splits    | ✅ Done        | ~#~ inside code blocks don't trigger page breaks   |
-| Deterministic deck identity     | ✅ Done        | SHA256 of file path → stable GUID                  |
-| Dark mode theming               | ✅ Done        | #1E293B cards, amber Name: line                    |
-| Selection color                 | ✅ Done        | Blue bg (#2563EB) + white text in WebView          |
-| vim-style j/k scroll            | ✅ Done        | J/K scrolls home deck list, study box content      |
-| h/l horizontal scroll           | ✅ Done        | H/L scrolls study box content left/right           |
-| Inline search (no popup)        | ✅ Done        | `/` focuses bar, Esc unfocuses                     |
-| Sidebar (☰ → settings, info)    | ✅ Done        | Backdrop click + Esc to close                      |
-| Settings overlay page           | ✅ Done        | ⚙ in sidebar, placeholder content                 |
-| Marketplace                     | ✅ Done        | Opens ~https://google.com~ in browser              |
-| Get Plugins                     | ✅ Done        | Opens ~https://github.com/megamind1230~ in browser |
-| Stable progress across restarts | ✅ Done        | DeckFileIdentity + DeckService save                |
-| Auto-refresh on file change     | ✅ Done        | FileSystemWatcher watches decks dir                |
-| Markdown editor + import        | ✅ Done        | Sync edits back to deck file                       |
-| Streak tracking & daily log     | ✅ Done        | Built-in                                           |
-| Keyboard shortcuts              | ✅ Done        | N/P/J/K/H/L/Q/D/E//Esc (see table below)           |
-| Configurable editor             | 🚧 In progress | nvim/emacs/code/subl + custom                      |
-| Settings (sidebar → ⚙)         | 🚧 In progress | Editor, theme, font, decks path                    |
-| Flashcards                      | 🚧 Plugin      | Will be extracted                                  |
-| Theme switching                 | 🚧 Plugin      | Will be extracted (Dark/Light)                     |
-| Tag cloud / tag filter          | ❌ Not yet     | Planned (P27)                                      |
-| Image/video content types       | ❌ Not yet     | Models exist, UI missing                           |
-| Spaced repetition algorithm     | ❌ Not yet     | Basic 24h review only                              |
+| Feature                         | Status     | Note                                               |
+|---------------------------------+------------+----------------------------------------------------|
+| Fully offline                   | ✅ Done    | No network calls ever                              |
+| File-based decks (.md / .org)   | ✅ Done    | YAML frontmatter + `#` / `##` headings             |
+| Frontmatter metadata            | ✅ Done    | title, description, tags in --- block              |
+| Tag system from frontmatter     | ✅ Done    | ~tags: health, morning, sleep~                     |
+| #tag search (incremental)       | ✅ Done    | ~#st~ matches ~study~ (prefix match)               |
+| Search by title/desc/filename   | ✅ Done    | Plain text tokens search all three                 |
+| Page-by-page learning           | ✅ Done    | Prev/Next with keyboard shortcuts                  |
+| Section breadcrumb              | ✅ Done    | Shows ~# Section → ## Page~ with heading markers   |
+| Rendered markdown content       | ✅ Done    | NativeWebView (HTML rendering via data URI)        |
+| Code syntax highlighting        | ✅ Done    | highlight.js embedded, lang auto-detect            |
+| Table rendering (pipe tables)   | ✅ Done    | Markdown + Org table syntax → HTML <table>         |
+| .org file headings (~~** ~~)    | ✅ Done    | Parser regex matches ~*~/~~~** ~~ and ~#~/~~~## ~~ |
+| .org code blocks (#+BEGIN_SRC)  | ✅ Done    | ~#+BEGIN_SRC lang~ / ~#+END_SRC~ → <pre><code>     |
+| Inline code protection          | ✅ Done    | ~[text](url)~ inside backticks renders literally   |
+| Code-block-aware page splits    | ✅ Done    | ~#~ inside code blocks don't trigger page breaks   |
+| Deterministic deck identity     | ✅ Done    | SHA256 of file path → stable GUID                  |
+| Dark mode theming               | ✅ Done    | #1E293B cards, amber Name: line                    |
+| Selection color                 | ✅ Done    | Blue bg (#2563EB) + white text in WebView          |
+| vim-style j/k scroll            | ✅ Done    | J/K scrolls home deck list, study box content      |
+| h/l horizontal scroll           | ✅ Done    | H/L scrolls study box content left/right           |
+| Inline search (no popup)        | ✅ Done    | `/` focuses bar, Esc unfocuses                     |
+| Sidebar (☰ → settings, info)    | ✅ Done    | Backdrop click + Esc to close                      |
+| Settings overlay page           | ✅ Done    | ⚙ in sidebar, placeholder content                 |
+| Marketplace                     | ✅ Done    | Opens ~https://google.com~ in browser              |
+| Get Plugins                     | ✅ Done    | Opens ~https://github.com/megamind1230~ in browser |
+| Stable progress across restarts | ✅ Done    | DeckFileIdentity + DeckService save                |
+| Auto-refresh on file change     | ✅ Done    | FileSystemWatcher watches decks dir                |
+| Markdown editor + import        | ✅ Done    | Sync edits back to deck file                       |
+| Streak tracking & daily log     | ✅ Done    | Built-in                                           |
+| Keyboard shortcuts              | ✅ Done    | N/P/J/K/H/L/Q/D/E//Esc (see table below)           |
+| Configurable editor             | ✅ Done    | nvim/emacs/code/subl + custom (SettingsService)    |
+| Settings (sidebar → ⚙)         | ✅ Done    | Editor, theme, font, decks path, save/reset        |
+| Flashcards                      | 🚧 Plugin  | Will be extracted                                  |
+| Theme switching                 | 🚧 Plugin  | Will be extracted (Dark/Light)                     |
+| Tag cloud / tag filter          | ❌ Not yet | Planned (P27)                                      |
+| Image/video content types       | ❌ Not yet | Models exist, UI missing                           |
+| Spaced repetition algorithm     | ❌ Not yet | Basic 24h review only                              |
 
 * Tech Stack
 
@@ -146,28 +146,31 @@ Content
 
 * Keyboard Shortcuts
 
-| Key           | Context       | Action                                   |
-|---------------+---------------+------------------------------------------|
-| n / Right     | Learning      | Next page                                |
-| p / Left      | Learning      | Previous page                            |
-| j             | Learning      | Scroll content down 40px                 |
-| k             | Learning      | Scroll content up 40px                   |
-| h             | Learning      | Scroll content left 40px                 |
-| l             | Learning      | Scroll content right 40px                |
-| j             | Home          | Scroll deck list down 40px               |
-| k             | Home          | Scroll deck list up 40px                 |
-| q / d         | Any           | Go home                                  |
-| q / d         | Settings      | Close settings + go home                 |
-| e             | Learning      | Open deck in editor (configurable in ⚙) |
-| `g` then `i`  | Home          | Focus inline search bar (clear search)   |
-| `/`           | Home          | Focus inline search bar                  |
-| `/`           | Learning      | Toggle in-deck search                    |
-| Esc           | Home          | Unfocus search bar                       |
-| Esc           | Sidebar       | Close sidebar                            |
-| Esc           | Settings      | Close settings                           |
-| Enter         | Search (deck) | Open in editor                           |
-| Button: Done  | Last page     | Complete deck + navigate home            |
-| Key: n        | Last page     | Complete but stay (allows revision)      |
+| Key          | Context         | Action                                   |
+|--------------+-----------------+------------------------------------------|
+| Ctrl + ,     | Global          | Open Settings                            |
+| ?            | Global          | Toggle Shortcuts Handbook                |
+| Esc          | Any overlay     | Close current overlay                    |
+| n / Right    | Learning        | Next page                                |
+| p / Left     | Learning        | Previous page                            |
+| j            | Learning        | Scroll content down 40px                 |
+| k            | Learning        | Scroll content up 40px                   |
+| h            | Learning        | Scroll content left 40px                 |
+| l            | Learning        | Scroll content right 40px                |
+| j            | Home            | Scroll deck list down 40px               |
+| k            | Home            | Scroll deck list up 40px                 |
+| q / d        | Any             | Go home                                  |
+| q / d        | Settings        | Close settings + go home                 |
+| e            | Learning        | Open deck in editor (configurable in ⚙) |
+| `g` then `i` | Home            | Focus inline search bar (clear search)   |
+| `/`          | Home            | Focus inline search bar                  |
+| `/`          | Learning        | Toggle in-deck search                    |
+| Enter        | Search (deck)   | Open in editor                           |
+| Click image  | Learning        | Open image in floating overlay           |
+| Ctrl + = / - | Image overlay   | Zoom in / out                            |
+| N / P        | Image overlay   | Next / prev image on current page        |
+| Button: Done | Last page       | Complete deck + navigate home            |
+| Key: n       | Last page       | Complete but stay (allows revision)      |
 
 * How to Use
 
@@ -207,6 +210,7 @@ Content
 - Deck content lives in ~.md~ files, DB stores progress/activity only
 - Deck IDs are deterministic (SHA256 of path), so progress is stable
 - But deck content is never persisted to DB — files are the source of truth
+- ~Services/DatabaseService.cs~ is dead code (unreferenced, pending deletion)
 
 ** Single-window architecture
 - All views stack in one ~Panel~ — visibility managed by boolean flags

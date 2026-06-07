@@ -13,18 +13,29 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        var logPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "nextlearn", "log.txt");
+        Serilog.Debugging.SelfLog.Enable(msg => System.Diagnostics.Debug.WriteLine(msg));
+
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var logDir = Path.Combine(home, "magnus", "nextlearn");
+        Directory.CreateDirectory(logDir);
+        var logPath = Path.Combine(logDir, "nextlearn.log");
 
         Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
             .WriteTo.Console()
-            .WriteTo.File(logPath, rollingInterval: RollingInterval.Day)
+            .WriteTo.File(logPath, shared: true)
             .CreateLogger();
+
+        Log.Information("=== NextLearn starting ===");
+        Log.Information("Log path: {LogPath}", logPath);
 
         try
         {
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Application terminated unexpectedly");
         }
         finally
         {

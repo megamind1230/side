@@ -92,6 +92,9 @@ public partial class LearningViewModel : ViewModelBase
     [ObservableProperty]
     private List<Page> _searchResults = new();
 
+    [ObservableProperty]
+    private List<string> _currentPageImagePaths = new();
+
     public LearningViewModel(DeckService deckService, FlashcardService flashcardService, 
         UserService userService, MainWindowViewModel mainViewModel, string? decksPath = null)
     {
@@ -187,7 +190,10 @@ public partial class LearningViewModel : ViewModelBase
         CurrentSectionBreadcrumb = CurrentSectionTitle ?? "";
         CurrentPageBreadcrumb = CurrentPage?.Title ?? "";
 
-        RenderedHtml = HtmlContentBuilder.Build(CurrentPage, IsOrgFile);
+        var imagePaths = new List<string>();
+        var imageDir = GetCurrentImageDir();
+        RenderedHtml = HtmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, imagePaths);
+        CurrentPageImagePaths = imagePaths;
 
         var isLastPage = CurrentPageIndex >= TotalPages - 1;
         NextButtonText = isLastPage ? "Done ^__^" : "Next →";
@@ -322,6 +328,16 @@ public partial class LearningViewModel : ViewModelBase
                            (p.TextContent?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false))
                 .ToList();
         }
+    }
+
+    private string? GetCurrentImageDir()
+    {
+        if (_currentDeck == null || string.IsNullOrEmpty(_currentDeck.FileName))
+            return null;
+        var deckName = Path.GetFileNameWithoutExtension(_currentDeck.FileName);
+        if (string.IsNullOrEmpty(deckName))
+            return null;
+        return Path.Combine(_decksPath, deckName);
     }
 
     public string GetDeckMarkdownPath(Guid deckId)

@@ -75,3 +75,81 @@
 - ~ExtractCategory()~ removed entirely
 - Tags come from ~tags:~ in YAML frontmatter
 - ~#tag~ search with incremental prefix matching
+
+* B22: DatabaseService.cs is dead code still present
+
+** Location
+- ~Services/DatabaseService.cs~
+
+** Status
+- OPEN — file exists but is referenced by no other code (P21)
+- Safe to delete, not yet actioned
+
+** Fix
+1. Verify no references to ~DatabaseService~ anywhere in the project
+2. Delete ~Services/DatabaseService.cs~
+
+* B23: Image overlay rotation jams image to corner / clips
+
+** Location
+- ~Views/MainWindow.axaml~ — Image overlay panel (~RotateTransform~, ~RenderTransformOrigin~, ~ScrollViewer~)
+- ~Views/MainWindow.axaml.cs~ — ~UpdateOverlayImageSize()~, ~RecenterScrollViewerAfterLayout()~
+- ~ViewModels/MainWindowViewModel.cs~ — ~RotateCw~ / ~RotateCcw~, ~RotationAngle~
+
+** Status
+- FIXED — square-layout fix applied
+
+** Root Cause
+~UpdateOverlayImageSize()~ swapped Width↔Height when ~RotationAngle % 180 != 0~. This changed the layout size simultaneously with the ~RotateTransform~ visual rotation, creating a layout/transform mismatch — the image appeared jammed into the top-left corner and clipped. A secondary timing race in ~LayoutUpdated~-based recentering compounded the issue.
+
+** Fix
+Replaced dimension swap with square layout: both Width and Height set to ~Math.Max(sourceW, sourceH) × ZoomLevel~. A square contains the image at any 90° rotation without clipping, eliminating the need for swap logic entirely. ~RenderTransformOrigin="0.5,0.5"~ keeps rotation centered within the square. No timing dependency, no corner jamming.
+
+* FIXED B24: press `q` while opening an img floating window
+this would send me to the seach page(the decks page)
+but it now forgets where i was inside of the deck .. ( reopening the deck would send me to page #1 again )
+
+** Status
+- FIXED — Overlay now captures keyboard events (`HandleKey` checks overlay visibility first), with `e.Handled = true` from `OnKeyDown` to prevent propagation to WebView key relay. Added focused Border for visual indication.
+
+* FIXED B25: Image centering clips bottom/right edges / can't pan to edge
+
+** Location
+- ~Views/MainWindow.axaml~ — ~Image~ element alignment attributes inside ~ScrollViewer~
+
+** Status
+- FIXED — set ~HorizontalAlignment="Left"~ and ~VerticalAlignment="Top"~ on Image
+
+** Root Cause
+~HorizontalAlignment="Center"~ / ~VerticalAlignment="Center"~ (or default ~Stretch~ with explicit Width/Height) causes the Image to be centered within the ScrollViewer's content area. The scroll range assumes content origin at (0,0), but centering shifts the image so that right/bottom edges extend past the scrollable range. Purely removing both attributes reverts to default ~Stretch~, which ALSO centers explicit-sized elements — same clipping.
+
+** Fix
+Set ~HorizontalAlignment="Left"~ and ~VerticalAlignment="Top"~ so the Image sits at (0,0) in the ScrollViewer content area. The scroll range [0, extent − viewport] correctly covers the full image. Visual centering is handled by scroll offset calculation in ~RecenterScrollViewerAfterLayout()~.
+
+** Files changed
+- ~Views/MainWindow.axaml~ — set ~HorizontalAlignment="Left"~ and ~VerticalAlignment="Top"~ on ~OverlayImage~
+
+* FIXED B26: Zoom centering jumps when panned + two-sub-bug: initial center override
+
+** Location
+- ~Views/MainWindow.axaml.cs~ — ~OnScrollViewerScrollChanged()~, ~OnMainViewModelPropertyChanged()~
+
+** Status
+- FIXED
+
+** Sub-bug A: preserve-center formula is viewport-agnostic
+*** Root Cause
+The preserve-center formula ~newOffset = oldOffset + (newExtent − oldExtent)/2~ only gives correct results when ~oldOffset = (extent − viewport)/2~ (image perfectly centered). For a panned image the formula fails because it ignores viewport size. Example: scrolled to Y offset 50 in a 1000×1000 extent with 600px viewport — old formula yields Y=300 on 1.5× zoom instead of correct Y=225 (75px jump).
+
+*** Fix
+Replaced with ~newOffset = (oldOffset + vp/2) * zoomRatio − vp/2~ which properly factors in viewport: the viewport-center point in content coords is ~oldOffset + vp/2~, scaled by zoom ratio, then back to offset.
+
+** Sub-bug B: initial centering overridden to preserve on async bitmap load
+*** Root Cause
+When overlay opens, ~IsImageOverlayOpen~ handler calls ~RecenterScrollViewerAfterLayout(true)~, but ~UpdateOverlayImageSize()~ bails because ~Source~ is null (bitmap not loaded yet). When the async load completes, ~CurrentImageBitmap~ fires the shared zoom/rotation/bitmap handler with ~centerInViewport: false~ — overriding the intended center mode to preserve mode.
+
+*** Fix
+Separated ~CurrentImageBitmap~ from the ~ZoomLevel~/~RotationAngle~ handler. ~CurrentImageBitmap~ now uses ~centerInViewport: true~ so initial loads, next/previous images, and invert toggles all center correctly. ~ZoomLevel~ and ~RotationAngle~ continue to use preserve mode.
+
+** Files changed
+- ~Views/MainWindow.axaml.cs~ — fixed preserve formula in ~OnScrollViewerScrollChanged()~, split ~CurrentImageBitmap~ into its own handler with ~centerInViewport: true~

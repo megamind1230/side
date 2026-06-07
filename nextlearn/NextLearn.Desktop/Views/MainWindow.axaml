@@ -84,12 +84,12 @@
                     </Grid>
                 </Border>
 
-                <!-- Main content area: 3-row grid so the middle row = 60% of available height -->
+                <!-- Main content area: content takes full width (image panel removed) -->
                 <!-- Rows: 20% top padding | 60% content | 20% bottom padding -->
-                <!-- Columns: 5% edge | 45% content | 10% gap | 45% image | 5% edge -->
-                <Grid RowDefinitions="0.6*,3*,0.4*" ColumnDefinitions="2*,45*,6*,45*,2*">
+                <!-- Columns: 2% edge | 96% content | 2% edge -->
+                <Grid RowDefinitions="0.4*,3.5*,0.2*" ColumnDefinitions="2*,96*,2*">
 
-                    <!-- LEFT: teal content box with AvaloniaEdit -->
+                    <!-- Content box with WebView -->
                     <Border Grid.Row="1" Grid.Column="1"
                             Background="#0D9488" CornerRadius="12" Padding="0"
                             VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
@@ -99,11 +99,13 @@
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6">
                                     <TextBlock Text="{Binding LearningViewModel.CurrentSectionBreadcrumb}"
                                                FontSize="15" Foreground="#94A3B8"
-                                               IsVisible="{Binding LearningViewModel.HasSection}"/>
+                                               IsVisible="{Binding LearningViewModel.HasSection}"
+                                               MaxWidth="200" TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Text=" → " FontSize="15" Foreground="#64748B"
                                                IsVisible="{Binding LearningViewModel.HasSection}"/>
                                     <TextBlock Text="{Binding LearningViewModel.CurrentPageBreadcrumb}"
-                                               FontSize="15" Foreground="#E2E8F0"/>
+                                               FontSize="15" Foreground="#E2E8F0"
+                                               MaxWidth="400" TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
                             </Border>
                             <Border Grid.Row="1" Background="#1E293B">
@@ -114,14 +116,6 @@
                                     GotFocus="OnContentWebViewGotFocus" />
                             </Border>
                         </Grid>
-                    </Border>
-
-                    <!-- RIGHT: image placeholder -->
-                    <Border Grid.Row="1" Grid.Column="3"
-                            Background="#334155" CornerRadius="12"
-                            VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
-                        <TextBlock Text="img" FontSize="32" Foreground="#64748B"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                 </Grid>
             </DockPanel>
@@ -264,6 +258,156 @@
                         </Button>
                     </StackPanel>
                 </Border>
+            </Border>
+        </Panel>
+
+        <!-- Shortcuts Handbook overlay -->
+        <Panel IsVisible="{Binding IsShortcutsHandbookOpen}" ZIndex="150">
+            <Border Background="#80000000" PointerPressed="CloseShortcutsHandbookOnBackdrop">
+                <Border Background="#1E293B" CornerRadius="16" Padding="28" Margin="100"
+                        VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520" MaxHeight="540">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                            <Button DockPanel.Dock="Right" Content="✕" Command="{Binding CloseShortcutsHandbookCommand}"
+                                    Padding="8,4" Background="#334155" Foreground="#94A3B8" FontSize="14"/>
+                            <TextBlock Text="⌨ Shortcuts Handbook" FontSize="20" FontWeight="Bold" Foreground="#E2E8F0"/>
+                        </DockPanel>
+                        <ScrollViewer>
+                            <StackPanel Spacing="16">
+                                <!-- Global -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Global" FontSize="15" FontWeight="Bold" Foreground="#0D9488" Margin="0,0,0,4"/>
+                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl + ," FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Open Settings" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="?" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Toggle Shortcuts Handbook" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Esc" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Close overlays / dialogs" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="q / d" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,0"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Go Home / Close Settings" Foreground="#94A3B8" Margin="0,0,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                                <Border Height="1" Background="#334155"/>
+                                <!-- Home -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Home" FontSize="15" FontWeight="Bold" Foreground="#0D9488" Margin="0,0,0,4"/>
+                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="g i" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Focus &amp; clear search bar" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="j / k" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Scroll deck list" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="/" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Focus search bar" Foreground="#94A3B8" Margin="0,0,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                                <Border Height="1" Background="#334155"/>
+                                <!-- Learning -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Learning" FontSize="15" FontWeight="Bold" Foreground="#0D9488" Margin="0,0,0,4"/>
+                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="n / →" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Next page" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="p / ←" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Previous page" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="j / k" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Scroll content (vertically)" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="h / l" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Scroll content (horizontally)" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="/" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,0"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Search in deck" Foreground="#94A3B8" Margin="0,0,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                                <Border Height="1" Background="#334155"/>
+                                <!-- Image Overlay -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Image Overlay" FontSize="15" FontWeight="Bold" Foreground="#0D9488" Margin="0,0,0,4"/>
+                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Click img" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Open floating overlay" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl + = / -" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Zoom in / out" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="N / P" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Next / prev image" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Esc" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,0"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Close overlay" Foreground="#94A3B8" Margin="0,0,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Border>
+        </Panel>
+
+        <!-- Image floating overlay (~80% of app window) -->
+        <Panel IsVisible="{Binding IsImageOverlayOpen}" ZIndex="400">
+            <Border Background="#80000000" PointerPressed="CloseImageOverlayOnBackdrop">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="10*"/>
+                        <RowDefinition Height="80*"/>
+                        <RowDefinition Height="10*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="10*"/>
+                        <ColumnDefinition Width="80*"/>
+                        <ColumnDefinition Width="10*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Row="1" Grid.Column="1" Background="#1E293B" CornerRadius="16">
+                        <DockPanel>
+                            <!-- Top bar -->
+                            <Border DockPanel.Dock="Top" Padding="16,12" Background="#1E293B">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="✕"
+                                            Command="{Binding CloseImageOverlayCommand}"
+                                            Padding="8,4" Background="#334155" Foreground="#94A3B8" FontSize="14"/>
+                                    <TextBlock Text="{Binding CurrentImageFileName}" FontSize="16"
+                                               FontWeight="SemiBold" Foreground="#E2E8F0" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </Border>
+                            <!-- Bottom controls (before image area so image fills remaining space) -->
+                            <Border DockPanel.Dock="Bottom" Padding="16,10" Background="#1E293B">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                                <Button Content="1:1" Command="{Binding ResetZoomCommand}"
+                                        Padding="8,4" Background="#334155" Foreground="#E2E8F0" FontSize="12"/>
+                                <Border Height="24" Width="1" Background="#334155"/>
+                                    <Button Content="−" Command="{Binding ZoomOutCommand}"
+                                            Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
+                                    <Slider Value="{Binding ZoomLevel}" Minimum="0.5" Maximum="3.0"
+                                            Width="120" VerticalAlignment="Center"/>
+                                    <Button Content="+" Command="{Binding ZoomInCommand}"
+                                            Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
+                                    <Border Height="24" Width="1" Background="#334155"/>
+                                <Button Content="Invert" Command="{Binding ToggleInvertCommand}"
+                                        Padding="8,4" Background="#334155" Foreground="#E2E8F0" FontSize="12"/>
+                                <Border Height="24" Width="1" Background="#334155"/>
+                                <Button Content="Open" Command="{Binding OpenImageInViewerCommand}"
+                                        Padding="12,4" Background="#2563EB" Foreground="White" FontSize="14"/>
+                                <TextBlock Text="{Binding ZoomLevel, StringFormat=' {0:P0}'}"
+                                           Foreground="#E2E8F0" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            </Border>
+                            <!-- Image area (fills remaining space between top & bottom bars) -->
+                            <Border Background="#0F172A" ClipToBounds="True"
+                                    PointerPressed="OnImageAreaPressed"
+                                    PointerMoved="OnImageAreaMoved"
+                                    PointerReleased="OnImageAreaReleased">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                                              x:Name="ImageOverlayScrollViewer">
+                                    <Image x:Name="OverlayImage"
+                                           Source="{Binding CurrentImageBitmap}" Stretch="Uniform"
+                                           RenderTransformOrigin="0.5,0.5"
+                                           HorizontalAlignment="Left" VerticalAlignment="Top">
+                                        <Image.RenderTransform>
+                                            <RotateTransform Angle="{Binding RotationAngle}"/>
+                                        </Image.RenderTransform>
+                                    </Image>
+                                </ScrollViewer>
+                            </Border>
+                        </DockPanel>
+                    </Border>
+                </Grid>
             </Border>
         </Panel>
 

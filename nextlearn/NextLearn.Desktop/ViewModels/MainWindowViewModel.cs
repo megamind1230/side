@@ -4,10 +4,12 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Serilog;
 using CommunityToolkit.Mvvm.Input;
 using NextLearn.Desktop.Data;
 using NextLearn.Desktop.Models;
 using NextLearn.Desktop.Services;
+using SkiaSharp;
 
 namespace NextLearn.Desktop.ViewModels;
 
@@ -54,6 +56,111 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _settingsStatus = "";
+
+    [ObservableProperty]
+    private bool _isShortcutsHandbookOpen;
+
+    [ObservableProperty]
+    private bool _isImageOverlayOpen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentImageFileName))]
+    private string _currentImagePath = "";
+
+    [ObservableProperty]
+    private double _zoomLevel = 1.0;
+
+    [ObservableProperty]
+    private int _rotationAngle;
+
+    [ObservableProperty]
+    private Avalonia.Media.Imaging.Bitmap? _currentImageBitmap;
+
+    private Avalonia.Media.Imaging.Bitmap? _normalBitmap;
+
+    [ObservableProperty]
+    private bool _isInverted;
+
+    public string CurrentImageFileName => Path.GetFileName(CurrentImagePath);
+
+    partial void OnCurrentImagePathChanged(string value)
+    {
+        if (string.IsNullOrEmpty(value) || !File.Exists(value))
+        {
+            CurrentImageBitmap = null;
+            return;
+        }
+        var capturedPath = value;
+        Task.Run(() =>
+        {
+            try
+            {
+                var bytes = File.ReadAllBytes(capturedPath);
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    try
+                    {
+                        if (CurrentImagePath != capturedPath) return;
+                        var ms = new MemoryStream(bytes);
+                        _normalBitmap = new Avalonia.Media.Imaging.Bitmap(ms);
+                        CurrentImageBitmap = IsInverted
+                            ? (CreateInvertedBitmap(_normalBitmap) ?? _normalBitmap)
+                            : _normalBitmap;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Failed to decode bitmap from {Path}", capturedPath);
+                        if (CurrentImagePath == capturedPath)
+                            CurrentImageBitmap = null;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to read image file {Path}", capturedPath);
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    if (CurrentImagePath == capturedPath)
+                        CurrentImageBitmap = null;
+                });
+            }
+        });
+    }
+
+    private Avalonia.Media.Imaging.Bitmap? CreateInvertedBitmap(Avalonia.Media.Imaging.Bitmap source)
+    {
+        try
+        {
+            using var ms = new MemoryStream();
+            source.Save(ms);
+            ms.Position = 0;
+            var skData = SKData.Create(ms);
+            using var skBitmap = SKBitmap.Decode(skData);
+            if (skBitmap == null) return null;
+
+            for (var y = 0; y < skBitmap.Height; y++)
+            {
+                for (var x = 0; x < skBitmap.Width; x++)
+                {
+                    var pixel = skBitmap.GetPixel(x, y);
+                    skBitmap.SetPixel(x, y, new SKColor(
+                        (byte)(255 - pixel.Red),
+                        (byte)(255 - pixel.Green),
+                        (byte)(255 - pixel.Blue),
+                        pixel.Alpha));
+                }
+            }
+
+            using var pngData = skBitmap.Encode(SKEncodedImageFormat.Png, 100);
+            using var pngStream = pngData.AsStream();
+            return new Avalonia.Media.Imaging.Bitmap(pngStream);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to create inverted bitmap");
+            return null;
+        }
+    }
 
     public HomeViewModel HomeViewModel { get; }
     public LearningViewModel LearningViewModel { get; }
@@ -223,6 +330,121 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         SettingsStatus = "";
         IsSettingsOpen = false;
+    }
+
+    [RelayCommand]
+    public void CloseShortcutsHandbook()
+    {
+        IsShortcutsHandbookOpen = false;
+    }
+
+    public void OpenImageOverlay(string imagePath)
+    {
+        try
+        {
+            var paths = LearningViewModel.CurrentPageImagePaths;
+            var idx = paths.IndexOf(imagePath);
+            CurrentImageIndex = idx >= 0 ? idx : 0;
+            CurrentImagePath = imagePath;
+            ZoomLevel = 1.0;
+            RotationAngle = 0;
+            IsImageOverlayOpen = true;
+            Log.Information("Image overlay opened: {Path} (index {Index} of {Count})",
+                imagePath, CurrentImageIndex, paths.Count);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to open image overlay for {Path}", imagePath);
+        }
+    }
+
+    [ObservableProperty]
+    private int _currentImageIndex;
+
+    [RelayCommand]
+    public void CloseImageOverlay()
+    {
+        IsImageOverlayOpen = false;
+        ZoomLevel = 1.0;
+        RotationAngle = 0;
+        Log.Information("Image overlay closed");
+    }
+
+    [RelayCommand]
+    private void ZoomIn()
+    {
+        ZoomLevel = Math.Min(3.0, ZoomLevel + 0.25);
+    }
+
+    [RelayCommand]
+    private void ZoomOut()
+    {
+        ZoomLevel = Math.Max(0.5, ZoomLevel - 0.25);
+    }
+
+    [RelayCommand]
+    private void ResetZoom()
+    {
+        ZoomLevel = 1.0;
+    }
+
+    [RelayCommand]
+    private void RotateCw()
+    {
+        RotationAngle = (RotationAngle + 90) % 360;
+    }
+
+    [RelayCommand]
+    private void RotateCcw()
+    {
+        RotationAngle = (RotationAngle - 90 + 360) % 360;
+    }
+
+    [RelayCommand]
+    private void NextImage()
+    {
+        var paths = LearningViewModel.CurrentPageImagePaths;
+        if (paths.Count == 0) return;
+        CurrentImageIndex = (CurrentImageIndex + 1) % paths.Count;
+        CurrentImagePath = paths[CurrentImageIndex];
+        Log.Information("Image overlay next: {Path}", CurrentImagePath);
+    }
+
+    [RelayCommand]
+    private void PreviousImage()
+    {
+        var paths = LearningViewModel.CurrentPageImagePaths;
+        if (paths.Count == 0) return;
+        CurrentImageIndex = (CurrentImageIndex - 1 + paths.Count) % paths.Count;
+        CurrentImagePath = paths[CurrentImageIndex];
+        Log.Information("Image overlay previous: {Path}", CurrentImagePath);
+    }
+
+    [RelayCommand]
+    private void ToggleInvert()
+    {
+        IsInverted = !IsInverted;
+        if (_normalBitmap == null) return;
+        CurrentImageBitmap = IsInverted
+            ? (CreateInvertedBitmap(_normalBitmap) ?? _normalBitmap)
+            : _normalBitmap;
+    }
+
+    [RelayCommand]
+    private void OpenImageInViewer()
+    {
+        if (string.IsNullOrEmpty(CurrentImagePath) || !File.Exists(CurrentImagePath))
+            return;
+        try
+        {
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo(CurrentImagePath)
+            {
+                UseShellExecute = true
+            };
+            process.Start();
+        }
+        catch { }
     }
 
     private async void ClearStatusAfterDelay()

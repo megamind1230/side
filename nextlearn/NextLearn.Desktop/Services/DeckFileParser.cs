@@ -116,7 +116,9 @@ public static class DeckFileParser
         var currentSection = "";
         var currentTitle = "";
         var currentContent = new StringBuilder();
+        var sectionContent = new StringBuilder();
         bool inPage = false;
+        bool hasSectionContent = false;
         int pageNum = 1;
         bool hasH2 = false;
 
@@ -161,6 +163,7 @@ public static class DeckFileParser
             if (inCodeBlock)
             {
                 if (inPage) currentContent.AppendLine(line);
+                else if (hasSectionContent) sectionContent.AppendLine(line);
                 continue;
             }
 
@@ -169,6 +172,10 @@ public static class DeckFileParser
 
             if (h2Match.Success)
             {
+                // Discard any section-level content (preamble before first H2 is not a page)
+                hasSectionContent = false;
+                sectionContent.Clear();
+
                 if (inPage && currentTitle.Length > 0)
                 {
                     pages.Add(new Page
@@ -187,50 +194,63 @@ public static class DeckFileParser
             }
             else if (h1Match.Success)
             {
-                if (!hasH2)
+                // Flush any pending section-level page first
+                if (hasSectionContent && sectionContent.Length > 0)
                 {
-                    if (inPage && currentTitle.Length > 0)
+                    pages.Add(new Page
                     {
-                        pages.Add(new Page
-                        {
-                            Id = Guid.NewGuid(),
-                            Title = currentTitle,
-                            TextContent = currentContent.ToString().Trim(),
-                            ContentType = ContentType.Text,
-                            PageNumber = pageNum++
-                        });
-                    }
-                    currentTitle = h1Match.Groups[1].Value.Trim();
-                    currentContent.Clear();
-                    inPage = true;
+                        Id = Guid.NewGuid(),
+                        SectionTitle = currentSection,
+                        Title = currentSection,
+                        TextContent = sectionContent.ToString().Trim(),
+                        ContentType = ContentType.Text,
+                        PageNumber = pageNum++
+                    });
                 }
-                else
+
+                if (inPage && currentTitle.Length > 0)
                 {
-                    if (inPage && currentTitle.Length > 0)
+                    pages.Add(new Page
                     {
-                        pages.Add(new Page
-                        {
-                            Id = Guid.NewGuid(),
-                            SectionTitle = currentSection,
-                            Title = currentTitle,
-                            TextContent = currentContent.ToString().Trim(),
-                            ContentType = ContentType.Text,
-                            PageNumber = pageNum++
-                        });
-                    }
-                    currentSection = h1Match.Groups[1].Value.Trim();
-                    currentTitle = "";
-                    currentContent.Clear();
-                    inPage = false;
+                        Id = Guid.NewGuid(),
+                        SectionTitle = currentSection,
+                        Title = currentTitle,
+                        TextContent = currentContent.ToString().Trim(),
+                        ContentType = ContentType.Text,
+                        PageNumber = pageNum++
+                    });
                 }
+
+                currentSection = h1Match.Groups[1].Value.Trim();
+                currentTitle = hasH2 ? "" : currentSection;
+                currentContent.Clear();
+                sectionContent.Clear();
+                inPage = !hasH2;
+                hasSectionContent = hasH2;
             }
             else if (inPage)
             {
                 currentContent.AppendLine(line);
             }
+            else if (hasSectionContent)
+            {
+                sectionContent.AppendLine(line);
+            }
         }
 
-        if (inPage && currentTitle.Length > 0)
+        if (hasSectionContent && sectionContent.Length > 0)
+        {
+            pages.Add(new Page
+            {
+                Id = Guid.NewGuid(),
+                SectionTitle = currentSection,
+                Title = currentSection,
+                TextContent = sectionContent.ToString().Trim(),
+                ContentType = ContentType.Text,
+                PageNumber = pageNum++
+            });
+        }
+        else if (inPage && currentTitle.Length > 0)
         {
             pages.Add(new Page
             {

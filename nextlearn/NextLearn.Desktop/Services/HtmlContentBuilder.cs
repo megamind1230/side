@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using NextLearn.Desktop.Models;
@@ -7,13 +9,13 @@ namespace NextLearn.Desktop.Services;
 
 public static class HtmlContentBuilder
 {
-    public static string Build(Page? page, bool isOrgFile)
+    public static string Build(Page? page, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
         if (page == null) return EmptyHtml();
 
         var body = new StringBuilder();
 
-        body.AppendLine($"<h2>{RenderInline(page.Title ?? "", isOrgFile)}</h2>");
+        body.AppendLine($"<h2>{RenderInline(page.Title ?? "", isOrgFile, imageDir, accumulatedImagePaths)}</h2>");
         body.AppendLine("<hr>");
 
         var textContent = page.TextContent ?? "";
@@ -37,7 +39,7 @@ public static class HtmlContentBuilder
 
             if (trimmed.StartsWith('|'))
             {
-                if (TryRenderTable(lines, ref i, isOrgFile, out var tableHtml))
+                if (TryRenderTable(lines, ref i, isOrgFile, out var tableHtml, imageDir, accumulatedImagePaths))
                 {
                     CloseParagraph(body, ref inParagraph);
                     body.AppendLine(tableHtml);
@@ -53,7 +55,7 @@ public static class HtmlContentBuilder
                 continue;
             }
 
-            if (TryRenderHeading(rawLine, out var headingHtml))
+            if (TryRenderHeading(rawLine, out var headingHtml, isOrgFile, imageDir, accumulatedImagePaths))
             {
                 CloseParagraph(body, ref inParagraph);
                 body.AppendLine(headingHtml);
@@ -69,6 +71,14 @@ public static class HtmlContentBuilder
                 continue;
             }
 
+            if (TryRenderList(lines, ref i, isOrgFile, out var listHtml, imageDir, accumulatedImagePaths))
+            {
+                CloseParagraph(body, ref inParagraph);
+                body.AppendLine(listHtml);
+                i++;
+                continue;
+            }
+
             if (!inParagraph)
             {
                 body.Append("<p>");
@@ -79,7 +89,7 @@ public static class HtmlContentBuilder
                 body.AppendLine("<br>");
             }
 
-            body.Append(RenderInline(rawLine, isOrgFile));
+            body.Append(RenderInline(rawLine, isOrgFile, imageDir, accumulatedImagePaths));
             i++;
         }
 
@@ -146,7 +156,7 @@ public static class HtmlContentBuilder
         return false;
     }
 
-    private static bool TryRenderTable(string[] lines, ref int index, bool isOrgFile, out string html)
+    private static bool TryRenderTable(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
         html = "";
         var start = index;
@@ -179,7 +189,7 @@ public static class HtmlContentBuilder
         if (sepIndex > 0)
         {
             result.AppendLine("<thead><tr>");
-            foreach (var cell in SplitTableCell(rows[0], isOrgFile))
+            foreach (var cell in SplitTableCell(rows[0], isOrgFile, imageDir, accumulatedImagePaths))
             {
                 result.AppendLine($"<th>{cell}</th>");
             }
@@ -191,7 +201,7 @@ public static class HtmlContentBuilder
         {
             if (IsTableSeparator(rows[r])) continue;
             result.AppendLine("<tr>");
-            foreach (var cell in SplitTableCell(rows[r], isOrgFile))
+            foreach (var cell in SplitTableCell(rows[r], isOrgFile, imageDir, accumulatedImagePaths))
             {
                 result.AppendLine($"<td>{cell}</td>");
             }
@@ -211,13 +221,13 @@ public static class HtmlContentBuilder
         return !string.IsNullOrEmpty(inner) && Regex.IsMatch(inner, @"^[\s\|\-\+\:]+$");
     }
 
-    private static List<string> SplitTableCell(string row, bool isOrgFile)
+    private static List<string> SplitTableCell(string row, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
         var cells = row.Split('|');
         var result = new List<string>();
         for (var i = 1; i < cells.Length - 1; i++)
         {
-            result.Add(RenderInline(cells[i].Trim(), isOrgFile));
+            result.Add(RenderInline(cells[i].Trim(), isOrgFile, imageDir, accumulatedImagePaths));
         }
         return result;
     }
@@ -231,31 +241,31 @@ public static class HtmlContentBuilder
         }
     }
 
-    private static bool TryRenderHeading(string line, out string html)
+    private static bool TryRenderHeading(string line, out string html, bool isOrgFile = false, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
         html = "";
 
         var h2Match = Regex.Match(line, @"^(?:##|\*\*)\s+(.+)$");
         if (h2Match.Success)
         {
-            html = $"<h2>{EscapeHtml(h2Match.Groups[1].Value)}</h2>";
+            html = $"<h2>{RenderInline(h2Match.Groups[1].Value, isOrgFile, imageDir, accumulatedImagePaths)}</h2>";
             return true;
         }
 
         var h1Match = Regex.Match(line, @"^[#*]\s+(.+)$");
         if (h1Match.Success)
         {
-            html = $"<h1>{EscapeHtml(h1Match.Groups[1].Value)}</h1>";
+            html = $"<h1>{RenderInline(h1Match.Groups[1].Value, isOrgFile, imageDir, accumulatedImagePaths)}</h1>";
             return true;
         }
 
         return false;
     }
 
-    private static string RenderInline(string text, bool isOrgFile)
+    private static string RenderInline(string text, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
-        if (isOrgFile) return RenderOrgInline(text);
-        return RenderMarkdownInline(text);
+        if (isOrgFile) return RenderOrgInline(text, imageDir, accumulatedImagePaths);
+        return RenderMarkdownInline(text, imageDir, accumulatedImagePaths);
     }
 
     private static string EscapeHtml(string text)
@@ -267,19 +277,96 @@ public static class HtmlContentBuilder
             .Replace("\"", "&quot;");
     }
 
-    private static string RenderOrgInline(string text)
+    private static string RenderImageTag(string alt, string rawPath, string? imageDir, List<string>? accumulatedImagePaths)
+    {
+        if (rawPath.StartsWith("http://") || rawPath.StartsWith("https://"))
+        {
+            return $"<a href=\"{rawPath}\" target=\"_blank\" rel=\"noopener\">{EscapeHtml(alt)}</a>";
+        }
+
+        if (rawPath.Contains('/') || rawPath.Contains('\\'))
+        {
+            return $"<span class=\"image-error\">[not found: {EscapeHtml(rawPath)} || image mis-typed]</span>";
+        }
+
+        if (imageDir == null)
+            return $"<span class=\"image-error\">[not found: {EscapeHtml(rawPath)} || image mis-typed]</span>";
+
+        var fullPath = Path.Combine(imageDir, rawPath);
+        accumulatedImagePaths?.Add(fullPath);
+
+        if (!File.Exists(fullPath))
+        {
+            return $"<span class=\"image-error\">[not found: {EscapeHtml(rawPath)} || image mis-typed]</span>";
+        }
+
+        try
+        {
+            var bytes = File.ReadAllBytes(fullPath);
+            var b64 = Convert.ToBase64String(bytes);
+            var ext = Path.GetExtension(fullPath).ToLowerInvariant();
+            var mime = ext switch
+            {
+                ".png" => "image/png",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                ".webp" => "image/webp",
+                ".bmp" => "image/bmp",
+                ".svg" => "image/svg+xml",
+                _ => "application/octet-stream"
+            };
+            var encodedPath = Convert.ToBase64String(Encoding.UTF8.GetBytes(fullPath));
+            return $"<a href=\"http://img.local/{encodedPath}\"><img class=\"inline-image\" src=\"data:{mime};base64,{b64}\" alt=\"{EscapeHtml(alt)}\" /></a>";
+        }
+        catch
+        {
+            return $"<span class=\"image-error\">[not found: {EscapeHtml(rawPath)} || image mis-typed]</span>";
+        }
+    }
+
+    private static string RenderOrgInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
         var result = EscapeHtml(text);
 
+        result = Regex.Replace(result, @"\b(TODO|DONE)\b", m =>
+            m.Groups[1].Value switch
+            {
+                "TODO" => "<span class=\"todo-keyword\">TODO</span>",
+                "DONE" => "<span class=\"done-keyword\">DONE</span>",
+                _ => m.Value
+            });
         result = Regex.Replace(result, @"~([^~]+)~", "<code>$1</code>");
         result = Regex.Replace(result, @"(?<!\*)\*([^*]+)\*(?!\*)", "<strong>$1</strong>");
         result = Regex.Replace(result, @"/([^/]+)/", "<em>$1</em>");
         result = Regex.Replace(result, @"\[([^\]]+)\]\(([^)]+)\)", "<a href=\"$2\" target=\"_blank\" rel=\"noopener\">$1</a>");
 
+        result = Regex.Replace(result, @"\[\[file:([^\]]+)\]\[([^\]]*)\]\]", m =>
+        {
+            var path = m.Groups[1].Value;
+            var alt = m.Groups[2].Value;
+            return RenderImageTag(alt, path, imageDir, accumulatedImagePaths);
+        });
+
+        // Obsidian-style image ![[path]]
+        result = Regex.Replace(result, @"!\[\[([^\]]+)\]\]", m =>
+        {
+            return RenderImageTag("", m.Groups[1].Value, imageDir, accumulatedImagePaths);
+        });
+
+        // Standard markdown image ![](path)
+        result = Regex.Replace(result, @"!\[([^\]]*)\]\(([^)]+)\)", m =>
+        {
+            return RenderImageTag(m.Groups[1].Value, m.Groups[2].Value, imageDir, accumulatedImagePaths);
+        });
+
+        // Wiki-style link [[text]]
+        result = Regex.Replace(result, @"\[\[([^\]]+)\]\]", "$1");
+
         return result;
     }
 
-    private static string RenderMarkdownInline(string text)
+    private static string RenderMarkdownInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
         var result = EscapeHtml(text);
 
@@ -291,9 +378,31 @@ public static class HtmlContentBuilder
             return $"%%%CODE_{placeholderIdx++}%%%";
         });
 
+        result = Regex.Replace(result, @"\b(TODO|DONE)\b", m =>
+            m.Groups[1].Value switch
+            {
+                "TODO" => "<span class=\"todo-keyword\">TODO</span>",
+                "DONE" => "<span class=\"done-keyword\">DONE</span>",
+                _ => m.Value
+            });
         result = Regex.Replace(result, @"\*\*([^*]+)\*\*", "<strong>$1</strong>");
         result = Regex.Replace(result, @"(?<!\w)\*([^*]+)\*(?!\w)", "<em>$1</em>");
         result = Regex.Replace(result, @"\[([^\]]+)\]\(([^)]+)\)", "<a href=\"$2\" target=\"_blank\" rel=\"noopener\">$1</a>");
+
+        // Obsidian-style image ![[path]]
+        result = Regex.Replace(result, @"!\[\[([^\]]+)\]\]", m =>
+        {
+            return RenderImageTag("", m.Groups[1].Value, imageDir, accumulatedImagePaths);
+        });
+
+        // Standard markdown image ![](path)
+        result = Regex.Replace(result, @"!\[([^\]]*)\]\(([^)]+)\)", m =>
+        {
+            return RenderImageTag(m.Groups[1].Value, m.Groups[2].Value, imageDir, accumulatedImagePaths);
+        });
+
+        // Wiki-style link [[text]]
+        result = Regex.Replace(result, @"\[\[([^\]]+)\]\]", "$1");
 
         for (var i = 0; i < codeSpans.Count; i++)
         {
@@ -301,6 +410,109 @@ public static class HtmlContentBuilder
         }
 
         return result;
+    }
+
+    private static bool TryRenderList(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null)
+    {
+        html = "";
+        var firstLine = lines[index].TrimEnd('\r');
+        var firstTrimmed = firstLine.Trim();
+
+        string? listTag;
+        if (Regex.IsMatch(firstTrimmed, @"^[-+*]\s"))
+            listTag = "ul";
+        else if (Regex.IsMatch(firstTrimmed, @"^\d+[.)]\s"))
+            listTag = "ol";
+        else
+            return false;
+
+        var sb = new StringBuilder();
+        var i = index;
+
+        // Stack of (listTag, indent)
+        var levels = new List<(string tag, int indent)>();
+        levels.Add((listTag, firstLine.Length - firstLine.TrimStart().Length));
+        sb.Append($"<{listTag}>");
+
+        while (i < lines.Length)
+        {
+            var rawLine = lines[i].TrimEnd('\r');
+            var lineTrimmed = rawLine.Trim();
+
+            if (string.IsNullOrEmpty(lineTrimmed))
+            {
+                i++;
+                continue;
+            }
+
+            bool isUl = Regex.IsMatch(lineTrimmed, @"^[-+*]\s");
+            bool isOl = Regex.IsMatch(lineTrimmed, @"^\d+[.)]\s");
+            if (!isUl && !isOl)
+                break;
+
+            var lineIndent = rawLine.Length - rawLine.TrimStart().Length;
+            var lineListTag = isUl ? "ul" : "ol";
+
+            // Find parent level (closest indent <= current)
+            var parentIdx = levels.Count - 1;
+            while (parentIdx >= 0 && levels[parentIdx].indent > lineIndent)
+                parentIdx--;
+            if (parentIdx < 0) parentIdx = 0;
+
+            // Close over-indented levels
+            while (levels.Count > parentIdx + 1)
+            {
+                sb.Append("</li>");
+                sb.Append($"</{levels[^1].tag}>");
+                levels.RemoveAt(levels.Count - 1);
+            }
+
+            if (levels.Count > 0 && levels[^1].indent == lineIndent)
+            {
+                // Same level → close previous item
+                sb.Append("</li>");
+            }
+            else if (lineIndent > levels[^1].indent)
+            {
+                // Deeper indent → nested list inside current item
+                sb.Append($"<{lineListTag}>");
+                levels.Add((lineListTag, lineIndent));
+            }
+
+            // Extract content after list marker
+            var contentStart = isUl ? 2 : Regex.Match(lineTrimmed, @"^\d+[.)]\s").Length;
+            var content = lineTrimmed.Substring(contentStart);
+
+            // Handle checkbox
+            var checkboxHtml = "";
+            var cbMatch = Regex.Match(content, @"^\[( |x|X|-)\]\s*");
+            if (cbMatch.Success)
+            {
+                checkboxHtml = cbMatch.Groups[1].Value switch
+                {
+                    " " => "<span class=\"todo-unchecked\"></span>",
+                    "x" or "X" => "<span class=\"todo-checked\"></span>",
+                    "-" => "<span class=\"todo-inprogress\"></span>",
+                    _ => ""
+                };
+                content = content.Substring(cbMatch.Length);
+            }
+
+            var rendered = RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths);
+            sb.Append($"<li>{checkboxHtml}{rendered}");
+            i++;
+        }
+
+        // Close all remaining levels
+        for (var l = levels.Count - 1; l >= 0; l--)
+        {
+            sb.Append("</li>");
+            sb.Append($"</{levels[l].tag}>");
+        }
+
+        html = sb.ToString();
+        index = i - 1;
+        return true;
     }
 
     private static string EmptyHtml()
@@ -343,6 +555,21 @@ public static class HtmlContentBuilder
     th, td { border: 1px solid #475569; padding: 8px 12px; text-align: left; }
     th { background: #334155; color: #F1F5F9; font-weight: 600; }
     td { color: #E2E8F0; }
+    .inline-image { max-width: 260px; max-height: 180px; border-radius: 8px; cursor: pointer; }
+    .inline-image:hover { opacity: 0.85; }
+    .image-error { display: inline-block; border: 1px solid #EF4444; color: #EF4444; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; }
+    .todo-unchecked, .todo-checked, .todo-inprogress {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 1.3em; height: 1.3em; margin-right: 6px;
+        vertical-align: middle; flex-shrink: 0;
+    }
+    .todo-unchecked { border: 2px solid #64748B; border-radius: 3px; background: transparent; }
+    .todo-checked { background: #10B981; border-radius: 3px; }
+    .todo-checked::after { content: "\2713"; color: #fff; font-weight: bold; font-size: 0.95em; }
+    .todo-inprogress { border: 2px solid #F59E0B; border-radius: 3px; background: transparent; }
+    .todo-inprogress::after { content: "\2212"; color: #F59E0B; font-weight: bold; font-size: 1.2em; }
+    .todo-keyword { color: #10B981; font-weight: 600; }
+    .done-keyword { color: #94A3B8; }
     <!--HIGHLIGHT_CSS-->
 </style>
 </head>
@@ -350,6 +577,7 @@ public static class HtmlContentBuilder
 {{bodyContent}}
 <script>/* HIGHLIGHT_JS */</script>
 <script>hljs.highlightAll();</script>
+<script>(function(){var kr=document.createElement('iframe');kr.style.cssText='display:none!important;width:0!important;height:0!important;border:none!important;position:fixed!important';document.body.appendChild(kr);document.addEventListener('keydown',function(e){var k=e.key,m='',h=false;if(e.ctrlKey)m+='C';if(e.shiftKey)m+='S';if(e.altKey)m+='A';switch(k){case'n':case'N':case'p':case'P':case'j':case'J':case'k':case'K':case'h':case'H':case'l':case'L':case'q':case'Q':case'd':case'D':case'e':case'E':case'i':case'I':case'g':case'G':case'Escape':case'?':case'/':case'Enter':h=true;break;case',':case'=':case'-':if(e.ctrlKey)h=true;break;}if(!h)return;e.preventDefault();e.stopPropagation();kr.src='http://key.local/'+encodeURIComponent(k)+'/'+m+'/'+Date.now();},true);})();</script>
 </body>
 </html>
 """;

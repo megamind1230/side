@@ -1,5 +1,11 @@
 #+TITLE: Plans & Todos
 
+* DONE P28: `ctrl ,` opens settings
+from anywhere from the app
+
+* DONE P30: add shortcuts handbook triggered with `?`
+opens a simple floating page/window listing shortcuts >> what it does, in what context
+
 * DONE P28: add logging for better debugging
 Superseded by P11 (Serilog file + console logging, all catch blocks logged).
 
@@ -323,6 +329,16 @@ All ~catch {}~ blocks are silent, making debugging impossible.
 ** Files changed
 - ~Services/HtmlContentBuilder.cs~ — ~TryStartCodeBlock()~ updated with org syntax branch
 
+* DONE P12: Wire up Marketplace
+
+** Why
+Current marketplace is just a URL string placeholder.
+
+** Resolution
+- "Marketplace" button added to home nav bar
+- Click opens ~https://google.com~ in browser (placeholder URL, not nextlearn.app)
+- "Browse Decks" label not used — button says "Marketplace"
+
 * P5: Build plugin system
 
 ** Why
@@ -368,15 +384,6 @@ Entering in deck search opens neovim even when a result is selected.
 1. Add ~SelectedSearchResult~ to ~LearningViewModel~
 2. Switch ~ItemsControl~ to ~ListBox~ with ~SelectedItem~ binding
 3. Enter handler: if result selected → navigate to page; else → open neovim
-
-* P12: Wire up Marketplace
-
-** Why
-Current marketplace is just a URL string placeholder.
-
-** Steps
-1. Replace placeholder with "Browse Decks" button
-2. Click opens ~https://nextlearn.app/marketplace~ in browser
 
 * P14: In-app deck creation wizard
 
@@ -439,9 +446,10 @@ Editor always saves as .md, destroying .org format.
 
 * P21: Kill DatabaseService.cs dead code
 
-** Steps
-1. Verify no references to ~DatabaseService~
-2. Delete ~Services/DatabaseService.cs~
+** Status
+- PENDING — file still exists at ~Services/DatabaseService.cs~
+- Verified: ~DatabaseService~ is referenced only by its own file; no code uses it
+- Deleting is safe but has not been done yet
 
 * P22: Fix hamburger icon — rename or implement sidebar
 
@@ -474,8 +482,6 @@ StartLearning re-parses all files when the deck is already loaded (B17).
 
 Make links on the study page clickable.
 
-* P26: DONE (see above)
-
 * P27: Filter home view by tag cloud
 
 ** Why
@@ -488,3 +494,91 @@ Currently no way to browse decks by tag — only free-text search.
 4. Multi-select: clicking additional tags adds to the filter (OR logic)
 5. Active tag chips show with highlight, click again to remove
 
+* DONE P29: add image support
+** What
+- Inline images rendered in WebView (small, ~260×180px) from ~![]()~ syntax
+- Click on inline image opens a floating overlay (80% of window, centered)
+- Overlay: top bar (filename + ✕), center (zoomable/pannable image), bottom bar (controls)
+- Controls: zoom −/slider/+, rotate ↺/↻, Open (system viewer/browser)
+- Zoom via slider or ~Ctrl + =~ / ~Ctrl + -~ inside overlay
+- ~N~ / ~P~ keys cycle through images on current page
+- Missing images show ~[not found: filename || image mis-typed]~ in red
+- Web URLs (~http://~) render as clickable links instead of images
+- Org mode ~[[file:path][alt]]~ image syntax also supported
+
+** Image directory convention
+- Deck: ~~/nextlearn/decks/Deck Name.md~
+- Images: ~~/nextlearn/decks/Deck Name/image.jpg~ (same name as deck, no suffix)
+- ~![]()~ paths must be a single filename (no subdirs) — error otherwise
+- Path resolved one level deeper than the deck file
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — ~![]()~ / ~[[file:]]~ parsing, base64 embed, error placeholder, image CSS, appimage:// link wrapping
+- ~ViewModels/LearningViewModel.cs~ — ~CurrentPageImagePaths~, ~GetCurrentImageDir()~, pass imageDir to Build()
+- ~ViewModels/MainWindowViewModel.cs~ — overlay properties (IsImageOverlayOpen, CurrentImagePath, ZoomLevel, RotationAngle) + commands (ZoomIn/Out, RotateCw/Ccw, NextImage/PreviousImage, OpenImageInViewer)
+- ~Views/MainWindow.axaml~ — removed image placeholder panel (content now full-width), added floating overlay panel (ZIndex 400)
+- ~Views/MainWindow.axaml.cs~ — appimage:// scheme interception, overlay keyboard handlers (Esc, Ctrl+-, Ctrl+=, N, P), backdrop click handler
+- ~README.org~ — updated keyboard shortcuts table
+
+** Future (not implemented)
+- Color invert for dark-mode images (pixel manipulation or CSS filter)
+
+** Post-merge fix: image rotation broken (B23)
+~UpdateOverlayImageSize()~ swapped Width↔Height on 90°/270° rotation, causing the image to jam into the top-left corner and clip. Fixed by using square layout (Width=Height=maxDim×Zoom), which contains the image at any rotation without clipping.
+
+*** Files changed
+- ~Views/MainWindow.axaml.cs~ — ~UpdateOverlayImageSize()~: replaced swap with ~Math.Max(w,h)×zoom~
+
+** Removed: rotate ↺/↻ buttons from overlay UI
+Buttons removed from image floating window to simplify UI. Rotation feature still
+available in code (~RotateCw~/~RotateCcw~ commands, keyboard shortcut via `HandleKey`,
+~RenderTransform~ with ~RotateTransform~, square-layout fix in place). Potential for
+.org file image rotation in future (some .org renderers support rotate directives).
+
+** Post-merge fix: zoom centering with ScrollChanged (B26)
+Replaced one-shot ~LayoutUpdated~ with persistent ~ScrollViewer.ScrollChanged~ + ~_pendingRecenter~ flag.
+~LayoutUpdated~ fires for ANY layout change (slider redraw) before image size change is processed,
+reading stale ~Extent~/~Viewport~ values. ~ScrollChanged~ fires after extent changes, gated by
+~ExtentDelta != default~. Added center vs preserve mode.
+
+Initial open centers image: ~offset = (ext − vp)/2~.
+
+Zoom preserve mode originally used ~offset = oldOffset + (newExt − oldExt)/2~ — viewport-agnostic formula that
+only works when image is perfectly centered (~oldOffset = (ext − vp)/2~). For panned images, the formula
+is wrong (e.g., Y offset jumps 75px on 1.5× zoom). Fixed to:
+~newOffset = (oldOffset + vp/2) × zoomRatio − vp/2~, which correctly factors in viewport.
+
+Also fixed async initial-center override: ~CurrentImageBitmap~ was grouped with ~ZoomLevel~/~RotationAngle~
+using ~centerInViewport: false~, overriding the true intended by the ~IsImageOverlayOpen~ handler (which
+bailed because ~Source~ was still null during async bitmap load). Separated into its own handler
+with ~centerInViewport: true~.
+
+*** Files changed
+- ~Views/MainWindow.axaml.cs~ — ~RecenterScrollViewerAfterLayout()~ → ~OnScrollViewerScrollChanged()~, added ~_pendingRecenter~, center/preserve mode; fixed preserve formula (viewport-aware); split ~CurrentImageBitmap~ handler with ~centerInViewport: true~
+
+** Post-merge fix: image center alignment clips bottom/right edges (B25)
+~HorizontalAlignment="Center"~ / ~VerticalAlignment="Center"~ on Image inside ScrollViewer
+causes unreachable bottom/right edges at zoom > 1. "Removing" both reverts to default
+~Stretch~ which ALSO centers explicit-sized elements — same bottom clip. Fixed by setting
+~HorizontalAlignment="Left"~ and ~VerticalAlignment="Top"~ so the Image sits at (0,0) in
+the ScrollViewer content area. Centering handled by scroll offset calculation.
+
+*** Files changed
+- ~Views/MainWindow.axaml~ — set ~HorizontalAlignment="Left"~ and ~VerticalAlignment="Top"~ on ~OverlayImage~ (was removed, then corrected to Left/Top)
+
+* P31: let's go build something into the website
+
+* P32: `>` and `>>>`quote render
+
+* P33: shortcuts page must be the top/upmost layer
+a small bug found inside of study page
+when triggering the `?` the study box would cross over the shortcuts handbook window
+
+* DONE P34: render todos
+`- [ ]`
+`- [-]`
+`- [x]`
+Also renders ~TODO~ / ~DONE~ keywords as colored inline spans (green/grey).
+* p35: add support for .org image rendering too
+
+* P36: add a button to open decks directory
