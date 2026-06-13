@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -28,14 +29,6 @@ public class DeckService
             .ToList();
     }
 
-    public List<Deck> GetDecksByCategory(string category)
-    {
-        return _context.Decks
-            .Where(d => d.IsPublished && d.IsReviewed && d.Category == category)
-            .Include(d => d.Pages)
-            .ToList();
-    }
-
     public Deck? GetDeckById(Guid deckId)
     {
         return _context.Decks
@@ -52,9 +45,10 @@ public class DeckService
             existing.Title = deck.Title;
             existing.HasExplicitTitle = deck.HasExplicitTitle;
             existing.Description = deck.Description;
-            existing.Category = deck.Category;
             existing.PageCount = deck.PageCount;
             existing.CreatedAt = deck.CreatedAt;
+            existing.IsArchived = deck.IsArchived;
+            existing.IsPinned = deck.IsPinned;
 
             _context.Pages.RemoveRange(existing.Pages);
             foreach (var page in deck.Pages)
@@ -174,30 +168,88 @@ public class DeckService
             .ToList();
     }
 
-    public async Task RemoveActiveSlotAsync(int slot)
+    public void ArchiveDeck(Guid deckId, string decksPath)
     {
-        var userId = _userService.GetCurrentUserId();
-        var active = await _context.ActiveLearning
-            .FirstOrDefaultAsync(al => al.UserId == userId && al.Slot == slot);
-        
-        if (active != null)
-        {
-            _context.ActiveLearning.Remove(active);
-            await _context.SaveChangesAsync();
-        }
+        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
+        if (deck == null) return;
+        var oldPath = Path.Combine(decksPath, deck.FileName);
+        var newPath = oldPath + "~";
+        if (File.Exists(oldPath))
+            File.Move(oldPath, newPath);
+        deck.IsArchived = true;
+        _context.SaveChanges();
     }
 
-    public async Task GiveFeedbackAsync(Guid deckId, Guid? pageId, string message, string requestedTopic)
+    public void UnarchiveDeck(Guid deckId, string decksPath)
     {
-        var feedback = new Feedback
+        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
+        if (deck == null) return;
+        var archivedPath = Path.Combine(decksPath, deck.FileName + "~");
+        var restoredPath = Path.Combine(decksPath, deck.FileName);
+        if (File.Exists(archivedPath))
+            File.Move(archivedPath, restoredPath);
+        deck.IsArchived = false;
+        _context.SaveChanges();
+    }
+
+    public void PinDeck(Guid deckId, string decksPath)
+    {
+        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
+        if (deck == null) return;
+        var oldPath = Path.Combine(decksPath, deck.FileName);
+        var newPath = Path.Combine(decksPath, "+" + deck.FileName);
+        if (File.Exists(oldPath))
+            File.Move(oldPath, newPath);
+        deck.IsPinned = true;
+        deck.FileName = "+" + deck.FileName;
+        _context.SaveChanges();
+    }
+
+    public void UnpinDeck(Guid deckId, string decksPath)
+    {
+        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
+        if (deck == null) return;
+        var fileName = deck.FileName;
+        if (!fileName.StartsWith('+')) return;
+        var oldPath = Path.Combine(decksPath, fileName);
+        var newFileName = fileName[1..];
+        var newPath = Path.Combine(decksPath, newFileName);
+        if (File.Exists(oldPath))
+            File.Move(oldPath, newPath);
+        deck.IsPinned = false;
+        deck.FileName = newFileName;
+        _context.SaveChanges();
+    }
+
+    public List<Deck> GetArchivedDecks(string decksPath)
+    {
+        var list = new List<Deck>();
+        var extensions = new[] { "*.md~", "*.org~" };
+        foreach (var ext in extensions)
         {
-            UserId = _userService.GetCurrentUserId(),
-            DeckId = deckId,
-            PageId = pageId,
-            Message = message,
-            RequestedTopic = requestedTopic
-        };
-        _context.Feedbacks.Add(feedback);
-        await _context.SaveChangesAsync();
+            foreach (var file in Directory.GetFiles(decksPath, ext))
+            {
+                var deck = DeckFileParser.LoadDeckFromFile(file);
+                if (deck != null)
+                    list.Add(deck);
+            }
+        }
+        return list;
+    }
+
+    public List<Deck> GetPinnedDecks(string decksPath)
+    {
+        var list = new List<Deck>();
+        var extensions = new[] { "+*.md", "+*.org" };
+        foreach (var ext in extensions)
+        {
+            foreach (var file in Directory.GetFiles(decksPath, ext))
+            {
+                var deck = DeckFileParser.LoadDeckFromFile(file);
+                if (deck != null)
+                    list.Add(deck);
+            }
+        }
+        return list;
     }
 }

@@ -125,6 +125,37 @@ public partial class HomeViewModel : ViewModelBase
         _mainViewModel.NavigateToLearningByDeck(deck);
     }
 
+    [RelayCommand]
+    private void PinDeck(Deck deck)
+    {
+        _deckService.PinDeck(deck.Id, _decksPath);
+        Refresh();
+    }
+
+    [RelayCommand]
+    private void UnpinDeck(Deck deck)
+    {
+        _deckService.UnpinDeck(deck.Id, _decksPath);
+        Refresh();
+    }
+
+    [RelayCommand]
+    private void ArchiveDeck(Deck deck)
+    {
+        _deckService.ArchiveDeck(deck.Id, _decksPath);
+        Refresh();
+    }
+
+    [RelayCommand]
+    private void TogglePinDeck(Deck deck)
+    {
+        if (deck.IsPinned)
+            _deckService.UnpinDeck(deck.Id, _decksPath);
+        else
+            _deckService.PinDeck(deck.Id, _decksPath);
+        Refresh();
+    }
+
     partial void OnSearchTextChanged(string value)
     {
         LoadDecks();

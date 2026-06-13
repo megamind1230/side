@@ -3,9 +3,12 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using NativeWebView.Controls;
 using NativeWebView.Core;
@@ -31,12 +34,39 @@ public partial class MainWindow : Window
 
         DataContextChanged += OnDataContextChanged;
         ImageOverlayScrollViewer.ScrollChanged += OnScrollViewerScrollChanged;
+
+        // Tunneling: catches o before WebView/TextBox consumes it
+        AddHandler(InputElement.KeyDownEvent, (_, e) =>
+        {
+            if (e.Key != Key.O) return;
+            if (e.Source is TextBox) return;
+            if (DataContext is not MainWindowViewModel vm) return;
+            vm.OpenDecksFolderCommand.Execute(null);
+            e.Handled = true;
+        }, RoutingStrategies.Tunnel);
     }
 
     private void OnDataContextChanged(object? sender, EventArgs args)
     {
         if (DataContext is MainWindowViewModel vm)
         {
+            vm.PickFolderHandler = async (currentPath) =>
+            {
+                var topLevel = TopLevel.GetTopLevel(this);
+                if (topLevel == null) return null;
+
+                var result = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+                {
+                    Title = "Select Decks Directory",
+                    SuggestedStartLocation = !string.IsNullOrEmpty(currentPath)
+                        ? await topLevel.StorageProvider.TryGetFolderFromPathAsync(
+                            currentPath.Replace("$HOME", Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)))
+                        : null
+                });
+
+                return result.Count > 0 ? result[0].Path.LocalPath : null;
+            };
+
             vm.PropertyChanged += OnMainViewModelPropertyChanged;
             vm.LearningViewModel.PropertyChanged += OnLearningViewModelPropertyChanged;
 
@@ -59,10 +89,13 @@ public partial class MainWindow : Window
         if (e.PropertyName is nameof(MainWindowViewModel.IsImageOverlayOpen)
             or nameof(MainWindowViewModel.IsSidebarOpen)
             or nameof(MainWindowViewModel.IsSettingsOpen)
-            or nameof(MainWindowViewModel.IsShortcutsHandbookOpen))
+            or nameof(MainWindowViewModel.IsShortcutsHandbookOpen)
+            or nameof(MainWindowViewModel.IsPinnedViewOpen)
+            or nameof(MainWindowViewModel.IsArchivedViewOpen))
         {
             if (ContentWebView != null)
-                ContentWebView.IsVisible = !(vm.IsImageOverlayOpen || vm.IsSidebarOpen || vm.IsSettingsOpen || vm.IsShortcutsHandbookOpen);
+                ContentWebView.IsVisible = !(vm.IsImageOverlayOpen || vm.IsSidebarOpen || vm.IsSettingsOpen || vm.IsShortcutsHandbookOpen
+                    || vm.IsPinnedViewOpen || vm.IsArchivedViewOpen);
         }
 
         if (e.PropertyName is nameof(MainWindowViewModel.ZoomLevel)
@@ -273,7 +306,7 @@ public partial class MainWindow : Window
         OpenInBrowser(uri.AbsoluteUri);
     }
 
-    private static void OpenInBrowser(string url)
+    internal static void OpenInBrowser(string url)
     {
         if (OperatingSystem.IsWindows())
         {
@@ -364,10 +397,9 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainWindowViewModel vm) return false;
 
-        // Image overlay keyboard shortcuts (checked before all others)
+        // Image overlay keyboard shortcuts
         if (vm.IsImageOverlayOpen)
         {
-            if (key == Key.Escape) { vm.CloseImageOverlayCommand.Execute(null); return true; }
             if ((modifiers & KeyModifiers.Control) != 0 && key == Key.OemPlus) { vm.ZoomInCommand.Execute(null); return true; }
             if ((modifiers & KeyModifiers.Control) != 0 && key == Key.OemMinus) { vm.ZoomOutCommand.Execute(null); return true; }
             if ((modifiers & KeyModifiers.Control) != 0 && key is Key.D0 or Key.NumPad0) { vm.ResetZoomCommand.Execute(null); return true; }
@@ -375,6 +407,7 @@ public partial class MainWindow : Window
             if (key == Key.P && modifiers.HasFlag(KeyModifiers.Shift)) { vm.PreviousImageCommand.Execute(null); return true; }
         }
 
+        // LIFO Esc: close highest-ZIndex overlay first
         if (key == Key.Escape)
         {
             if (vm.IsShortcutsHandbookOpen)
@@ -384,6 +417,9 @@ public partial class MainWindow : Window
                     ContentWebView.IsVisible = true;
                 return true;
             }
+            if (vm.IsImageOverlayOpen) { vm.CloseImageOverlayCommand.Execute(null); return true; }
+            if (vm.IsArchivedViewOpen) { vm.CloseArchivedViewCommand.Execute(null); return true; }
+            if (vm.IsPinnedViewOpen) { vm.ClosePinnedViewCommand.Execute(null); return true; }
             if (vm.IsSettingsOpen) { vm.IsSettingsOpen = false; return true; }
             if (vm.IsSidebarOpen) { vm.IsSidebarOpen = false; return true; }
         }
@@ -466,38 +502,6 @@ public partial class MainWindow : Window
                     if (!isTextBox)
                     {
                         vm.NavigateToHomeCommand.Execute(null);
-                        return true;
-                    }
-                    break;
-                case Key.E:
-                    if (!isTextBox)
-                    {
-                        OpenInSystemEditor();
-                        return true;
-                    }
-                    break;
-                case Key.Oem2:
-                    if (!isTextBox)
-                    {
-                        vm.LearningViewModel.ToggleSearchCommand.Execute(null);
-                        DispatcherTimer.RunOnce(() => this.FindControl<TextBox>("DeckSearchBox")?.Focus(), TimeSpan.FromMilliseconds(50));
-                        return true;
-                    }
-                    break;
-                case Key.Escape:
-                    if (vm.LearningViewModel.ShowSearch)
-                    {
-                        vm.LearningViewModel.SearchText = "";
-                        vm.LearningViewModel.ShowSearch = false;
-                        return true;
-                    }
-                    break;
-                case Key.Enter:
-                    if (vm.LearningViewModel.ShowSearch)
-                    {
-                        var searchText = vm.LearningViewModel.SearchText;
-                        vm.LearningViewModel.ShowSearch = false;
-                        OpenInSystemEditor(searchText);
                         return true;
                     }
                     break;
@@ -658,20 +662,6 @@ public partial class MainWindow : Window
         if (DataContext is MainWindowViewModel vm)
         {
             vm.CloseImageOverlayCommand.Execute(null);
-        }
-    }
-
-    private void OpenInSystemEditor(string? searchText = null)
-    {
-        if (DataContext is not MainWindowViewModel vm) return;
-        if (vm.LearningViewModel.CurrentPage == null) return;
-
-        var deckId = vm.LearningViewModel.CurrentPage.DeckId;
-        var mdPath = vm.LearningViewModel.GetDeckMarkdownPath(deckId);
-
-        if (!string.IsNullOrEmpty(mdPath))
-        {
-            vm.EditorLauncher.Open(mdPath, searchText);
         }
     }
 }

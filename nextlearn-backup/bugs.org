@@ -64,18 +64,18 @@
 - Tags come from ~tags:~ in YAML frontmatter
 - ~#tag~ search with incremental prefix matching
 
-* B22: DatabaseService.cs is dead code still present
+* FIXED B22: DatabaseService.cs is dead code
 
 ** Location
 - ~Services/DatabaseService.cs~
 
 ** Status
-- OPEN — file exists but is referenced by no other code (P21)
-- Safe to delete, not yet actioned
+- ✅ FIXED — file deleted along with other dead code (see P7)
+- ~MigrateSchema()~ moved to ~MainWindowViewModel.cs~
 
 ** Fix
-1. Verify no references to ~DatabaseService~ anywhere in the project
-2. Delete ~Services/DatabaseService.cs~
+1. ✅ Verified no references to ~DatabaseService~ anywhere in the project
+2. ✅ Deleted ~Services/DatabaseService.cs~
 
 * B23: Image overlay rotation jams image to corner / clips
 
@@ -88,7 +88,10 @@
 - FIXED — square-layout fix applied
 
 ** Root Cause
+
+#+BEGIN_QUOTE
 ~UpdateOverlayImageSize()~ swapped Width↔Height when ~RotationAngle % 180 != 0~. This changed the layout size simultaneously with the ~RotateTransform~ visual rotation, creating a layout/transform mismatch — the image appeared jammed into the top-left corner and clipped. A secondary timing race in ~LayoutUpdated~-based recentering compounded the issue.
+#+END_QUOTE
 
 ** Fix
 Replaced dimension swap with square layout: both Width and Height set to ~Math.Max(sourceW, sourceH) × ZoomLevel~. A square contains the image at any 90° rotation without clipping, eliminating the need for swap logic entirely. ~RenderTransformOrigin="0.5,0.5"~ keeps rotation centered within the square. No timing dependency, no corner jamming.
@@ -218,10 +221,13 @@ decoding.
 - FIXED — TryStartBrowser helper with --ozone-platform-hint=x11
 
 ** Root Cause
+
+#+BEGIN_QUOTE
 Brave (the default browser) crashes with "Failed to connect to Wayland
 display" when launched via ~xdg-open~ or directly. The original
 ~Process.Start~ with simple binary+args didn't skip missing binaries
 reliably, and ~xdg-open~ always delegates to Brave's .desktop file.
+#+END_QUOTE
 
 ** Fix
 - ~TryStartBrowser()~ helper: ~UseShellExecute=false~ + ~ArgumentList~ +
@@ -303,3 +309,75 @@ behavior.
 ** Files changed
 - ~Services/HtmlContentBuilder.cs~ — ~RenderMarkdownInline()~: updated
   ~![[path]]~ handler at line 461
+
+* B34: ZIndex layering & Esc close order is wrong for multiple overlays
+
+** Location
+- ~Views/MainWindow.axaml~ — ZIndex values for all overlay panels
+- ~Views/MainWindow.axaml.cs~ — ~HandleKey()~ Esc close chain
+
+** Status
+- ✅ FIXED in P38
+
+** Symptoms
+1. Shortcuts Handbook (ZIndex 150) appears behind Sidebar (ZIndex 200)
+2. `?` + Sidebar → handbook hidden behind sidebar
+3. Esc doesn't close in LIFO order — hardcoded chain: handbook → settings → sidebar
+4. Full-page overlays (settings/sidebar) don't close each other when a new one opens
+
+** Fix (P38 Phase A)
+1. Handbook ZIndex → 999 (always top)
+2. Esc chain reordered by ZIndex descending: 999 → 400 → 310 → 300 → 200
+3. Show commands for full-page overlays close all other full-page overlays first
+
+* B36: `o` key doesn't fire from WebView (tunneling vs bubbling)
+
+** Location
+- ~Views/MainWindow.axaml.cs~ — ~OnKeyDown()~, ~HandleKey()~, tunneling handler
+
+** Status
+- OPEN — needs a clean solution
+
+** Root Cause
+~KeyDown~ is a bubbling routed event. When the NativeWebView has focus and a
+plain letter key (~o~) is pressed, the WebView consumes the event for text
+input and never bubbles it to the MainWindow. ~?~ (Shift+Oem2) and ~Ctrl+,~
+(Ctrl+OemComma) work because the WebView doesn't treat modifier-combination
+keys as text input.
+
+The tunneling workaround (~AddHandler(KeyDownEvent, handler, RoutingStrategies.Tunnel)~)
+catches ~o~ before the WebView gets it, but requires an ~e.Source is TextBox~
+guard to not steal input from real text boxes. This is fragile.
+
+** Proper fix needed
+NativeWebView should either:
+1. Not consume plain letter keys in read-only mode (it's a display-only WebView)
+2. Forward unhandled key events to the parent window
+
+** Workaround applied
+Tunneling handler in ~MainWindow()~ constructor, guarded by ~e.Source is TextBox~.
+
+* FIXED B35: GLFW Wayland initialization failure on Hyprland
+
+** Location
+- ~Program.cs~ — ~BuildAvaloniaApp()~
+
+** Status
+- ✅ FIXED
+
+** Root Cause
+~Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", "")~ calls
+~setenv("WAYLAND_DISPLAY", "")~. GLFW's ~getenv("WAYLAND_DISPLAY")~ returns
+a non-NULL pointer (empty string), so GLFW thinks Wayland IS configured
+and tries to ~wl_display_connect("")~, which fails because the display
+name is empty. This emitted ~10+~ "[glfw error 65544]: Wayland: Failed to
+connect to display" messages on every startup.
+
+** Fix
+~Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", null)~ calls
+~unsetenv("WAYLAND_DISPLAY")~ → ~getenv("WAYLAND_DISPLAY")~ returns NULL →
+GLFW skips the Wayland backend entirely and falls through to X11.
+Combined with ~builder.UseSkia().UseX11()~ when ~XDG_SESSION_TYPE=wayland~.
+
+** Files changed
+- ~Program.cs~ — ~null~ instead of ~""~ for WAYLAND_DISPLAY env var

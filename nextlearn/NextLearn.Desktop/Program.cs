@@ -45,8 +45,23 @@ sealed class Program
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
+    {
+        var builder = AppBuilder.Configure<App>()
             .WithInterFont()
             .LogToTrace();
+
+        var sessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE");
+        if (sessionType?.Equals("wayland", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            Log.Information("Wayland session detected, using X11 backend via XWayland");
+            Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", null);
+            builder.UseSkia().UseX11();
+        }
+        else
+        {
+            builder.UsePlatformDetect();
+        }
+
+        return builder;
+    }
 }

@@ -1,7 +1,7 @@
 #+TITLE: Links Issue — Wayland + Chromium Browser Crash
 #+DATE: <2026-06-11 Thu>
 
-* Description
+* DONE Description
 
 Clicking any rendered link (~[text](url)~ in markdown, ~[[url][text]]~ in org,
 bare ~https://...~) inside the study page WebView should open the URL in the
@@ -31,6 +31,7 @@ ui/aura/env.cc:246
 
 ** Key insight
 
+#+BEGIN_QUOTE
 Wayland IS running. Both the app (Avalonia) and WPE WebKit renderer work
 fine with Wayland. The crash is specifically in Brave/Chromium when launched
 via ~xdg-open~ — Brave tries to initialize its own Wayland connection and
@@ -39,6 +40,7 @@ backend).
 
 Workaround: Brave launched with ~--ozone-platform-hint=x11~ runs correctly
 under XWayland.
+#+END_QUOTE
 
 * How to recreate
 

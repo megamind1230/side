@@ -27,5 +27,4 @@ public class UserProgress
     
     public DateTime LastAccessedAt { get; set; } = DateTime.UtcNow;
     
-    public bool IsDownloaded { get; set; }
 }

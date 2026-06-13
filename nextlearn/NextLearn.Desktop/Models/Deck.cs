@@ -22,14 +22,8 @@ public class Deck
     [MaxLength(1000)]
     public string Description { get; set; } = string.Empty;
     
-    [MaxLength(50)]
-    public string Category { get; set; } = "general";
-
     [MaxLength(500)]
     public string Tags { get; set; } = "";
-    
-    [MaxLength(10)]
-    public string Difficulty { get; set; } = "lvl0";
     
     public Guid AuthorId { get; set; }
     
@@ -39,12 +33,14 @@ public class Deck
     public bool IsPublished { get; set; }
     
     public bool IsReviewed { get; set; }
+
+    public bool IsArchived { get; set; }
+
+    public bool IsPinned { get; set; }
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
     public int PageCount { get; set; }
-    
-    public int DownloadsCount { get; set; }
     
     public ICollection<Page> Pages { get; set; } = new List<Page>();
     

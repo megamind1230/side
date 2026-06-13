@@ -15,13 +15,11 @@ public static class HtmlContentBuilder
 
         var body = new StringBuilder();
 
-        body.AppendLine($"<h2>{RenderInline(page.Title ?? "", isOrgFile, imageDir, accumulatedImagePaths)}</h2>");
-        body.AppendLine("<hr>");
-
         var textContent = page.TextContent ?? "";
         var lines = textContent.Split('\n');
 
         var inParagraph = false;
+        var emptyLineCount = 0;
         var i = 0;
 
         while (i < lines.Length)
@@ -33,6 +31,14 @@ public static class HtmlContentBuilder
             {
                 CloseParagraph(body, ref inParagraph);
                 body.AppendLine(codeBlockHtml);
+                i++;
+                continue;
+            }
+
+            if (isOrgFile && TryRenderOrgBlock(lines, ref i, out var orgBlockHtml))
+            {
+                CloseParagraph(body, ref inParagraph);
+                body.AppendLine(orgBlockHtml);
                 i++;
                 continue;
             }
@@ -51,9 +57,14 @@ public static class HtmlContentBuilder
             if (string.IsNullOrEmpty(trimmed))
             {
                 CloseParagraph(body, ref inParagraph);
+                if (emptyLineCount > 0)
+                    body.AppendLine("<br>");
+                emptyLineCount++;
                 i++;
                 continue;
             }
+
+            emptyLineCount = 0;
 
             if (TryRenderHeading(rawLine, out var headingHtml, isOrgFile, imageDir, accumulatedImagePaths))
             {
@@ -67,6 +78,14 @@ public static class HtmlContentBuilder
             {
                 CloseParagraph(body, ref inParagraph);
                 body.AppendLine("<hr>");
+                i++;
+                continue;
+            }
+
+            if (TryRenderBlockquote(lines, ref i, isOrgFile, out var quoteHtml, imageDir, accumulatedImagePaths))
+            {
+                CloseParagraph(body, ref inParagraph);
+                body.AppendLine(quoteHtml);
                 i++;
                 continue;
             }
@@ -245,21 +264,40 @@ public static class HtmlContentBuilder
     {
         html = "";
 
-        var h2Match = Regex.Match(line, @"^(?:##|\*\*)\s+(.+)$");
-        if (h2Match.Success)
+        string marker;
+        int level;
+        string content;
+
+        if (isOrgFile)
         {
-            html = $"<h2>{RenderInline(h2Match.Groups[1].Value, isOrgFile, imageDir, accumulatedImagePaths)}</h2>";
-            return true;
+            var match = Regex.Match(line, @"^(\*{1,6})\s+(.+)$");
+            if (!match.Success) return false;
+            marker = match.Groups[1].Value;
+            level = Math.Min(marker.Length, 6);
+            content = match.Groups[2].Value;
+        }
+        else
+        {
+            var match = Regex.Match(line, @"^(#{1,6})\s+(.+)$");
+            if (match.Success)
+            {
+                marker = match.Groups[1].Value;
+                level = marker.Length;
+                content = match.Groups[2].Value;
+            }
+            else
+            {
+                match = Regex.Match(line, @"^(\*{1,2})\s+(.+)$");
+                if (!match.Success) return false;
+                marker = match.Groups[1].Value;
+                level = marker.Length;
+                content = match.Groups[2].Value;
+            }
         }
 
-        var h1Match = Regex.Match(line, @"^[#*]\s+(.+)$");
-        if (h1Match.Success)
-        {
-            html = $"<h1>{RenderInline(h1Match.Groups[1].Value, isOrgFile, imageDir, accumulatedImagePaths)}</h1>";
-            return true;
-        }
-
-        return false;
+        var renderedContent = RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths);
+        html = $"<h{level}><span class=\"heading-marker\">{EscapeHtml(marker)}</span> {renderedContent}</h{level}>";
+        return true;
     }
 
     private static string RenderInline(string text, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null)
@@ -293,8 +331,6 @@ public static class HtmlContentBuilder
         if (!fullPath.StartsWith(Path.GetFullPath(imageDir), StringComparison.Ordinal))
             return $"<span class=\"image-error\">image path mis-referenced: {EscapeHtml(rawPath)}</span>";
 
-        accumulatedImagePaths?.Add(fullPath);
-
         if (!File.Exists(fullPath))
         {
             return $"<span class=\"image-error\">image not found: {EscapeHtml(rawPath)}</span>";
@@ -316,6 +352,7 @@ public static class HtmlContentBuilder
                 ".svg" => "image/svg+xml",
                 _ => "application/octet-stream"
             };
+            accumulatedImagePaths?.Add(fullPath);
             var encodedPath = Convert.ToBase64String(Encoding.UTF8.GetBytes(fullPath));
             return $"<a href=\"http://img.local/{encodedPath}\"><img class=\"inline-image\" src=\"data:{mime};base64,{b64}\" alt=\"{EscapeHtml(alt)}\" /></a>";
         }
@@ -328,6 +365,7 @@ public static class HtmlContentBuilder
     private static string RenderOrgInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
         var result = EscapeHtml(text);
+        result = PreserveLeadingWhitespace(result);
 
         // Protect org [[...]] and ![[...]] constructs from inline formatting (italic / etc.)
         var orgLinkPlaceholders = new Dictionary<string, string>();
@@ -354,8 +392,8 @@ public static class HtmlContentBuilder
                 _ => m.Value
             });
         result = Regex.Replace(result, @"~([^~]+)~", "<code>$1</code>");
-        result = Regex.Replace(result, @"(?<!\*)\*([^*]+)\*(?!\*)", "<strong>$1</strong>");
         result = Regex.Replace(result, @"/([^/]+)/", "<em>$1</em>");
+        result = Regex.Replace(result, @"(?<!\*)\*([^*]+)\*(?!\*)", "<strong>$1</strong>");
 
         // Restore org link placeholders
         foreach (var (key, value) in orgLinkPlaceholders)
@@ -437,6 +475,7 @@ public static class HtmlContentBuilder
     private static string RenderMarkdownInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
         var result = EscapeHtml(text);
+        result = PreserveLeadingWhitespace(result);
 
         var codeSpans = new List<string>();
         var placeholderIdx = 0;
@@ -534,6 +573,7 @@ public static class HtmlContentBuilder
 
             if (string.IsNullOrEmpty(lineTrimmed))
             {
+                sb.AppendLine("<br>");
                 i++;
                 continue;
             }
@@ -608,6 +648,97 @@ public static class HtmlContentBuilder
         return true;
     }
 
+    private static bool TryRenderBlockquote(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null)
+    {
+        html = "";
+
+        var line = lines[index].TrimEnd('\r');
+        var trimmed = line.Trim();
+
+        if (!trimmed.StartsWith('>')) return false;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("<blockquote>");
+
+        var i = index;
+        while (i < lines.Length)
+        {
+            var rawLine = lines[i].TrimEnd('\r');
+            var trimmedLine = rawLine.Trim();
+
+            if (!trimmedLine.StartsWith('>'))
+            {
+                if (string.IsNullOrEmpty(trimmedLine))
+                {
+                    i++;
+                    break;
+                }
+                break;
+            }
+
+            var content = trimmedLine.Substring(1).TrimStart();
+            sb.AppendLine($"<p>{RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths)}</p>");
+            i++;
+        }
+
+        sb.AppendLine("</blockquote>");
+        html = sb.ToString();
+        index = i - 1;
+        return true;
+    }
+
+    private static bool TryRenderOrgBlock(string[] lines, ref int index, out string html)
+    {
+        html = "";
+
+        var line = lines[index].TrimEnd('\r');
+        var trimmed = line.Trim();
+
+        var match = Regex.Match(trimmed, @"^#\+BEGIN_(\w+)$", RegexOptions.IgnoreCase);
+        if (!match.Success) return false;
+
+        var blockType = match.Groups[1].Value;
+        if (string.Equals(blockType, "SRC", StringComparison.OrdinalIgnoreCase)) return false;
+
+        var content = new StringBuilder();
+        var startIndex = index + 1;
+        var foundEnd = false;
+
+        for (var j = startIndex; j < lines.Length; j++)
+        {
+            if (Regex.IsMatch(lines[j].TrimEnd('\r').Trim(), @"^#\+END_" + blockType + "$", RegexOptions.IgnoreCase))
+            {
+                foundEnd = true;
+                index = j;
+                break;
+            }
+            content.AppendLine(EscapeHtml(lines[j].TrimEnd('\r')));
+        }
+
+        if (!foundEnd) return false;
+
+        var escapedContent = content.ToString().TrimEnd('\n', '\r');
+        html = $"<pre class=\"org-block\">{escapedContent}</pre>";
+        return true;
+    }
+
+    private static string PreserveLeadingWhitespace(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+
+        var i = 0;
+        while (i < text.Length && (text[i] == ' ' || text[i] == '\t'))
+            i++;
+
+        if (i == 0) return text;
+
+        var prefix = new StringBuilder();
+        for (var j = 0; j < i; j++)
+            prefix.Append(text[j] == '\t' ? "&nbsp;&nbsp;&nbsp;&nbsp;" : "&nbsp;");
+
+        return prefix + text.Substring(i);
+    }
+
     private static string EmptyHtml()
     {
         return WrapInHtml("");
@@ -630,9 +761,15 @@ public static class HtmlContentBuilder
         font-size: 16px; line-height: 1.7;
         color: #E2E8F0; background: #1E293B;
         padding: 24px; max-width: none; min-width: calc(100vw + 200px); overflow-x: auto;
+        tab-size: 4;
     }
-    h1 { font-size: 1.5em; font-weight: 700; color: #F1F5F9; margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #334155; }
-    h2 { font-size: 1.25em; font-weight: 600; color: #F1F5F9; margin: 0 0 12px 0; }
+    .heading-marker { opacity: 0.6; user-select: none; }
+    h1 { font-size: 1.6em; font-weight: 700; color: #FBBF24; margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #334155; }
+    h2 { font-size: 1.35em; font-weight: 600; color: #F59E0B; margin: 0 0 12px 0; }
+    h3 { font-size: 1.2em; font-weight: 600; color: #10B981; margin: 0 0 10px 0; }
+    h4 { font-size: 1.1em; font-weight: 600; color: #3B82F6; margin: 0 0 8px 0; }
+    h5 { font-size: 1.0em; font-weight: 600; color: #8B5CF6; margin: 0 0 8px 0; }
+    h6 { font-size: 0.9em; font-weight: 600; color: #EC4899; margin: 0 0 6px 0; }
     hr { border: none; border-top: 1px solid #334155; margin: 16px 0; }
     p { margin: 0 0 12px 0; }
     code { font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace; font-size: 0.9em; background: #78350F; color: #FBBF24; padding: 2px 6px; border-radius: 4px; }
@@ -663,6 +800,16 @@ public static class HtmlContentBuilder
     .todo-inprogress::after { content: "\2212"; color: #F59E0B; font-weight: bold; font-size: 1.2em; }
     .todo-keyword { color: #10B981; font-weight: 600; }
     .done-keyword { color: #94A3B8; }
+    blockquote {
+        margin: 0 0 12px 0;
+        padding: 8px 16px;
+        border-left: 4px solid #60A5FA;
+        background: #334155;
+        border-radius: 0 4px 4px 0;
+    }
+    blockquote p {
+        margin: 0 0 4px 0;
+    }
     <!--HIGHLIGHT_CSS-->
 </style>
 </head>

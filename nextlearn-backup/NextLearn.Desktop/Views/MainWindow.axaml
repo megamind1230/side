@@ -19,31 +19,6 @@
 
     <Panel>
         <!-- Main content panels -->
-        <Panel IsVisible="{Binding IsEditorOpen}">
-            <DockPanel Background="#F8FAFC">
-                <DockPanel DockPanel.Dock="Top" Margin="24,24,24,0">
-                    <Button DockPanel.Dock="Left" Content="Close" Command="{Binding EditorViewModel.CloseCommand}" Padding="16,8"/>
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
-                        <Button Content="Save" Command="{Binding EditorViewModel.SaveCommand}" Padding="16,8"/>
-                        <Button Content="Import to Deck" Command="{Binding EditorViewModel.ImportToDeckCommand}" Background="#10B981" Foreground="White" Padding="16,8"/>
-                    </StackPanel>
-                    <TextBlock Text="{Binding EditorViewModel.DeckTitle}" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </DockPanel>
-
-                <TextBlock DockPanel.Dock="Bottom" Text="{Binding EditorViewModel.StatusMessage}" Foreground="#64748B" Margin="24,0,24,12"/>
-
-                <Border Background="White" CornerRadius="16" Padding="24" Margin="24" 
-                        VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
-                    <TextBox Text="{Binding EditorViewModel.MarkdownContent}"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             FontFamily="Consolas,Monospace"
-                             FontSize="14"
-                             Watermark="Edit markdown here..."/>
-                </Border>
-            </DockPanel>
-        </Panel>
-
         <Panel IsVisible="{Binding IsLearning}">
             <DockPanel Background="#1E293B">
                 <!-- Row 1: DeckTitle -->
@@ -58,8 +33,6 @@
                                    HorizontalAlignment="Center" TextAlignment="Center"
                                    MaxWidth="500" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
-                            <Button Content="Edit" Command="{Binding OpenEditorCommand}"
-                                    Background="Transparent" Foreground="#94A3B8" Padding="12,8" FontSize="14"/>
                             <Button Command="{Binding ToggleSidebarCommand}"
                                     Background="Transparent" Padding="12,8">
                                 <TextBlock Text="☰" FontSize="20" Foreground="#94A3B8"/>
@@ -160,11 +133,30 @@ FontSize="20" Foreground="White"
                                         <Border Background="#1E293B" CornerRadius="12" Padding="20" Margin="0,0,0,16"
                                                 BorderBrush="#334155" BorderThickness="1">
                                             <DockPanel>
-                                                <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center">
+                                                <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
                                                     <Button Content="Learn" 
                                                             Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).NavigateToLearningCommand}"
                                                             CommandParameter="{Binding Id}" 
                                                             Background="#2563EB" Foreground="White" Padding="16,8"/>
+                                                    <Button Content="⋮" Background="#334155" Foreground="#94A3B8" Padding="8,4" FontSize="16"
+                                                            BorderBrush="#334155" BorderThickness="1" x:CompileBindings="False">
+                                                        <Button.Flyout>
+                                                            <Flyout Placement="Bottom">
+                                                                <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="8" Padding="8">
+                                                                    <StackPanel Spacing="4">
+                                                                        <Button Content="📌 Pin"
+                                                                                Command="{Binding $parent[ItemsControl].DataContext.HomeViewModel.TogglePinDeckCommand}"
+                                                                                CommandParameter="{Binding}"
+                                                                                Background="Transparent" Foreground="#E2E8F0" Padding="8,4" HorizontalAlignment="Stretch"/>
+                                                                        <Button Content="🗄️ Archive"
+                                                                                Command="{Binding $parent[ItemsControl].DataContext.HomeViewModel.ArchiveDeckCommand}"
+                                                                                CommandParameter="{Binding}"
+                                                                                Background="Transparent" Foreground="#E2E8F0" Padding="8,4" HorizontalAlignment="Stretch"/>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </Flyout>
+                                                        </Button.Flyout>
+                                                    </Button>
                                                 </StackPanel>
                                                     <StackPanel Margin="0,0,24,0">
                                                         <DockPanel>
@@ -192,61 +184,15 @@ FontSize="20" Foreground="White"
             </DockPanel>
         </Panel>
 
-        <!-- Search popups - ALWAYS ON TOP (last in Panel) -->
-        <Panel IsVisible="{Binding LearningViewModel.ShowSearch}" ZIndex="100">
-            <Border Background="#80000000">
-                <Border Background="#06B6D4" CornerRadius="16" Padding="24" Margin="100" 
-                        VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="600" MaxHeight="500">
-                    <DockPanel>
-                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-                            <Button DockPanel.Dock="Right" Content="X" Command="{Binding LearningViewModel.ToggleSearchCommand}" Padding="8,4" Background="White"/>
-                            <TextBlock Text="Search in deck (Enter to open in neovim)" FontSize="20" FontWeight="Bold" Foreground="White"/>
-                        </DockPanel>
-                        <TextBox x:Name="DeckSearchBox" Text="{Binding LearningViewModel.SearchText}" 
-                                 Watermark="Type to search..." FontSize="16" Padding="12" Margin="0,0,0,12" Background="White"/>
-                        <ScrollViewer>
-                            <ItemsControl ItemsSource="{Binding LearningViewModel.SearchResults}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="#F1F5F9" CornerRadius="8" Padding="12" Margin="0,0,0,8">
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="14"/>
-                                                <TextBlock Text="{Binding TextContent}" Foreground="#64748B" FontSize="12" 
-                                                           TextWrapping="Wrap" MaxHeight="40" TextTrimming="CharacterEllipsis"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </DockPanel>
-                </Border>
-            </Border>
-        </Panel>
-
         <!-- Right sidebar overlay -->
         <Panel IsVisible="{Binding IsSidebarOpen}" ZIndex="200">
             <Border Background="#80000000" PointerPressed="CloseSidebarOnBackdrop">
                 <Border Background="#1E293B" Width="280" HorizontalAlignment="Right"
                         BorderBrush="#334155" BorderThickness="1,0,0,0">
-                    <StackPanel Spacing="16" Margin="20">
-                        <!-- Header -->
-                        <DockPanel>
-                            <Button DockPanel.Dock="Left" Command="{Binding ToggleSidebarCommand}"
-                                    Background="Transparent" Padding="6">
-                                <TextBlock Text="✕" FontSize="16" Foreground="#94A3B8"/>
-                            </Button>
-                            <TextBlock Text="Sidebar" FontSize="20" FontWeight="Bold" Foreground="#E2E8F0" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                        </DockPanel>
-                        <Border Height="1" Background="#334155"/>
-
-                        <!-- User info placeholder -->
-                        <TextBlock Text="User" FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0"/>
-                        <TextBlock Text="Signed in (activity stats coming soon)" FontSize="12" Foreground="#94A3B8"/>
-
-                        <Border Height="1" Background="#334155"/>
-
-                        <Button Command="{Binding OpenSettingsCommand}"
+                    <DockPanel Margin="20">
+                        <!-- Settings docked to bottom -->
+                        <Border DockPanel.Dock="Bottom" Height="1" Background="#334155" Margin="0,0,0,12"/>
+                        <Button DockPanel.Dock="Bottom" Command="{Binding OpenSettingsCommand}"
                                 Background="#334155" Foreground="#E2E8F0" Padding="12,8"
                                 HorizontalAlignment="Stretch">
                             <DockPanel>
@@ -254,13 +200,51 @@ FontSize="20" Foreground="White"
                                 <TextBlock Text="  Settings" FontSize="14" VerticalAlignment="Center"/>
                             </DockPanel>
                         </Button>
-                    </StackPanel>
+
+                        <!-- Navigation items -->
+                        <StackPanel Spacing="16">
+                            <!-- Header -->
+                            <DockPanel>
+                                <Button DockPanel.Dock="Left" Command="{Binding ToggleSidebarCommand}"
+                                        Background="Transparent" Padding="6">
+                                    <TextBlock Text="✕" FontSize="16" Foreground="#94A3B8"/>
+                                </Button>
+                                <TextBlock Text="Sidebar" FontSize="20" FontWeight="Bold" Foreground="#E2E8F0" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </DockPanel>
+                            <Border Height="1" Background="#334155"/>
+
+                            <Button Command="{Binding OpenDecksFolderCommand}"
+                                    Background="#334155" Foreground="#E2E8F0" Padding="12,8"
+                                    HorizontalAlignment="Stretch">
+                                <DockPanel>
+                                    <TextBlock Text="📂" FontSize="16" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                    <TextBlock Text="  Open Decks Folder" FontSize="14" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </Button>
+                            <Button Command="{Binding ShowPinnedViewCommand}"
+                                    Background="#334155" Foreground="#E2E8F0" Padding="12,8"
+                                    HorizontalAlignment="Stretch">
+                                <DockPanel>
+                                    <TextBlock Text="📌" FontSize="16" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                    <TextBlock Text="  Pinned" FontSize="14" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </Button>
+                            <Button Command="{Binding ShowArchivedViewCommand}"
+                                    Background="#334155" Foreground="#E2E8F0" Padding="12,8"
+                                    HorizontalAlignment="Stretch">
+                                <DockPanel>
+                                    <TextBlock Text="🗄️" FontSize="16" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                    <TextBlock Text="  Archived" FontSize="14" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </Button>
+                        </StackPanel>
+                    </DockPanel>
                 </Border>
             </Border>
         </Panel>
 
         <!-- Shortcuts Handbook overlay -->
-        <Panel IsVisible="{Binding IsShortcutsHandbookOpen}" ZIndex="150">
+        <Panel IsVisible="{Binding IsShortcutsHandbookOpen}" ZIndex="999">
             <Border Background="#80000000" PointerPressed="CloseShortcutsHandbookOnBackdrop">
                 <Border Background="#1E293B" CornerRadius="16" Padding="28" Margin="100"
                         VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520" MaxHeight="540">
@@ -303,17 +287,15 @@ FontSize="20" Foreground="White"
                                 <!-- Learning -->
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="Learning" FontSize="15" FontWeight="Bold" Foreground="#0D9488" Margin="0,0,0,4"/>
-                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto">
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="n / →" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
                                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Next page" Foreground="#94A3B8" Margin="0,0,0,4"/>
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="p / ←" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
                                         <TextBlock Grid.Row="1" Grid.Column="1" Text="Previous page" Foreground="#94A3B8" Margin="0,0,0,4"/>
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="j / k" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
                                         <TextBlock Grid.Row="2" Grid.Column="1" Text="Scroll content (vertically)" Foreground="#94A3B8" Margin="0,0,0,4"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="h / l" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Scroll content (horizontally)" Foreground="#94A3B8" Margin="0,0,0,4"/>
-                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="/" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,0"/>
-                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Search in deck" Foreground="#94A3B8" Margin="0,0,0,0"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="h / l" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,0"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Scroll content (horizontally)" Foreground="#94A3B8" Margin="0,0,0,0"/>
                                     </Grid>
                                 </StackPanel>
                                 <Border Height="1" Background="#334155"/>
@@ -366,25 +348,30 @@ FontSize="20" Foreground="White"
                             </Border>
                             <!-- Bottom controls (before image area so image fills remaining space) -->
                             <Border DockPanel.Dock="Bottom" Padding="16,10" Background="#1E293B">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
-                                <Button Content="1:1" Command="{Binding ResetZoomCommand}"
-                                        Padding="8,4" Background="#334155" Foreground="#E2E8F0" FontSize="12"/>
-                                <Border Height="24" Width="1" Background="#334155"/>
-                                    <Button Content="−" Command="{Binding ZoomOutCommand}"
-                                            Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
-                                    <Slider Value="{Binding ZoomLevel}" Minimum="0.5" Maximum="3.0"
-                                            Width="120" VerticalAlignment="Center"/>
-                                    <Button Content="+" Command="{Binding ZoomInCommand}"
-                                            Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
-                                    <Border Height="24" Width="1" Background="#334155"/>
-                                <Button Content="Invert" Command="{Binding ToggleInvertCommand}"
-                                        Padding="8,4" Background="#334155" Foreground="#E2E8F0" FontSize="12"/>
-                                <Border Height="24" Width="1" Background="#334155"/>
-                                <Button Content="Open" Command="{Binding OpenImageInViewerCommand}"
-                                        Padding="12,4" Background="#2563EB" Foreground="White" FontSize="14"/>
-                                <TextBlock Text="{Binding ZoomLevel, StringFormat=' {0:P0}'}"
-                                           Foreground="#E2E8F0" FontSize="13" VerticalAlignment="Center"/>
-                            </StackPanel>
+                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                                 <Button Content="1:1" Command="{Binding ResetZoomCommand}"
+                                         Padding="8,4" Background="#334155" Foreground="#E2E8F0" FontSize="12"/>
+                                 <Border Height="24" Width="1" Background="#334155"/>
+                                     <Button Content="−" Command="{Binding ZoomOutCommand}"
+                                             Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
+                                     <Slider Value="{Binding ZoomLevel}" Minimum="0.5" Maximum="3.0"
+                                             Width="120" VerticalAlignment="Center"/>
+                                     <Button Content="+" Command="{Binding ZoomInCommand}"
+                                             Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
+                                 <TextBlock Text="{Binding ZoomLevel, StringFormat=' {0:P0}'}"
+                                            Foreground="#E2E8F0" FontSize="13" VerticalAlignment="Center"/>
+                                 <Border Height="24" Width="1" Background="#334155"/>
+                                 <Button Content="Invert" Command="{Binding ToggleInvertCommand}"
+                                         Padding="8,4" Background="#334155" Foreground="#E2E8F0" FontSize="12"/>
+                                 <Border Height="24" Width="1" Background="#334155"/>
+                                 <Button Content="Open" Command="{Binding OpenImageInViewerCommand}"
+                                         Padding="12,4" Background="#2563EB" Foreground="White" FontSize="14"/>
+                                 <Border Height="24" Width="1" Background="#334155"/>
+                                     <Button Content="◀" Command="{Binding PreviousImageCommand}"
+                                             Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
+                                     <Button Content="▶" Command="{Binding NextImageCommand}"
+                                             Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
+                             </StackPanel>
                             </Border>
                             <!-- Image area (fills remaining space between top & bottom bars) -->
                             <Border Background="#0F172A" ClipToBounds="True"
@@ -425,19 +412,6 @@ FontSize="20" Foreground="White"
                 </Border>
                 <ScrollViewer Margin="24">
                     <StackPanel Spacing="16">
-                        <TextBlock Text="Editor" FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0"/>
-                        <ComboBox SelectedItem="{Binding Editor}" FontSize="13"
-                                  Foreground="#E2E8F0" Background="#1E293B" BorderBrush="#334155">
-                            <ComboBox.Items>
-                                <sys:String>neovim</sys:String>
-                                <sys:String>vscode</sys:String>
-                                <sys:String>emacs</sys:String>
-                                <sys:String>sublime</sys:String>
-                            </ComboBox.Items>
-                        </ComboBox>
-
-                        <Border Height="1" Background="#334155"/>
-
                         <TextBlock Text="Theme" FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0"/>
                         <ComboBox SelectedItem="{Binding Theme}" FontSize="13"
                                   Foreground="#E2E8F0" Background="#1E293B" BorderBrush="#334155">
@@ -457,9 +431,14 @@ FontSize="20" Foreground="White"
                         <Border Height="1" Background="#334155"/>
 
                         <TextBlock Text="Decks Path (restart required)" FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0"/>
-                        <TextBox Text="{Binding DecksPath}" Watermark="~/nextlearn/decks"
-                                 Padding="8" FontSize="13" Foreground="#E2E8F0"
-                                 Background="#1E293B" BorderBrush="#334155"/>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Command="{Binding BrowseDecksPathCommand}"
+                                    Background="#334155" Foreground="#E2E8F0" Padding="12,8"
+                                    Content="Browse" FontSize="13" Margin="8,0,0,0"/>
+                            <TextBox Text="{Binding DecksPath}" Watermark="~/nextlearn/decks"
+                                     Padding="8" FontSize="13" Foreground="#E2E8F0"
+                                     Background="#1E293B" BorderBrush="#334155"/>
+                        </DockPanel>
 
                         <Border Height="1" Background="#334155"/>
 
@@ -476,6 +455,119 @@ FontSize="20" Foreground="White"
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
+            </DockPanel>
+        </Panel>
+
+        <!-- Pinned decks overlay -->
+        <Panel IsVisible="{Binding IsPinnedViewOpen}" ZIndex="300">
+            <DockPanel Background="#1E293B">
+                <Border DockPanel.Dock="Top" Padding="16,12" Background="#1E293B">
+                    <DockPanel>
+                        <Button Command="{Binding ClosePinnedViewCommand}"
+                                Background="Transparent" Padding="12,8">
+                            <TextBlock Text="← Back" FontSize="16" Foreground="#94A3B8"/>
+                        </Button>
+                        <TextBlock Text="📌 Pinned Decks" FontSize="20" FontWeight="Bold"
+                                   Foreground="#E2E8F0" VerticalAlignment="Center"
+                                   Margin="16,0,0,0"/>
+                    </DockPanel>
+                </Border>
+                <ScrollViewer Margin="24">
+                    <ItemsControl ItemsSource="{Binding PinnedDecks}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#1E293B" CornerRadius="12" Padding="20" Margin="0,0,0,16"
+                                        BorderBrush="#334155" BorderThickness="1">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Spacing="8">
+                                            <Button Content="Unpin"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).UnpinFromViewCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Background="#334155" Foreground="#E2E8F0" Padding="12,8"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,24,0">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Title}" FontSize="14"
+                                                           Foreground="#E2E8F0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                                                <TextBlock FontSize="13" Foreground="#FBBF24" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                                    <Run Text="Name: "/>
+                                                    <Run Text="{Binding FileName}"/>
+                                                </TextBlock>
+                                            </DockPanel>
+                                            <TextBlock Text="{Binding Description}" Foreground="#94A3B8" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Panel>
+
+        <!-- Archived decks overlay -->
+        <Panel IsVisible="{Binding IsArchivedViewOpen}" ZIndex="310">
+            <DockPanel Background="#1E293B">
+                <Border DockPanel.Dock="Top" Padding="16,12" Background="#1E293B">
+                    <DockPanel>
+                        <Button Command="{Binding CloseArchivedViewCommand}"
+                                Background="Transparent" Padding="12,8">
+                            <TextBlock Text="← Back" FontSize="16" Foreground="#94A3B8"/>
+                        </Button>
+                        <TextBlock Text="🗄️ Archived Decks" FontSize="20" FontWeight="Bold"
+                                   Foreground="#E2E8F0" VerticalAlignment="Center"
+                                   Margin="16,0,0,0"/>
+                    </DockPanel>
+                </Border>
+                <ScrollViewer Margin="24">
+                    <ItemsControl ItemsSource="{Binding ArchivedDecks}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#1E293B" CornerRadius="12" Padding="20" Margin="0,0,0,16"
+                                        BorderBrush="#334155" BorderThickness="1">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Spacing="8">
+                                            <Button Content="Unarchive"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).UnarchiveCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Background="#0D9488" Foreground="White" Padding="12,8"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,24,0">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Title}" FontSize="14"
+                                                           Foreground="#E2E8F0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                                                <TextBlock FontSize="13" Foreground="#FBBF24" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                                    <Run Text="Name: "/>
+                                                    <Run Text="{Binding FileName}"/>
+                                                </TextBlock>
+                                            </DockPanel>
+                                            <TextBlock Text="{Binding Description}" Foreground="#94A3B8" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Panel>
+
+        <Panel IsVisible="{Binding IsMarketplaceOpen}" ZIndex="310">
+            <DockPanel Background="#1E293B">
+                <Border DockPanel.Dock="Top" Padding="16,12" Background="#1E293B">
+                    <DockPanel>
+                        <Button Command="{Binding CloseMarketplaceCommand}"
+                                Background="Transparent" Padding="12,8">
+                            <TextBlock Text="← Back" FontSize="16" Foreground="#94A3B8"/>
+                        </Button>
+                    </DockPanel>
+                </Border>
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16" Margin="48">
+                    <TextBlock Text="Marketplace coming soon in later updates.." FontSize="24" FontWeight="Bold"
+                               Foreground="#E2E8F0" TextWrapping="Wrap" TextAlignment="Center"/>
+                    <TextBlock Text="you can share notes with Telegram, 0x0.st, google drive ..etc for now"
+                               FontSize="16" Foreground="#94A3B8" TextWrapping="Wrap" TextAlignment="Center"/>
+                </StackPanel>
             </DockPanel>
         </Panel>
     </Panel>

@@ -57,7 +57,7 @@ public static class DeckFileParser
                 }
             }
 
-            var pages = ParsePages(lines, contentStart, title);
+            var pages = ParsePages(lines, contentStart, title, isOrg);
             if (pages.Count == 0)
             {
                 pages.Add(new Page
@@ -78,9 +78,10 @@ public static class DeckFileParser
                 Description = description,
                 Tags = tags,
                 HasExplicitTitle = hasExplicitTitle,
-                Difficulty = "lvl0",
                 IsPublished = true,
                 IsReviewed = true,
+                IsArchived = fileName.EndsWith('~'),
+                IsPinned = fileName.StartsWith('+'),
                 CreatedAt = File.GetCreationTime(filePath),
                 PageCount = pages.Count,
                 Pages = pages
@@ -205,7 +206,7 @@ public static class DeckFileParser
         return (title, description, tags, i);
     }
 
-    private static List<Page> ParsePages(string[] lines, int startLine, string fallbackTitle)
+    private static List<Page> ParsePages(string[] lines, int startLine, string fallbackTitle, bool isOrg)
     {
         var pages = new List<Page>();
         var currentSection = "";
@@ -216,16 +217,19 @@ public static class DeckFileParser
         bool hasSectionContent = false;
         int pageNum = 1;
         bool hasH2 = false;
+        var h2Marker = isOrg ? "**" : "##";
 
         for (int i = startLine; i < lines.Length; i++)
         {
-            if (Regex.IsMatch(lines[i], @"^(?:##|\*\*)\s+"))
+            if (isOrg ? Regex.IsMatch(lines[i], @"^\*\*\s+") : Regex.IsMatch(lines[i], @"^(?:##|\*\*)\s+"))
             {
                 hasH2 = true;
                 break;
             }
         }
 
+        var preContent = new StringBuilder();
+        bool seenFirstHeading = false;
         bool inCodeBlock = false;
 
         for (int i = startLine; i < lines.Length; i++)
@@ -239,35 +243,70 @@ public static class DeckFileParser
             if (isFence)
             {
                 inCodeBlock = !inCodeBlock;
-                if (inPage) currentContent.AppendLine(line);
+                if (seenFirstHeading) { if (inPage) currentContent.AppendLine(line); else if (hasSectionContent) sectionContent.AppendLine(line); }
+                else preContent.AppendLine(line);
                 continue;
             }
             if (isBeginSrc)
             {
                 inCodeBlock = true;
-                if (inPage) currentContent.AppendLine(line);
+                if (seenFirstHeading) { if (inPage) currentContent.AppendLine(line); else if (hasSectionContent) sectionContent.AppendLine(line); }
+                else preContent.AppendLine(line);
                 continue;
             }
             if (isEndSrc)
             {
                 inCodeBlock = false;
-                if (inPage) currentContent.AppendLine(line);
+                if (seenFirstHeading) { if (inPage) currentContent.AppendLine(line); else if (hasSectionContent) sectionContent.AppendLine(line); }
+                else preContent.AppendLine(line);
                 continue;
             }
 
             if (inCodeBlock)
             {
-                if (inPage) currentContent.AppendLine(line);
-                else if (hasSectionContent) sectionContent.AppendLine(line);
+                if (seenFirstHeading) { if (inPage) currentContent.AppendLine(line); else if (hasSectionContent) sectionContent.AppendLine(line); }
+                else preContent.AppendLine(line);
                 continue;
             }
 
-            var h1Match = Regex.Match(line, @"^[#*]\s+(.+)$");
-            var h2Match = Regex.Match(line, @"^(?:##|\*\*)\s+(.+)$");
+            // Before the first heading, accumulate content as pre-content
+            if (!seenFirstHeading)
+            {
+                var isH1 = Regex.IsMatch(line, isOrg ? @"^\*\s+" : @"^[#*]\s+");
+                var isH2 = Regex.IsMatch(line, isOrg ? @"^\*\*\s+" : @"^(?:##|\*\*)\s+");
+                if (isH1 || isH2)
+                {
+                    seenFirstHeading = true;
+                    if (preContent.Length > 0)
+                    {
+                        pages.Add(new Page
+                        {
+                            Id = Guid.NewGuid(),
+                            SectionTitle = null,
+                            Title = fallbackTitle,
+                            TextContent = preContent.ToString().Trim(),
+                            ContentType = ContentType.Text,
+                            PageNumber = pageNum++,
+                            IsPreHeadingPage = true
+                        });
+                    }
+                }
+                else
+                {
+                    preContent.AppendLine(line);
+                    continue;
+                }
+            }
+
+            var h1Match = Regex.Match(line, isOrg ? @"^\*\s+(.+)$" : @"^[#*]\s+(.+)$");
+            var h2Match = Regex.Match(line, isOrg ? @"^\*\*\s+(.+)$" : @"^(?:##|\*\*)\s+(.+)$");
 
             if (h2Match.Success)
             {
-                // Discard any section-level content (preamble before first H2 is not a page)
+                string? orphanContent = null;
+                if (hasSectionContent && sectionContent.Length > 0)
+                    orphanContent = sectionContent.ToString().Trim();
+
                 hasSectionContent = false;
                 sectionContent.Clear();
 
@@ -283,9 +322,25 @@ public static class DeckFileParser
                         PageNumber = pageNum++
                     });
                 }
+
+                if (orphanContent != null)
+                {
+                    pages.Add(new Page
+                    {
+                        Id = Guid.NewGuid(),
+                        SectionTitle = currentSection,
+                        Title = currentSection,
+                        TextContent = $"{h2Marker} no H2 heading found yet\n\n{orphanContent}",
+                        ContentType = ContentType.Text,
+                        PageNumber = pageNum++
+                    });
+                }
+
                 currentTitle = h2Match.Groups[1].Value.Trim();
                 currentContent.Clear();
                 inPage = true;
+
+                currentContent.AppendLine(line);
             }
             else if (h1Match.Success)
             {
@@ -297,7 +352,7 @@ public static class DeckFileParser
                         Id = Guid.NewGuid(),
                         SectionTitle = currentSection,
                         Title = currentSection,
-                        TextContent = sectionContent.ToString().Trim(),
+                        TextContent = $"{h2Marker} no H2 heading found yet\n\n{sectionContent.ToString().Trim()}",
                         ContentType = ContentType.Text,
                         PageNumber = pageNum++
                     });
@@ -322,6 +377,10 @@ public static class DeckFileParser
                 sectionContent.Clear();
                 inPage = !hasH2;
                 hasSectionContent = hasH2;
+
+                // Include H1 heading line in content for inline rendering (page-only mode)
+                if (!hasH2)
+                    currentContent.AppendLine(line);
             }
             else if (inPage)
             {
@@ -333,14 +392,27 @@ public static class DeckFileParser
             }
         }
 
-        if (hasSectionContent && sectionContent.Length > 0)
+        if (!seenFirstHeading && preContent.Length > 0)
+        {
+            pages.Add(new Page
+            {
+                Id = Guid.NewGuid(),
+                SectionTitle = null,
+                Title = fallbackTitle,
+                TextContent = preContent.ToString().Trim(),
+                ContentType = ContentType.Text,
+                PageNumber = pageNum++,
+                IsPreHeadingPage = true
+            });
+        }
+        else if (hasSectionContent && sectionContent.Length > 0)
         {
             pages.Add(new Page
             {
                 Id = Guid.NewGuid(),
                 SectionTitle = currentSection,
                 Title = currentSection,
-                TextContent = sectionContent.ToString().Trim(),
+                TextContent = $"{h2Marker} no H2 heading found yet\n\n{sectionContent.ToString().Trim()}",
                 ContentType = ContentType.Text,
                 PageNumber = pageNum++
             });

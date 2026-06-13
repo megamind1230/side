@@ -23,12 +23,6 @@ public class SettingsService
 
     public AppSettings Settings => _settings;
 
-    public string Editor
-    {
-        get => _settings.Editor;
-        set => _settings.Editor = value;
-    }
-
     public string Theme
     {
         get => _settings.Theme;

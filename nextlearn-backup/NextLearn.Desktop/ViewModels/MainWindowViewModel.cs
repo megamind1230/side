@@ -1,9 +1,11 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using CommunityToolkit.Mvvm.Input;
 using NextLearn.Desktop.Data;
@@ -18,7 +20,6 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly AppDbContext _context;
     private readonly UserService _userService;
     private readonly DeckService _deckService;
-    private readonly FlashcardService _flashcardService;
     private readonly SettingsService _settingsService;
 
     [ObservableProperty]
@@ -43,7 +44,13 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isSettingsOpen;
 
     [ObservableProperty]
-    private string _editor = "";
+    private bool _isPinnedViewOpen;
+
+    [ObservableProperty]
+    private bool _isArchivedViewOpen;
+
+    [ObservableProperty]
+    private bool _isMarketplaceOpen;
 
     [ObservableProperty]
     private string _theme = "";
@@ -80,6 +87,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isInverted;
+
+    public Func<string?, Task<string?>>? PickFolderHandler { get; set; }
 
     public string CurrentImageFileName => Path.GetFileName(CurrentImagePath);
 
@@ -164,36 +173,43 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public HomeViewModel HomeViewModel { get; }
     public LearningViewModel LearningViewModel { get; }
-    public FlashcardListViewModel FlashcardListViewModel { get; }
-    public EditorViewModel EditorViewModel { get; }
-    public EditorLauncher EditorLauncher { get; }
 
     public MainWindowViewModel()
     {
         _context = new AppDbContext();
         _context.Database.EnsureCreated();
+        MigrateSchema(_context);
         
         _userService = new UserService(_context);
         _deckService = new DeckService(_context, _userService);
-        _flashcardService = new FlashcardService(_context, _userService);
         _settingsService = new SettingsService();
 
         LoadSettings();
 
-        EditorLauncher = new EditorLauncher(_settingsService);
-
         var decksPath = _settingsService.ResolvedDecksPath;
         HomeViewModel = new HomeViewModel(_deckService, this, decksPath);
-        LearningViewModel = new LearningViewModel(_deckService, _flashcardService, _userService, this, decksPath);
-        FlashcardListViewModel = new FlashcardListViewModel(_flashcardService);
-        EditorViewModel = new EditorViewModel(_deckService, this, decksPath);
+        LearningViewModel = new LearningViewModel(_deckService, _userService, this, decksPath);
 
         CurrentView = HomeViewModel;
     }
 
+    private static void MigrateSchema(AppDbContext context)
+    {
+        try { context.Database.ExecuteSqlRaw("ALTER TABLE Decks ADD COLUMN IsArchived INTEGER NOT NULL DEFAULT 0"); } catch { }
+        try { context.Database.ExecuteSqlRaw("ALTER TABLE Decks ADD COLUMN IsPinned INTEGER NOT NULL DEFAULT 0"); } catch { }
+        try { context.Database.ExecuteSqlRaw("ALTER TABLE Pages DROP COLUMN DurationSeconds"); } catch { }
+        try { context.Database.ExecuteSqlRaw("ALTER TABLE Pages DROP COLUMN MediaPath"); } catch { }
+        try { context.Database.ExecuteSqlRaw("ALTER TABLE Decks DROP COLUMN Category"); } catch { }
+        try { context.Database.ExecuteSqlRaw("ALTER TABLE Decks DROP COLUMN Difficulty"); } catch { }
+        try { context.Database.ExecuteSqlRaw("ALTER TABLE Decks DROP COLUMN DownloadsCount"); } catch { }
+        try { context.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN Email"); } catch { }
+        try { context.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN PasswordHash"); } catch { }
+        try { context.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN TotalDecksShared"); } catch { }
+        try { context.Database.ExecuteSqlRaw("ALTER TABLE UserProgress DROP COLUMN IsDownloaded"); } catch { }
+    }
+
     private void LoadSettings()
     {
-        Editor = _settingsService.Editor;
         Theme = _settingsService.Theme;
         Font = _settingsService.Font;
         DecksPath = _settingsService.DecksPath;
@@ -202,7 +218,6 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void SaveSettings()
     {
-        _settingsService.Editor = Editor;
         _settingsService.Theme = Theme;
         _settingsService.Font = Font;
         _settingsService.DecksPath = DecksPath;
@@ -226,30 +241,84 @@ public partial class MainWindowViewModel : ViewModelBase
     private void ResetSettings()
     {
         var defaults = SettingsService.Defaults();
-        Editor = defaults.Editor;
         Theme = defaults.Theme;
         Font = defaults.Font;
         DecksPath = defaults.DecksPath;
     }
 
     [RelayCommand]
-    public void OpenEditor()
+    private async Task BrowseDecksPath()
     {
-        if (LearningViewModel.CurrentPage == null) return;
-        
-        var deckId = LearningViewModel.CurrentPage.DeckId;
-        var deck = _deckService.GetDeckById(deckId);
-        if (deck == null) return;
-
-        EditingDeck = deck;
-        EditorViewModel.LoadDeck(deck);
-        IsEditorOpen = true;
+        if (PickFolderHandler != null)
+        {
+            var result = await PickFolderHandler(DecksPath);
+            if (result != null)
+                DecksPath = result;
+        }
     }
 
-    public void CloseEditor()
+    [RelayCommand]
+    private void OpenDecksFolder()
     {
-        IsEditorOpen = false;
-        EditingDeck = null;
+        var path = _settingsService.ResolvedDecksPath;
+        Log.Information("OpenDecksFolder: {Path}", path);
+
+        if (!Directory.Exists(path))
+            Directory.CreateDirectory(path);
+
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                Process.Start("explorer", path);
+                Log.Information("Opened via explorer");
+                return;
+            }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                Process.Start("open", path);
+                Log.Information("Opened via open");
+                return;
+            }
+
+            foreach (var fm in new[]
+            {
+                "thunar", "nautilus", "dolphin", "nemo", "caja",
+                "pcmanfm", "konqueror", "krusader", "doublecmd",
+                "spacefm", "xfe", "rox-filer",
+                "ranger", "nnn", "lf", "mc", "yazi"
+            })
+            {
+                try
+                {
+                    Process.Start(fm, path);
+                    Log.Information("Opened via {FileManager}", fm);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "{FileManager} not found for {Path}", fm, path);
+                }
+            }
+
+            try
+            {
+                Process.Start("xdg-open", path);
+                Log.Information("Opened via xdg-open (last resort)");
+                return;
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "xdg-open also failed for {Path}", path);
+            }
+
+            Log.Error("No file manager found to open {Path}", path);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to open decks folder: {Path}", path);
+        }
     }
 
     [RelayCommand]
@@ -288,17 +357,19 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    public void NavigateToFlashcards()
+    public void NavigateToMarketplace()
     {
-        IsLearning = false;
-        FlashcardListViewModel.Refresh();
-        CurrentView = FlashcardListViewModel;
+        IsSidebarOpen = false;
+        IsPinnedViewOpen = false;
+        IsArchivedViewOpen = false;
+        IsSettingsOpen = false;
+        IsMarketplaceOpen = true;
     }
 
     [RelayCommand]
-    public void NavigateToMarketplace()
+    public void CloseMarketplace()
     {
-        Process.Start(new ProcessStartInfo("https://google.com") { UseShellExecute = true });
+        IsMarketplaceOpen = false;
     }
 
     [RelayCommand]
@@ -310,7 +381,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     public void NavigateToPlugins()
     {
-        Process.Start(new ProcessStartInfo("https://github.com/megamind1230") { UseShellExecute = true });
+        Views.MainWindow.OpenInBrowser("https://github.com/megamind1230");
     }
 
     [RelayCommand]
@@ -325,6 +396,8 @@ public partial class MainWindowViewModel : ViewModelBase
         LoadSettings();
         SettingsStatus = "";
         IsSidebarOpen = false;
+        IsPinnedViewOpen = false;
+        IsArchivedViewOpen = false;
         IsSettingsOpen = true;
     }
 
@@ -333,6 +406,65 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         SettingsStatus = "";
         IsSettingsOpen = false;
+    }
+
+    public ObservableCollection<Deck> PinnedDecks { get; set; } = new();
+    public ObservableCollection<Deck> ArchivedDecks { get; set; } = new();
+
+    [RelayCommand]
+    public void ShowPinnedView()
+    {
+        var decksPath = _settingsService.ResolvedDecksPath;
+        PinnedDecks.Clear();
+        foreach (var d in _deckService.GetPinnedDecks(decksPath))
+            PinnedDecks.Add(d);
+        IsSidebarOpen = false;
+        IsArchivedViewOpen = false;
+        IsSettingsOpen = false;
+        IsPinnedViewOpen = true;
+    }
+
+    [RelayCommand]
+    public void ShowArchivedView()
+    {
+        var decksPath = _settingsService.ResolvedDecksPath;
+        ArchivedDecks.Clear();
+        foreach (var d in _deckService.GetArchivedDecks(decksPath))
+            ArchivedDecks.Add(d);
+        IsSidebarOpen = false;
+        IsPinnedViewOpen = false;
+        IsSettingsOpen = false;
+        IsArchivedViewOpen = true;
+    }
+
+    [RelayCommand]
+    public void ClosePinnedView()
+    {
+        IsPinnedViewOpen = false;
+    }
+
+    [RelayCommand]
+    public void CloseArchivedView()
+    {
+        IsArchivedViewOpen = false;
+    }
+
+    [RelayCommand]
+    public void UnpinFromView(Deck deck)
+    {
+        var decksPath = _settingsService.ResolvedDecksPath;
+        _deckService.UnpinDeck(deck.Id, decksPath);
+        PinnedDecks.Remove(deck);
+        HomeViewModel.Refresh();
+    }
+
+    [RelayCommand]
+    public void Unarchive(Deck deck)
+    {
+        var decksPath = _settingsService.ResolvedDecksPath;
+        _deckService.UnarchiveDeck(deck.Id, decksPath);
+        ArchivedDecks.Remove(deck);
+        HomeViewModel.Refresh();
     }
 
     [RelayCommand]

@@ -14,7 +14,6 @@ namespace NextLearn.Desktop.ViewModels;
 public partial class LearningViewModel : ViewModelBase
 {
     private readonly DeckService _deckService;
-    private readonly FlashcardService _flashcardService;
     private readonly UserService _userService;
     private readonly MainWindowViewModel _mainViewModel;
     private readonly string _decksPath;
@@ -30,13 +29,13 @@ public partial class LearningViewModel : ViewModelBase
     private Page? _currentPage;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSection))]
     private string _currentSectionTitle = "";
 
     [ObservableProperty]
     private string _currentSectionDisplay = "";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSection))]
     private string _currentSectionBreadcrumb = "";
 
     [ObservableProperty]
@@ -48,7 +47,7 @@ public partial class LearningViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isOrgFile;
 
-    public bool HasSection => !string.IsNullOrEmpty(CurrentSectionTitle);
+    public bool HasSection => !string.IsNullOrEmpty(CurrentSectionBreadcrumb);
 
     [ObservableProperty]
     private string _deckTitle = "";
@@ -75,31 +74,12 @@ public partial class LearningViewModel : ViewModelBase
     private bool _isCompleted;
 
     [ObservableProperty]
-    private bool _showFeedbackDialog;
-
-    [ObservableProperty]
-    private string _feedbackMessage = "";
-
-    [ObservableProperty]
-    private string _feedbackTopic = "";
-
-    [ObservableProperty]
-    private bool _showSearch;
-
-    [ObservableProperty]
-    private string _searchText = "";
-
-    [ObservableProperty]
-    private List<Page> _searchResults = new();
-
-    [ObservableProperty]
     private List<string> _currentPageImagePaths = new();
 
-    public LearningViewModel(DeckService deckService, FlashcardService flashcardService, 
+    public LearningViewModel(DeckService deckService,
         UserService userService, MainWindowViewModel mainViewModel, string? decksPath = null)
     {
         _deckService = deckService;
-        _flashcardService = flashcardService;
         _userService = userService;
         _mainViewModel = mainViewModel;
         _decksPath = Constants.GetDecksPath(decksPath);
@@ -209,7 +189,19 @@ public partial class LearningViewModel : ViewModelBase
         CanGoNext = CurrentPageIndex < TotalPages - 1;
         IsCompleted = false;
 
-        CurrentSectionBreadcrumb = CurrentSectionTitle ?? "";
+        if (!string.IsNullOrEmpty(CurrentSectionTitle))
+        {
+            var h1Marker = IsOrgFile ? "*" : "#";
+            CurrentSectionBreadcrumb = $"{h1Marker} {CurrentSectionTitle}";
+        }
+        else if (CurrentPage?.IsPreHeadingPage == true)
+        {
+            CurrentSectionBreadcrumb = "no H1 heading found yet";
+        }
+        else
+        {
+            CurrentSectionBreadcrumb = "";
+        }
         CurrentPageBreadcrumb = CurrentPage?.Title ?? "";
 
         var imagePaths = new List<string>();
@@ -281,75 +273,9 @@ public partial class LearningViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task AddToFlashcards()
-    {
-        if (CurrentPage != null)
-        {
-            await _flashcardService.GenerateFromPageAsync(CurrentPage.Id);
-        }
-    }
-
-    [RelayCommand]
-    private void OpenFeedback()
-    {
-        ShowFeedbackDialog = true;
-    }
-
-    [RelayCommand]
-    private async Task SubmitFeedback()
-    {
-        if (_currentDeck != null && !string.IsNullOrWhiteSpace(FeedbackTopic))
-        {
-            await _deckService.GiveFeedbackAsync(
-                _currentDeck.Id, 
-                CurrentPage?.Id, 
-                FeedbackMessage, 
-                FeedbackTopic
-            );
-        }
-        ShowFeedbackDialog = false;
-        FeedbackMessage = "";
-        FeedbackTopic = "";
-    }
-
-    [RelayCommand]
-    private void CancelFeedback()
-    {
-        ShowFeedbackDialog = false;
-        FeedbackMessage = "";
-        FeedbackTopic = "";
-    }
-
-    [RelayCommand]
     private async Task Exit()
     {
         await _mainViewModel.ExitLearning();
-    }
-
-    [RelayCommand]
-    private void ToggleSearch()
-    {
-        ShowSearch = !ShowSearch;
-        if (ShowSearch)
-        {
-            SearchText = "";
-            SearchResults = _pages;
-        }
-    }
-
-    partial void OnSearchTextChanged(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            SearchResults = _pages;
-        }
-        else
-        {
-            SearchResults = _pages
-                .Where(p => p.Title.Contains(value, StringComparison.OrdinalIgnoreCase) ||
-                           (p.TextContent?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false))
-                .ToList();
-        }
     }
 
     private string? GetCurrentImageDir()
@@ -357,51 +283,5 @@ public partial class LearningViewModel : ViewModelBase
         if (_currentDeck == null || string.IsNullOrEmpty(_currentDeck.FileName))
             return null;
         return _decksPath;
-    }
-
-    public string GetDeckMarkdownPath(Guid deckId)
-    {
-        if (_currentDeck == null) return "";
-
-        var decksFolder = _decksPath;
-
-        var slug = ToSlug(_currentDeck.Title);
-        
-        var mdPath = Path.Combine(decksFolder, $"{slug}.md");
-        var orgPath = Path.Combine(decksFolder, $"{slug}.org");
-
-        string? existingPath = null;
-        if (File.Exists(mdPath)) existingPath = mdPath;
-        else if (File.Exists(orgPath)) existingPath = orgPath;
-
-        if (existingPath != null)
-        {
-            return existingPath;
-        }
-
-        if (_currentDeck != null)
-        {
-            var md = $"# {_currentDeck.Title}\n\n{_currentDeck.Description}\n\n---\n\n";
-            foreach (var page in _pages)
-            {
-                md += $"## {page.Title}\n\n{page.TextContent}\n\n";
-            }
-            File.WriteAllText(mdPath, md);
-        }
-
-        return mdPath;
-    }
-
-    private string ToSlug(string title)
-    {
-        return title.ToLowerInvariant()
-            .Replace(" ", "-")
-            .Replace("_", "-")
-            .Replace(".", "")
-            .Replace(",", "")
-            .Replace("!", "")
-            .Replace("?", "")
-            .Replace("'", "")
-            .Replace("\"", "");
     }
 }

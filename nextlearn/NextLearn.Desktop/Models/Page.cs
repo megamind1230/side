@@ -6,9 +6,7 @@ namespace NextLearn.Desktop.Models;
 
 public enum ContentType
 {
-    Text,
-    Image,
-    Video
+    Text
 }
 
 public class Page
@@ -35,7 +33,6 @@ public class Page
     
     public string? TextContent { get; set; }
     
-    public string? MediaPath { get; set; }
-    
-    public int DurationSeconds { get; set; }
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool IsPreHeadingPage { get; set; }
 }

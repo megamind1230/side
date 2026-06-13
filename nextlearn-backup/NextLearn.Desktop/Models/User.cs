@@ -10,15 +10,9 @@ public class User
     
     public string DisplayName { get; set; } = "Guest";
     
-    public string? Email { get; set; }
-    
-    public string? PasswordHash { get; set; }
-    
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
     public int TotalDecksCompleted { get; set; }
-    
-    public int TotalDecksShared { get; set; }
     
     public int CurrentStreak { get; set; }
     

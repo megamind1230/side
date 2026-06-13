@@ -5,7 +5,6 @@ namespace NextLearn.Desktop.Models;
 
 public class AppSettings
 {
-    public string Editor { get; set; } = "neovim";
     public string Theme { get; set; } = "Dark";
     public string Font { get; set; } = "Inter";
     public string DecksPath { get; set; } = "$HOME/nextlearn/decks";
