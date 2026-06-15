@@ -24,6 +24,7 @@ is a separate project.
 | Org #+TITLE:/#+DESCRIPTION:     | ✅ Done    | ~#+TITLE:~ / ~#+DESCRIPTION:~ / ~#+TAGS:~ in .org |
 | Tag system from frontmatter     | ✅ Done    | ~tags: health, morning, sleep~                     |
 | #tag search (incremental)       | ✅ Done    | ~#st~ matches ~study~ (prefix match)               |
+| Regex search toggle             | ✅ Done    | ☐ Regex checkbox switches title/desc/name + tags to regex |
 | Search by title/desc/filename   | ✅ Done    | Plain text tokens search all three                 |
 | Page-by-page learning           | ✅ Done    | Prev/Next with keyboard shortcuts                  |
 | Section breadcrumb              | ✅ Done    | Shows ~# Section → ## Page~ with heading markers   |
@@ -54,9 +55,11 @@ is a separate project.
 | Image/video content types       | ❌ Not yet | Models exist, UI missing                           |
 | Spaced repetition algorithm     | ❌ Not yet | Basic 24h review only                              |
 | Image rendering (markdown)      | ✅ Done    | ~![]()~ and ~![[path]]~ → inline image in WebView  |
+| Go to page (Ctrl+G)             | ✅ Done    | Jump to any page by number during study             |
+| Text zoom (Ctrl+Shift++/_)      | ✅ Done    | Font-only zoom, keeps component layout              |
 | Image rendering (org)           | ✅ Done    | ~![[file:path]]~ / ~![[file:path][alt]]~           |
 | Image overlay toolbar           | ✅ Done    | ◀▶ nav, zoom slider, invert, open in viewer        |
-| Archive / Pin decks             | ✅ Done    | Rename-based: ~.md~~ / ~+.md~, stable progress IDs |
+| Archive / Pin decks             | ✅ Done    | Rename-based: ~.md~~ / ~+.md~, stable progress IDs; "Learn" button on pinned cards |
 | Open decks folder               | ✅ Done    | File manager fallback (17 binaries) → xdg-open      |
 | Clickable links (http/https)    | ✅ Done    | ~[text](url)~ / ~[[url]]~ / ~[[url][text]]~ → <a>  |
 | Bare URL auto-linking           | ✅ Done    | ~https://...~ auto-linked in both .md and .org     |
@@ -176,6 +179,7 @@ Content
 | Ctrl + ,     | Global          | Open Settings                            |
 | ?            | Global          | Toggle Shortcuts Handbook                |
 | Esc          | Any overlay     | Close current overlay                    |
+| Ctrl + G     | Learning        | Go to page (opens page-number dialog)    |
 | n / Right    | Learning        | Next page                                |
 | p / Left     | Learning        | Previous page                            |
 | j            | Learning        | Scroll content down 40px                 |
@@ -191,9 +195,13 @@ Content
 | `/`          | Home            | Focus inline search bar                  |
 | Click image  | Learning        | Open image in floating overlay           |
 | Ctrl + = / - | Image overlay   | Zoom in / out                            |
+| Ctrl + 0     | Image overlay   | Reset zoom to 1:1                        |
 | N / P / ◀ ▶ | Image overlay   | Next / prev image on current page        |
 | Button: Done | Last page       | Complete deck + navigate home            |
 | Key: n       | Last page       | Complete but stay (allows revision)      |
+| Ctrl+Shift++ | Global          | Text zoom in (larger)                    |
+| Ctrl+Shift+_ | Global          | Text zoom out (smaller)                  |
+| Ctrl+Shift+0 | Global          | Reset text zoom to default               |
 
 * How to Use
 
@@ -214,7 +222,7 @@ Content
    #+END_SRC
 
 3. Run the app — decks appear on the home view
-4. Search by title, description, filename, or ~#tag~ (prefix matching)
+4. Search by title, description, filename, or ~#tag~ (prefix matching; enable ☐ Regex for regex patterns)
 5. Click a deck or press N to start learning
 6. Navigate pages with ← → or N / P keys
 7. Press Q / D to go home (progress auto-saved)
@@ -355,6 +363,6 @@ Supported block types: ~QUOTE~, ~EXAMPLE~, ~VERSE~, ~CENTER~, and any other
 - All views stack in one ~Panel~ — visibility managed by boolean flags
 - ~IsLearning~, ~IsSettingsOpen~, ~IsSidebarOpen~ instead of a single enum
 
-** LoadDecks re-reads all files on every keystroke
-- ~OnSearchTextChanged~ calls ~LoadDecks()~ which re-parses every file
-- No in-memory caching of parsed decks (see P23)
+** Search doesn't search deck page content
+- Only ~Title~, ~Description~, ~FileName~, and ~Tags~ (via ~#tag~) are searched
+- The actual text content inside deck pages is not indexed or searched

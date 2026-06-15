@@ -76,6 +76,18 @@ public partial class LearningViewModel : ViewModelBase
     [ObservableProperty]
     private List<string> _currentPageImagePaths = new();
 
+    [ObservableProperty]
+    private bool _isGoToPageOpen;
+
+    [ObservableProperty]
+    private string _goToPageInput = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasGoToPageError))]
+    private string? _goToPageError;
+
+    public bool HasGoToPageError => !string.IsNullOrEmpty(GoToPageError);
+
     public LearningViewModel(DeckService deckService,
         UserService userService, MainWindowViewModel mainViewModel, string? decksPath = null)
     {
@@ -276,6 +288,41 @@ public partial class LearningViewModel : ViewModelBase
     private async Task Exit()
     {
         await _mainViewModel.ExitLearning();
+    }
+
+    [RelayCommand]
+    private void GoToPage()
+    {
+        if (string.IsNullOrWhiteSpace(GoToPageInput))
+        {
+            GoToPageError = "Enter a page number.";
+            return;
+        }
+
+        if (!int.TryParse(GoToPageInput.Trim(), out var page))
+        {
+            GoToPageError = "Invalid number.";
+            return;
+        }
+
+        if (page < 1 || page > TotalPages)
+        {
+            GoToPageError = $"Enter a number between 1 and {TotalPages}.";
+            return;
+        }
+
+        GoToPageError = null;
+        CurrentPageIndex = page - 1;
+        UpdateCurrentPage();
+        IsGoToPageOpen = false;
+    }
+
+    [RelayCommand]
+    private void CancelGoToPage()
+    {
+        GoToPageError = null;
+        GoToPageInput = "";
+        IsGoToPageOpen = false;
     }
 
     private string? GetCurrentImageDir()

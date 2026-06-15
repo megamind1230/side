@@ -90,6 +90,34 @@ FontSize="20" Foreground="White"
                     </Border>
                 </Grid>
             </DockPanel>
+
+            <!-- Go to Page overlay -->
+            <Panel IsVisible="{Binding LearningViewModel.IsGoToPageOpen}" ZIndex="999">
+                <Border Background="#80000000" PointerPressed="CloseGoToPageOnBackdrop">
+                    <Border Background="#1E293B" CornerRadius="16" Padding="28" Margin="100"
+                            VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380">
+                        <StackPanel Spacing="16">
+                            <TextBlock Text="Go to Page" FontSize="18" FontWeight="Bold" Foreground="#E2E8F0"/>
+                            <TextBox Name="GoToPageTextBox"
+                                     Text="{Binding LearningViewModel.GoToPageInput}"
+                                     Watermark="Enter page number..."
+                                     FontSize="16" Padding="12,8"
+                                     Background="#0F172A" Foreground="#E2E8F0"
+                                     BorderBrush="#334155" BorderThickness="1"
+                                     KeyDown="OnGoToPageTextBoxKeyDown"/>
+                            <TextBlock Text="{Binding LearningViewModel.GoToPageError}"
+                                       Foreground="#EF4444" FontSize="13"
+                                       IsVisible="{Binding LearningViewModel.HasGoToPageError}"/>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                <Button Content="Cancel" Command="{Binding LearningViewModel.CancelGoToPageCommand}"
+                                        Padding="12,8" Background="#334155" Foreground="#94A3B8"/>
+                                <Button Grid.Column="1" Content="Go" Command="{Binding LearningViewModel.GoToPageCommand}"
+                                        Padding="12,8" Background="#2563EB" Foreground="White"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Border>
+            </Panel>
         </Panel>
 
         <Panel IsVisible="{Binding !IsLearning}">
@@ -125,7 +153,12 @@ FontSize="20" Foreground="White"
                                 <TextBlock Text="Choose a deck and start learning" FontSize="16" Foreground="#64748B"/>
                             </StackPanel>
 
-                            <TextBox x:Name="HomeSearchBox" Text="{Binding HomeViewModel.SearchText}" Watermark="Search by title, description, or #tag..." Padding="12" FontSize="16"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBox x:Name="HomeSearchBox" Text="{Binding HomeViewModel.SearchText}" Watermark="Search by title, description, #tag, or regex..." Padding="12" FontSize="16"/>
+                                <CheckBox Grid.Column="1" IsChecked="{Binding HomeViewModel.UseRegex}"
+                                          Content="Regex" VerticalAlignment="Center" Margin="8,0,0,0"
+                                          Foreground="#94A3B8"/>
+                            </Grid>
 
                             <ItemsControl ItemsSource="{Binding HomeViewModel.Decks}">
                                 <ItemsControl.ItemTemplate>
@@ -287,30 +320,47 @@ FontSize="20" Foreground="White"
                                 <!-- Learning -->
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="Learning" FontSize="15" FontWeight="Bold" Foreground="#0D9488" Margin="0,0,0,4"/>
-                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="n / →" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
                                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Next page" Foreground="#94A3B8" Margin="0,0,0,4"/>
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="p / ←" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
                                         <TextBlock Grid.Row="1" Grid.Column="1" Text="Previous page" Foreground="#94A3B8" Margin="0,0,0,4"/>
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="j / k" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
                                         <TextBlock Grid.Row="2" Grid.Column="1" Text="Scroll content (vertically)" Foreground="#94A3B8" Margin="0,0,0,4"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="h / l" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,0"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Scroll content (horizontally)" Foreground="#94A3B8" Margin="0,0,0,0"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="h / l" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Scroll content (horizontally)" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Ctrl + G" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,0"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Go to page" Foreground="#94A3B8" Margin="0,0,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                                <Border Height="1" Background="#334155"/>
+                                <!-- Text Zoom -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Text Zoom" FontSize="15" FontWeight="Bold" Foreground="#0D9488" Margin="0,0,0,4"/>
+                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl + Shift + +" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Larger text" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl + Shift + _" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Smaller text" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl + Shift + 0" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Reset text size" Foreground="#94A3B8" Margin="0,0,0,0"/>
                                     </Grid>
                                 </StackPanel>
                                 <Border Height="1" Background="#334155"/>
                                 <!-- Image Overlay -->
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="Image Overlay" FontSize="15" FontWeight="Bold" Foreground="#0D9488" Margin="0,0,0,4"/>
-                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Click img" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
                                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Open floating overlay" Foreground="#94A3B8" Margin="0,0,0,4"/>
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl + = / -" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
                                         <TextBlock Grid.Row="1" Grid.Column="1" Text="Zoom in / out" Foreground="#94A3B8" Margin="0,0,0,4"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="N / P" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Next / prev image" Foreground="#94A3B8" Margin="0,0,0,4"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Esc" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,0"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Close overlay" Foreground="#94A3B8" Margin="0,0,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl + 0" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Reset zoom" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="N / P" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,4"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Next / prev image" Foreground="#94A3B8" Margin="0,0,0,4"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Esc" FontFamily="Consolas,Monospace" Foreground="#FBBF24" Margin="0,0,12,0"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Close overlay" Foreground="#94A3B8" Margin="0,0,0,0"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
@@ -480,6 +530,10 @@ FontSize="20" Foreground="White"
                                         BorderBrush="#334155" BorderThickness="1">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Spacing="8">
+                                            <Button Content="Learn"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).NavigateToLearningCommand}"
+                                                    CommandParameter="{Binding Id}"
+                                                    Background="#2563EB" Foreground="White" Padding="16,8"/>
                                             <Button Content="Unpin"
                                                     Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).UnpinFromViewCommand}"
                                                     CommandParameter="{Binding}"

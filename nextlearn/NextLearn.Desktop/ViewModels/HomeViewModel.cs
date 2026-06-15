@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NextLearn.Desktop;
@@ -18,12 +19,16 @@ public partial class HomeViewModel : ViewModelBase
     private readonly MainWindowViewModel _mainViewModel;
     private readonly string _decksPath;
     private FileSystemWatcher? _watcher;
+    private List<Deck> _allDecks = new();
 
     [ObservableProperty]
     private ObservableCollection<Deck> _decks = new();
 
     [ObservableProperty]
     private string _searchText = "";
+
+    [ObservableProperty]
+    private bool _useRegex;
 
     public HomeViewModel(DeckService deckService, MainWindowViewModel mainViewModel, string? decksPath = null)
     {
@@ -56,13 +61,12 @@ public partial class HomeViewModel : ViewModelBase
 
     public void Refresh()
     {
+        _allDecks.Clear();
         LoadDecks();
     }
 
     private void LoadDecks()
     {
-        Decks.Clear();
-
         var decksPath = _decksPath;
         if (!Directory.Exists(decksPath))
         {
@@ -70,53 +74,123 @@ public partial class HomeViewModel : ViewModelBase
             return;
         }
 
-        var extensions = new[] { "*.md", "*.org" };
-        foreach (var ext in extensions)
+        if (_allDecks.Count == 0)
         {
-            foreach (var file in Directory.GetFiles(decksPath, ext))
+            var extensions = new[] { "*.md", "*.org" };
+            foreach (var ext in extensions)
             {
-                var deck = DeckFileParser.LoadDeckFromFile(file);
-                if (deck != null)
+                foreach (var file in Directory.GetFiles(decksPath, ext))
                 {
-                    _deckService.SaveOrUpdateDeck(deck);
-                    AddDeckIfMatches(deck);
+                    var deck = DeckFileParser.LoadDeckFromFile(file);
+                    if (deck != null)
+                    {
+                        _deckService.SaveOrUpdateDeck(deck);
+                        _allDecks.Add(deck);
+                    }
                 }
             }
         }
+
+        Decks.Clear();
+        foreach (var deck in _allDecks)
+            Decks.Add(deck);
+
+        ApplySearchFilter();
     }
 
-    private void AddDeckIfMatches(Deck deck)
+    private void ApplySearchFilter()
     {
         if (string.IsNullOrWhiteSpace(SearchText))
-        {
-            Decks.Add(deck);
             return;
-        }
 
         var tokens = SearchText.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var deckTags = (deck.Tags ?? "")
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(t => t.ToLowerInvariant())
-            .ToHashSet();
+        var toRemove = new List<Deck>();
 
-        foreach (var token in tokens)
+        foreach (var deck in _allDecks)
         {
-            if (token.StartsWith('#'))
+            var deckTags = (deck.Tags ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(t => t.ToLowerInvariant())
+                .ToHashSet();
+
+            var matched = true;
+
+            foreach (var token in tokens)
             {
+                if (token.StartsWith('#'))
+                {
                     var tag = token[1..].ToLowerInvariant();
-                    if (!deckTags.Any(t => t.StartsWith(tag)))
-                        return;
+                    bool tagMatched;
+
+                    if (UseRegex)
+                    {
+                        try
+                        {
+                            tagMatched = deckTags.Any(t => Regex.IsMatch(t, tag, RegexOptions.IgnoreCase));
+                        }
+                        catch (ArgumentException)
+                        {
+                            tagMatched = false;
+                        }
+                    }
+                    else
+                    {
+                        tagMatched = deckTags.Any(t => t.StartsWith(tag));
+                    }
+
+                    if (!tagMatched)
+                    {
+                        matched = false;
+                        break;
+                    }
+                }
+                else
+                {
+                    if (!TokenMatches(deck, token))
+                    {
+                        matched = false;
+                        break;
+                    }
+                }
             }
-            else
+
+            if (!matched)
+                toRemove.Add(deck);
+        }
+
+        foreach (var deck in toRemove)
+            Decks.Remove(deck);
+    }
+
+    private bool TokenMatches(Deck deck, string token)
+    {
+        if (UseRegex)
+        {
+            try
             {
-                if (!deck.Title.Contains(token, StringComparison.OrdinalIgnoreCase) &&
-                    !deck.Description.Contains(token, StringComparison.OrdinalIgnoreCase) &&
-                    !deck.FileName.Contains(token, StringComparison.OrdinalIgnoreCase))
-                    return;
+                return Regex.IsMatch(deck.Title, token, RegexOptions.IgnoreCase) ||
+                       Regex.IsMatch(deck.Description, token, RegexOptions.IgnoreCase) ||
+                       Regex.IsMatch(deck.FileName, token, RegexOptions.IgnoreCase);
+            }
+            catch (ArgumentException)
+            {
+                return false;
             }
         }
 
-        Decks.Add(deck);
+        return deck.Title.Contains(token, StringComparison.OrdinalIgnoreCase) ||
+               deck.Description.Contains(token, StringComparison.OrdinalIgnoreCase) ||
+               deck.FileName.Contains(token, StringComparison.OrdinalIgnoreCase);
+    }
+
+    partial void OnSearchTextChanged(string value)
+    {
+        LoadDecks();
+    }
+
+    partial void OnUseRegexChanged(bool value)
+    {
+        LoadDecks();
     }
 
     [RelayCommand]
@@ -154,11 +228,6 @@ public partial class HomeViewModel : ViewModelBase
         else
             _deckService.PinDeck(deck.Id, _decksPath);
         Refresh();
-    }
-
-    partial void OnSearchTextChanged(string value)
-    {
-        LoadDecks();
     }
 
     public void FocusSearch()

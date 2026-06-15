@@ -37,7 +37,7 @@ public class Deck
     public bool IsArchived { get; set; }
 
     public bool IsPinned { get; set; }
-    
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
     public int PageCount { get; set; }
