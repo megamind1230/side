@@ -944,6 +944,40 @@ Also forces X11 backend via ~UseSkia().UseX11()~ when
 - ~Program.cs~ — ~SetEnvironmentVariable("WAYLAND_DISPLAY", null)~ +
   ~UseSkia().UseX11()~ in Wayland branch
 
+* DONE Regex search + deck filtering on home page
+
+** What
+- Regex checkbox toggles between plain substring and regex matching
+- Non-matching decks are filtered out (hidden)
+- #tag search also supports regex when checkbox is on (e.g. ~#.*desc~ matches ~no-desc~)
+- Decks cached in memory (`_allDecks`) — no re-read from disk on keystroke
+
+** Files changed
+- ~ViewModels/HomeViewModel.cs~ — added ~UseRegex~, ~_allDecks~ cache, ~ApplySearchFilter()~ in-memory filtering; ~OnUseRegexChanged~ handler; ~TokenMatches()~ with ~Regex.IsMatch~ branch; regex support for ~#tag~ tokens
+- ~Views/MainWindow.axaml~ — regex CheckBox next to search bar
+
+* DONE Go to page: Ctrl+G inside study page
+
+** What
+- Pressing ~Ctrl+G~ during study opens a small centered overlay with a
+  page-number input
+- Validates input (empty, non-numeric, out-of-range → inline red error)
+- ~Enter~ in the text box or clicking "Go" navigates to that page
+- ~Esc~ or backdrop click closes the dialog
+- WebView is hidden while the dialog is open (same pattern as ~?~ handbook)
+- TextBox auto-focuses and selects all on open for fast re-entry
+
+** Files changed
+- ~ViewModels/LearningViewModel.cs~ — added ~IsGoToPageOpen~, ~GoToPageInput~,
+  ~GoToPageError~/~HasGoToPageError~, ~GoToPageCommand~ (validate + navigate),
+  ~CancelGoToPageCommand~
+- ~Views/MainWindow.axaml~ — added centered overlay panel with TextBox,
+  error label, Cancel/Go buttons; updated shortcuts handbook grid with
+  ~Ctrl+G~ entry
+- ~Views/MainWindow.axaml.cs~ — ~Ctrl+G~ handler in learning context,
+  ~Esc~ LIFO entry (highest priority), ~Enter~ on TextBox handler,
+  backdrop click handler, auto-focus on Open via PropertyChanged
+
 * DONE Remove study-page `/` search and edit `e` key
 
 ** What
@@ -972,3 +1006,34 @@ no edit button, no editor settings.
 ** Rationale
 User now uses file manager to edit/create/search deck text files and comes
 back to the app just for studying. Simplifies the study page and settings.
+
+* DONE Learn button on pinned deck cards
+
+** What
+- Pin overlay's deck cards now show a "Learn" button above "Unpin"
+- Clicking Learn closes the pinned overlay and navigates to the study page
+- ~IsPinnedViewOpen~ / ~IsArchivedViewOpen~ cleared in both ~NavigateToLearning()~ and ~NavigateToLearningByDeck()~
+- Exiting study via ~q~/~d~ lands on normal home page with no leftover overlays
+
+** Files changed
+- ~Views/MainWindow.axaml~ — added "Learn" button in pinned view DataTemplate
+- ~ViewModels/MainWindowViewModel.cs~ — added ~IsPinnedViewOpen = false~ / ~IsArchivedViewOpen = false~ before ~IsLearning = true~ in both navigation methods
+
+
+* DONE Text zoom: Ctrl+Shift++/Ctrl+Shift+_/Ctrl+Shift+0
+
+** What
+- Font-only zoom that scales text size while keeping component layout unchanged
+- ~TextScale~ property (1.0, 0.2 increments, range 0.6–2.0)
+- Logical tree walk scales ~TextBlock.FontSize~ and ~TextBox.FontSize~ by ratio
+- WebView content zoomed via ~document.body.style.fontSize~ JS injection
+- Does NOT scale images, borders, padding, or any non-text UI elements
+- Tightened image overlay shortcuts to exact modifier match (~modifiers == KeyModifiers.Control~) to avoid conflict on ~Ctrl+Shift+=~
+
+** Files changed
+- ~ViewModels/MainWindowViewModel.cs~ — added ~TextScale~, ~TextScaleChanged~ event, ~ZoomTextIn~, ~ZoomTextOut~, ~ResetTextZoom~ commands
+- ~Views/MainWindow.axaml~ — added "Text Zoom" section in Shortcuts Handbook
+- ~Views/MainWindow.axaml.cs~ — added ~TextScaleChanged~ subscription, ~OnTextScaleChanged~ handler with logical tree walking, WebView JS zoom; ~Ctrl+Shift+=/-/0~ shortcuts
+- ~Services/HtmlContentBuilder.cs~ — ~case'+':case'_':case'0':case')'~ added to WebView JS key forwarding
+- ~README.org~ — updated features table and shortcuts table
+

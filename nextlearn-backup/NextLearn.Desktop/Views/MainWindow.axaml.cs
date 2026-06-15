@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using NativeWebView.Controls;
 using NativeWebView.Core;
@@ -69,6 +70,7 @@ public partial class MainWindow : Window
 
             vm.PropertyChanged += OnMainViewModelPropertyChanged;
             vm.LearningViewModel.PropertyChanged += OnLearningViewModelPropertyChanged;
+            vm.TextScaleChanged += OnTextScaleChanged;
 
             if (!string.IsNullOrEmpty(vm.LearningViewModel.RenderedHtml))
             {
@@ -118,10 +120,26 @@ public partial class MainWindow : Window
 
     private void OnLearningViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(LearningViewModel.RenderedHtml)
-            && DataContext is MainWindowViewModel vm)
+        if (DataContext is not MainWindowViewModel vm) return;
+
+        switch (e.PropertyName)
         {
-            LoadHtmlContent(vm.LearningViewModel.RenderedHtml);
+            case nameof(LearningViewModel.RenderedHtml):
+                LoadHtmlContent(vm.LearningViewModel.RenderedHtml);
+                break;
+            case nameof(LearningViewModel.IsGoToPageOpen):
+                if (ContentWebView != null)
+                    ContentWebView.IsVisible = !vm.LearningViewModel.IsGoToPageOpen;
+                if (vm.LearningViewModel.IsGoToPageOpen)
+                {
+                    DispatcherTimer.RunOnce(() =>
+                    {
+                        var tb = this.FindControl<TextBox>("GoToPageTextBox");
+                        tb?.Focus();
+                        tb?.SelectAll();
+                    }, TimeSpan.FromMilliseconds(50));
+                }
+                break;
         }
     }
 
@@ -257,7 +275,11 @@ public partial class MainWindow : Window
                         "Enter" => Key.Enter,
                         "," => Key.OemComma,
                         "=" => Key.OemPlus,
+                        "+" => Key.OemPlus,
                         "-" => Key.OemMinus,
+                        "_" => Key.OemMinus,
+                        "0" => Key.D0,
+                        ")" => Key.D0,
                         "ArrowRight" => Key.Right,
                         "ArrowLeft" => Key.Left,
                         _ => Key.None
@@ -397,12 +419,17 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainWindowViewModel vm) return false;
 
+        // Text zoom keyboard shortcuts (global, works everywhere)
+        if (modifiers == (KeyModifiers.Control | KeyModifiers.Shift) && key == Key.OemPlus) { vm.ZoomTextInCommand.Execute(null); return true; }
+        if (modifiers == (KeyModifiers.Control | KeyModifiers.Shift) && key == Key.OemMinus) { vm.ZoomTextOutCommand.Execute(null); return true; }
+        if (modifiers == (KeyModifiers.Control | KeyModifiers.Shift) && key is Key.D0 or Key.NumPad0) { vm.ResetTextZoomCommand.Execute(null); return true; }
+
         // Image overlay keyboard shortcuts
         if (vm.IsImageOverlayOpen)
         {
-            if ((modifiers & KeyModifiers.Control) != 0 && key == Key.OemPlus) { vm.ZoomInCommand.Execute(null); return true; }
-            if ((modifiers & KeyModifiers.Control) != 0 && key == Key.OemMinus) { vm.ZoomOutCommand.Execute(null); return true; }
-            if ((modifiers & KeyModifiers.Control) != 0 && key is Key.D0 or Key.NumPad0) { vm.ResetZoomCommand.Execute(null); return true; }
+            if (modifiers == KeyModifiers.Control && key == Key.OemPlus) { vm.ZoomInCommand.Execute(null); return true; }
+            if (modifiers == KeyModifiers.Control && key == Key.OemMinus) { vm.ZoomOutCommand.Execute(null); return true; }
+            if (modifiers == KeyModifiers.Control && key is Key.D0 or Key.NumPad0) { vm.ResetZoomCommand.Execute(null); return true; }
             if (key == Key.N && modifiers.HasFlag(KeyModifiers.Shift)) { vm.NextImageCommand.Execute(null); return true; }
             if (key == Key.P && modifiers.HasFlag(KeyModifiers.Shift)) { vm.PreviousImageCommand.Execute(null); return true; }
         }
@@ -410,6 +437,11 @@ public partial class MainWindow : Window
         // LIFO Esc: close highest-ZIndex overlay first
         if (key == Key.Escape)
         {
+            if (vm.LearningViewModel is { IsGoToPageOpen: true })
+            {
+                vm.LearningViewModel.CancelGoToPageCommand.Execute(null);
+                return true;
+            }
             if (vm.IsShortcutsHandbookOpen)
             {
                 vm.IsShortcutsHandbookOpen = false;
@@ -450,6 +482,13 @@ public partial class MainWindow : Window
         if (vm.IsLearning)
         {
             if (_chordPending) CancelChord();
+
+            // Ctrl+G → Go to Page
+            if (key == Key.G && modifiers.HasFlag(KeyModifiers.Control) && !isTextBox)
+            {
+                vm.LearningViewModel.IsGoToPageOpen = true;
+                return true;
+            }
 
             switch (key)
             {
@@ -657,11 +696,58 @@ public partial class MainWindow : Window
         }
     }
 
+    private void CloseGoToPageOnBackdrop(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm)
+        {
+            vm.LearningViewModel.CancelGoToPageCommand.Execute(null);
+        }
+    }
+
+    private void OnGoToPageTextBoxKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && DataContext is MainWindowViewModel vm)
+        {
+            vm.LearningViewModel.GoToPageCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
     private void CloseImageOverlayOnBackdrop(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
         if (DataContext is MainWindowViewModel vm)
         {
             vm.CloseImageOverlayCommand.Execute(null);
         }
+    }
+
+    private async void OnTextScaleChanged(double oldScale, double newScale)
+    {
+        ApplyScaleToText(oldScale, newScale);
+
+        // Update WebView content zoom
+        if (ContentWebView != null)
+        {
+            var pct = (int)(newScale * 100);
+            _ = ContentWebView.ExecuteScriptAsync($"document.body.style.fontSize = '{pct}%'");
+        }
+    }
+
+    private void ApplyScaleToText(double oldScale, double newScale)
+    {
+        var ratio = newScale / oldScale;
+        ScaleVisualFont(this, ratio);
+    }
+
+    private void ScaleVisualFont(Control control, double ratio)
+    {
+        if (control is TextBlock tb)
+            tb.FontSize *= ratio;
+        if (control is TextBox tbx)
+            tbx.FontSize *= ratio;
+
+        foreach (var child in control.GetLogicalChildren())
+            if (child is Control c)
+                ScaleVisualFont(c, ratio);
     }
 }

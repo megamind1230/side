@@ -78,6 +78,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private double _zoomLevel = 1.0;
 
     [ObservableProperty]
+    private double _textScale = 1.0;
+
+    [ObservableProperty]
     private int _rotationAngle;
 
     [ObservableProperty]
@@ -336,6 +339,8 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     public async Task NavigateToLearning(Guid deckId)
     {
+        IsPinnedViewOpen = false;
+        IsArchivedViewOpen = false;
         IsLearning = true;
         var deck = HomeViewModel.Decks.FirstOrDefault(d => d.Id == deckId);
         if (deck != null)
@@ -351,6 +356,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public async void NavigateToLearningByDeck(Deck deck)
     {
+        IsPinnedViewOpen = false;
+        IsArchivedViewOpen = false;
         IsLearning = true;
         await LearningViewModel.SetCurrentDeck(deck);
         CurrentView = LearningViewModel;
@@ -521,6 +528,32 @@ public partial class MainWindowViewModel : ViewModelBase
     private void ResetZoom()
     {
         ZoomLevel = 1.0;
+    }
+
+    public event Action<double, double>? TextScaleChanged;
+
+    [RelayCommand]
+    private void ZoomTextIn()
+    {
+        var old = TextScale;
+        TextScale = Math.Min(2.0, TextScale + 0.2);
+        TextScaleChanged?.Invoke(old, TextScale);
+    }
+
+    [RelayCommand]
+    private void ZoomTextOut()
+    {
+        var old = TextScale;
+        TextScale = Math.Max(0.6, TextScale - 0.2);
+        TextScaleChanged?.Invoke(old, TextScale);
+    }
+
+    [RelayCommand]
+    private void ResetTextZoom()
+    {
+        var old = TextScale;
+        TextScale = 1.0;
+        TextScaleChanged?.Invoke(old, TextScale);
     }
 
     [RelayCommand]
