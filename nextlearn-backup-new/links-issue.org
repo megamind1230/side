@@ -1,0 +1,279 @@
+#+TITLE: Links Issue — Wayland + Chromium Browser Crash
+#+DATE: <2026-06-11 Thu>
+
+* DONE Description
+
+Clicking any rendered link (~[text](url)~ in markdown, ~[[url][text]]~ in org,
+bare ~https://...~) inside the study page WebView should open the URL in the
+default system browser. Instead, Brave (the default browser on this system)
+segfaults with "Failed to connect to Wayland display" and the URL never opens.
+
+The crash traces show:
+
+#+BEGIN_SRC text
+ui/ozone/platform/wayland/host/wayland_connection.cc:202
+  Failed to connect to Wayland display: No such file or directory (2)
+ui/ozone/platform/wayland/ozone_platform_wayland.cc:282
+  Failed to initialize Wayland platform
+ui/aura/env.cc:246
+  The platform failed to initialize.  Exiting.
+/usr/bin/xdg-open: line 909: 25800 Segmentation fault (core dumped)
+#+END_SRC
+
+* Environment
+
+- ~DISPLAY=:1~ (XWayland available)
+- ~WAYLAND_DISPLAY=wayland-1~ (Wayland socket exists at ~/run/user/1000/wayland-1~)
+- ~XDG_SESSION_TYPE=wayland~
+- ~brave --version~ → Brave Browser 148.1.90.122
+- ~NativeWebView~ uses WPE WebKit (~libwpewebkit~) which requires a running
+  Wayland compositor for its renderer sub-process
+
+** Key insight
+
+#+BEGIN_QUOTE
+Wayland IS running. Both the app (Avalonia) and WPE WebKit renderer work
+fine with Wayland. The crash is specifically in Brave/Chromium when launched
+via ~xdg-open~ — Brave tries to initialize its own Wayland connection and
+crashes (likely a bug or configuration issue in this Brave version or
+backend).
+
+Workaround: Brave launched with ~--ozone-platform-hint=x11~ runs correctly
+under XWayland.
+#+END_QUOTE
+
+* How to recreate
+
+1. Open any study page that contains a link (any format)
+2. Click the link
+3. Observe: nothing happens in the browser, terminal shows the Wayland
+   segfault errors
+
+* Affected files
+
+| File                             | Purpose                                                                                                                                                                 |
+|----------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ~Services/HtmlContentBuilder.cs~ | Renders ~<a data-href="url">~ instead of ~<a href="url">~ (prevents WebView navigation); JS click handler signals app via ~openurl.local~ iframe; bare URL auto-linking |
+| ~Views/MainWindow.axaml.cs~      | ~NavigationStarted~ handler for ~openurl.local~; ~OpenInBrowser()~ Linux section attempts direct browser launch with ~--ozone-platform-hint=x11~                        |
+
+* FIXED — Solution 1 implemented
+
+** Status: ✅ FIXED
+
+~TryStartBrowser()~ helper implemented with:
+- Firefox first (no Wayland flag)
+- Chromium browsers with ~--ozone-platform-hint=x11~
+- ~xdg-open~ as last resort
+- ~UseShellExecute=false~ + ~ArgumentList~ + ~catch(Win32Exception)~
+  to reliably skip missing binaries
+
+** Files changed
+- ~Views/MainWindow.axaml.cs~ — ~OpenInBrowser()~ rewritten, ~TryStartBrowser()~ added
+
+* Proposed solutions (historical reference)
+
+** Solution 1 (current): direct browser launch with --ozone-platform-hint=x11
+
+Try ~brave~ (and other Chromium browsers) directly with
+~--ozone-platform-hint=x11~ flag. If none found, fall back to ~firefox~,
+then ~xdg-open~ as last resort.
+
+**Pros:**
+- Simple, targeted fix
+- Only affects the browser launch path
+- Doesn't touch the WebView or environment
+
+**Cons:**
+- Hardcoded list of browser binaries (brave, google-chrome, chromium-browser, chromium)
+- Firefox doesn't need the flag but is tried after Chromium browsers
+- Browser binary names vary across distros
+
+** Solution 2: set --ozone-platform-hint=x11 via BROWSER env var
+
+Set ~BROWSER="brave --ozone-platform-hint=x11 %s"~ in ~Program.cs~ before
+app start. ~xdg-open~ respects this env var and uses the custom command
+instead of the .desktop file dispatch.
+
+**Pros:**
+- Uses ~xdg-open~ dispatch (finds the correct browser automatically)
+- No hardcoded binary list
+- Any browser can be configured via the env var
+
+**Cons:**
+- Overrides ~$BROWSER~ for the entire app process
+- May affect other subprocesses that check ~$BROWSER~
+
+** Solution 3: set GDK_BACKEND=x11 globally (rejected — breaks WPE WebKit)
+
+Setting ~GDK_BACKEND=x11~ in ~Program.cs~ causes WPE WebKit's renderer
+subprocess to fail because it needs Wayland (not GTK's backend). The app
+itself runs fine under Wayland, so forcing x11 globally breaks the WebView.
+
+**Verdict:** Do NOT use.
+
+** Solution 4: skip --ozone-platform-hint altogether (original behavior)
+
+Revert to ~xdg-open~ only. This is what the code did originally (before
+~target="_blank"~ was removed). Brave crashes, URL never opens.
+
+**Verdict:** Broken on this system — the whole reason this issue exists.
+
+
+* claud response
+
+Good --- I've read all four files. Now I have a complete picture of the
+issue and the current implementation. Let me give you a thorough
+analysis.
+
+--------------
+
+** Summary of what's happening
+The *link-opening pipeline* has two stages:
+
+1. *=HtmlContentBuilder.cs=* --- renders all links as
+   =<a data-href="url">= (no real =href=) and a JS click handler
+   forwards them to the host app via an
+   =http://openurl.local/<encoded-url>= iframe navigation.
+2. *=MainWindow.axaml.cs=* --- =OnWebViewNavigationStarted= catches
+   =openurl.local= and calls =OpenInBrowser(url)=.
+
+The crash lives entirely in =OpenInBrowser='s Linux path.
+
+--------------
+
+** Analysis of =OpenInBrowser= (Linux section)
+#+begin_src csharp
+var chromiumBrowsers = new[] { "brave", "google-chrome", "chromium-browser", "chromium" };
+foreach (var browser in chromiumBrowsers)
+{
+    try { Process.Start(browser, $"--ozone-platform-hint=x11 {url}"); return; }
+    catch { }
+}
+try { Process.Start("firefox", url); return; }
+catch { }
+// Last resort: xdg-open
+try { Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true }); }
+catch (Exception ex) { Log.Warning(...); }
+#+end_src
+
+*** Problems with the current approach
+*1. The loop never skips browsers that aren't installed.*
+=Process.Start("brave", ...)= does /not/ throw when =brave= doesn't
+exist on the =PATH= --- on Linux with the default =ProcessStartInfo=, it
+may silently launch a shell command that fails at the OS level rather
+than throwing back to C#. The =catch {}= only catches exceptions thrown
+by =Process.Start= itself (e.g. =Win32Exception= if the executable isn't
+found). The result: on systems where =brave= /is/ present but crashes,
+execution returns immediately before any fallback is tried.
+
+*Fix*: check if the binary exists first (=which brave= /
+=File.Exists(which result)=) or use =ProcessStartInfo= with
+=UseShellExecute = false= and catch =Win32Exception= specifically ---
+that exception /is/ reliably thrown when the binary is not on =PATH=.
+
+*2. The URL is passed as part of the argument string --- unsafe.*
+=$"--ozone-platform-hint=x11 {url}"= puts the raw URL into a single
+argument string. If the URL contains spaces or shell-special characters
+this will either break or (on =UseShellExecute = true=) be interpreted
+by the shell. Use =ArgumentList= instead:
+
+#+begin_src csharp
+new ProcessStartInfo(browser)
+{
+    UseShellExecute = false,
+    ArgumentList = { "--ozone-platform-hint=x11", url }
+}
+#+end_src
+
+*3. No =WaitForExit= / process supervision --- cannot detect crash.*
+Brave's segfault happens in the child process, not in the
+=Process.Start= call itself. The current code returns immediately after
+starting the process, so there is no way to detect that Brave crashed
+and fall through to the next candidate.
+
+*4. The =xdg-open= last resort uses =UseShellExecute = true= with the
+URL as =FileName=.* This works on Windows (Shell interprets a URL as
+"open in browser"), but on Linux =UseShellExecute = true= delegates to
+the =$BROWSER= env var / =xdg-open= only if the OS desktop integration
+handles it. The correct last resort on Linux is
+=Process.Start("xdg-open", url)=.
+
+*5. =firefox= does not need =--ozone-platform-hint=x11=*, as the org
+file correctly notes, but that's already done correctly --- it's tried
+separately without the flag.
+
+--------------
+
+** Recommended fix for =OpenInBrowser= (Linux)
+#+begin_src csharp
+// Linux: Chromium-family browsers crash on Wayland; force XWayland via --ozone-platform-hint=x11.
+// Firefox runs fine without it.
+
+if (TryStartBrowser("firefox", url))       // Firefox first — no flag needed, no Wayland crash
+    return;
+
+var chromiumBrowsers = new[] { "brave", "google-chrome", "chromium-browser", "chromium" };
+foreach (var browser in chromiumBrowsers)
+{
+    if (TryStartBrowser(browser, url, "--ozone-platform-hint=x11"))
+        return;
+}
+
+// Last resort: xdg-open
+try
+{
+    Process.Start("xdg-open", url);
+}
+catch (Exception ex)
+{
+    Log.Warning(ex, "Failed to open URL via xdg-open: {Url}", url);
+}
+
+// ─────────────────────────────────────────
+static bool TryStartBrowser(string binary, string url, string? extraArg = null)
+{
+    try
+    {
+        var psi = new ProcessStartInfo(binary) { UseShellExecute = false };
+        if (extraArg != null) psi.ArgumentList.Add(extraArg);
+        psi.ArgumentList.Add(url);
+        Process.Start(psi);
+        return true;
+    }
+    catch (System.ComponentModel.Win32Exception)
+    {
+        // Binary not found on PATH — try next
+        return false;
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Failed to launch browser {Binary}", binary);
+        return false;
+    }
+}
+#+end_src
+
+Key changes: - =UseShellExecute = false= + catching =Win32Exception=
+reliably skips missing binaries. - =ArgumentList= avoids
+argument-injection/splitting bugs. - Firefox is tried *first* since it
+doesn't need the flag and is widely installed. - =xdg-open= as last
+resort uses the correct invocation.
+
+--------------
+
+** Minor note on =HtmlContentBuilder.cs=
+The link pipeline is already correct --- =data-href= prevents WebView
+navigation, the JS iframe trick signals the host. One small thing worth
+noting: the bare-URL auto-link regex applies after =EscapeHtml=, which
+means =&amp;=, =&lt;=, etc. in raw text could theoretically match the
+scheme prefix --- but in practice bare URLs don't contain =<=/=>= inside
+them so this isn't a real bug.
+
+--------------
+
+** Which solution (from your org file) this implements
+This is *Solution 1* (direct browser launch with
+=--ozone-platform-hint=x11=), but with the three bugs in the current
+implementation fixed. Solution 2 (=BROWSER= env var) is cleaner in
+theory but has the "pollutes the whole process environment" downside you
+already noted, so fixing Solution 1 is the lower-risk path.

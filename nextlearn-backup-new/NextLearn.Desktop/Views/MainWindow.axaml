@@ -1,0 +1,221 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NextLearn.Desktop.ViewModels"
+        xmlns:sys="using:System"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:nwv="using:NativeWebView.Controls"
+        xmlns:ctrls="using:NextLearn.Desktop.Controls"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="650"
+        x:Class="NextLearn.Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="NextLearn - Let's Fight Distraction"
+        Width="900" Height="650"
+        MinWidth="600" MinHeight="400"
+        KeyDown="OnKeyDown">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Panel>
+        <!-- Main content panels -->
+        <Panel IsVisible="{Binding IsLearning}">
+            <DockPanel Background="#1E293B">
+                <Border DockPanel.Dock="Top" Padding="16,12" Background="#1E293B">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Button Command="{Binding ExitLearningCommand}" 
+                                Background="Transparent" Padding="12,8" VerticalAlignment="Center">
+                            <TextBlock Text="←" FontSize="20" Foreground="#94A3B8"/>
+                        </Button>
+                        <TextBlock Grid.Column="1" Text="{Binding LearningViewModel.DeckTitle}"
+                                   FontSize="16" FontWeight="SemiBold" Foreground="#E2E8F0"
+                                   HorizontalAlignment="Center" TextAlignment="Center"
+                                   MaxWidth="500" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+                            <Button Command="{Binding ToggleSidebarCommand}"
+                                    Background="Transparent" Padding="12,8">
+                                <TextBlock Text="☰" FontSize="20" Foreground="#94A3B8"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border DockPanel.Dock="Bottom" Padding="24,12" Background="#1E293B">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Border Grid.Column="0" Background="#0D9488" CornerRadius="8" Padding="12,6" 
+                                HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding LearningViewModel.ProgressText}" FontSize="14" 
+                                       Foreground="White" FontWeight="SemiBold"/>
+                        </Border>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12">
+                            <Button Classes="Faded" Content="← Previous" Command="{Binding LearningViewModel.PreviousPageCommand}"
+                                    IsEnabled="{Binding LearningViewModel.CanGoBack}" Padding="20,12"
+                                    Background="#334155" Foreground="#94A3B8"/>
+                            <Button Content="{Binding LearningViewModel.NextButtonText}" Command="{Binding LearningViewModel.CompleteAndGoHomeCommand}"
+                                    Background="{Binding LearningViewModel.NextButtonColor}" Foreground="White" Padding="48,16" FontSize="18"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Grid RowDefinitions="0.4*,3.5*,0.2*" ColumnDefinitions="2*,96*,2*">
+                    <Border Grid.Row="1" Grid.Column="1"
+                            Background="#0D9488" CornerRadius="12" Padding="0"
+                            VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                        <Grid RowDefinitions="Auto,*">
+                            <Border Grid.Row="0" Padding="16,8" Background="#0B7E72"
+                                    CornerRadius="12,12,0,0">
+                                <TextBlock Text="{Binding LearningViewModel.CurrentSectionBreadcrumb}"
+FontSize="20" Foreground="White"
+                                           IsVisible="{Binding LearningViewModel.HasSection}"
+                                           HorizontalAlignment="Center"
+                                           MaxWidth="600" TextTrimming="CharacterEllipsis"/>
+                            </Border>
+                            <Border Grid.Row="1" Background="#1E293B">
+                                <nwv:NativeWebView x:Name="ContentWebView"
+                                    Focusable="False"
+                                    NavigationStarted="OnWebViewNavigationStarted"
+                                    PointerPressed="OnContentWebViewPointerPressed"
+                                    GotFocus="OnContentWebViewGotFocus" />
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </DockPanel>
+
+            <ctrls:GoToPageDialog/>
+        </Panel>
+
+        <Panel IsVisible="{Binding !IsLearning}">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Background="#2563EB" Padding="16">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="16">
+                            <TextBlock Text="NextLearn" FontSize="24" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                            <TextBlock Text="Let's Fight Distraction" FontSize="14" Foreground="#BFDBFE" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        
+                        <DockPanel DockPanel.Dock="Right">
+                            <Button DockPanel.Dock="Right" Command="{Binding ToggleSidebarCommand}" Background="Transparent" Padding="12,8">
+                                <TextBlock Text="☰" FontSize="20" Foreground="White"/>
+                            </Button>
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                <Button Content="Marketplace" Command="{Binding NavigateToMarketplaceCommand}" Background="Transparent" Foreground="White" Padding="12,8"/>
+                                <Button Content="Get Plugins" Command="{Binding NavigateToPluginsCommand}" Background="Transparent" Foreground="White" Padding="12,8"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </DockPanel>
+                </Border>
+
+                <Panel Margin="24">
+                    <Panel IsVisible="{Binding CurrentView, Converter={x:Static ObjectConverters.IsNull}}">
+                        <TextBlock Text="Loading..." HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Panel>
+
+                    <ScrollViewer x:Name="HomeScrollViewer" IsVisible="{Binding CurrentView, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <StackPanel Spacing="24">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="What do you want to learn?" FontSize="28" FontWeight="Bold"/>
+                                <TextBlock Text="Choose a deck and start learning" FontSize="16" Foreground="#64748B"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBox x:Name="HomeSearchBox" Text="{Binding HomeViewModel.SearchText}" Watermark="Search by title, description, #tag, or regex..." Padding="12" FontSize="16"/>
+                                <CheckBox Grid.Column="1" IsChecked="{Binding HomeViewModel.UseRegex}"
+                                          Content="Regex" VerticalAlignment="Center" Margin="8,0,0,0"
+                                          Foreground="#94A3B8"/>
+                            </Grid>
+
+                            <ItemsControl ItemsSource="{Binding HomeViewModel.Decks}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#1E293B" CornerRadius="12" Padding="20" Margin="0,0,0,16"
+                                                BorderBrush="#334155" BorderThickness="1">
+                                            <DockPanel>
+                                                <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+                                                    <Button Content="Learn" 
+                                                            Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).NavigateToLearningCommand}"
+                                                            CommandParameter="{Binding Id}" 
+                                                            Background="#2563EB" Foreground="White" Padding="16,8"/>
+                                                    <Button Content="⋮" Background="#334155" Foreground="#94A3B8" Padding="8,4" FontSize="16"
+                                                            BorderBrush="#334155" BorderThickness="1" x:CompileBindings="False">
+                                                        <Button.Flyout>
+                                                            <Flyout Placement="Bottom">
+                                                                <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="8" Padding="8">
+                                                                    <StackPanel Spacing="4">
+                                                                        <Button Content="📌 Pin"
+                                                                                Command="{Binding $parent[ItemsControl].DataContext.HomeViewModel.TogglePinDeckCommand}"
+                                                                                CommandParameter="{Binding}"
+                                                                                Background="Transparent" Foreground="#E2E8F0" Padding="8,4" HorizontalAlignment="Stretch"/>
+                                                                        <Button Content="🗄️ Archive"
+                                                                                Command="{Binding $parent[ItemsControl].DataContext.HomeViewModel.ArchiveDeckCommand}"
+                                                                                CommandParameter="{Binding}"
+                                                                                Background="Transparent" Foreground="#E2E8F0" Padding="8,4" HorizontalAlignment="Stretch"/>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </Flyout>
+                                                        </Button.Flyout>
+                                                    </Button>
+                                                </StackPanel>
+                                                    <StackPanel Margin="0,0,24,0">
+                                                        <DockPanel>
+                                                             <TextBlock DockPanel.Dock="Right" Text="{Binding Title}" FontSize="14" Foreground="#E2E8F0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                                                            <TextBlock FontSize="13" Foreground="#FBBF24" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                                                <Run Text="Name: "/>
+                                                                <Run Text="{Binding FileName}"/>
+                                                            </TextBlock>
+                                                         </DockPanel>
+                                                         <TextBlock Text="{Binding Description}" Foreground="#94A3B8" TextWrapping="Wrap"/>
+                                                        <TextBlock Foreground="#94A3B8" FontSize="13">
+                                                            <Run Text="{Binding PageCount, StringFormat='{}{0} pages'}"/>
+                                                            <Run Text=" | "/>
+                                                            <Run Text="{Binding Tags}"/>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Panel>
+            </DockPanel>
+        </Panel>
+
+        <ctrls:Sidebar/>
+        <ctrls:ShortcutsHandbook/>
+        <ctrls:ImageOverlay/>
+        <ctrls:SettingsPanel/>
+        <ctrls:PinnedDecksPanel/>
+        <ctrls:ArchivedDecksPanel/>
+        <ctrls:MarketplacePanel/>
+    </Panel>
+
+    <Window.Styles>
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#E2E8F0"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Setter Property="Padding" Value="16,12"/>
+        </Style>
+        <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="#CBD5E1"/>
+        </Style>
+        <Style Selector="Button:pressed">
+            <Setter Property="Background" Value="#94A3B8"/>
+        </Style>
+        <Style Selector="Button.Faded">
+            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+        </Style>
+        <Style Selector="Button.Faded:pointerover">
+            <Setter Property="Background" Value="#E2E8F0"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+        </Style>
+        <Style Selector="Button.Faded:pressed">
+            <Setter Property="Background" Value="#CBD5E1"/>
+            <Setter Property="Foreground" Value="#475569"/>
+        </Style>
+    </Window.Styles>
+
+</Window>

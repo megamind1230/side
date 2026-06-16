@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NextLearn.Desktop.ViewModels"
+             xmlns:sys="using:System"
+             x:Class="NextLearn.Desktop.Controls.SettingsPanel"
+             x:DataType="vm:MainWindowViewModel">
+    <Panel IsVisible="{Binding IsSettingsOpen}" ZIndex="300">
+        <DockPanel Background="#1E293B">
+            <Border DockPanel.Dock="Top" Padding="16,12" Background="#1E293B">
+                <DockPanel>
+                    <Button Command="{Binding CloseSettingsCommand}"
+                            Background="Transparent" Padding="12,8">
+                        <TextBlock Text="← Back" FontSize="16" Foreground="#94A3B8"/>
+                    </Button>
+                    <TextBlock Text="Settings" FontSize="20" FontWeight="Bold"
+                               Foreground="#E2E8F0" VerticalAlignment="Center"
+                               Margin="16,0,0,0"/>
+                </DockPanel>
+            </Border>
+            <ScrollViewer Margin="24">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Theme" FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0"/>
+                    <ComboBox SelectedItem="{Binding Theme}" FontSize="13"
+                              Foreground="#E2E8F0" Background="#1E293B" BorderBrush="#334155">
+                        <ComboBox.Items>
+                            <sys:String>Dark</sys:String>
+                            <sys:String>Light</sys:String>
+                        </ComboBox.Items>
+                    </ComboBox>
+
+                    <Border Height="1" Background="#334155"/>
+
+                    <TextBlock Text="Font" FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0"/>
+                    <TextBox Text="{Binding Font}" Watermark="Inter"
+                             Padding="8" FontSize="13" Foreground="#E2E8F0"
+                             Background="#1E293B" BorderBrush="#334155"/>
+
+                    <Border Height="1" Background="#334155"/>
+
+                    <TextBlock Text="Decks Path (restart required)" FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0"/>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Command="{Binding BrowseDecksPathCommand}"
+                                Background="#334155" Foreground="#E2E8F0" Padding="12,8"
+                                Content="Browse" FontSize="13" Margin="8,0,0,0"/>
+                        <TextBox Text="{Binding DecksPath}" Watermark="~/nextlearn/decks"
+                                 Padding="8" FontSize="13" Foreground="#E2E8F0"
+                                 Background="#1E293B" BorderBrush="#334155"/>
+                    </DockPanel>
+
+                    <Border Height="1" Background="#334155"/>
+
+                    <TextBlock Text="{Binding SettingsStatus}" FontSize="13" Foreground="#10B981"
+                               HorizontalAlignment="Center" TextWrapping="Wrap"/>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                        <Button Command="{Binding SaveSettingsCommand}" Background="#0D9488"
+                                Foreground="White" Padding="24,10" FontSize="14"
+                                Content="Save"/>
+                        <Button Command="{Binding ResetSettingsCommand}" Background="#334155"
+                                Foreground="#94A3B8" Padding="24,10" FontSize="14"
+                                Content="Reset to defaults"/>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Panel>
+</UserControl>

@@ -1,4 +1,4 @@
-#+TITLE: Bugs
+﻿#+TITLE: Bugs
 
 
 * FIXED B3: Marketplace panel overlaps home panel
@@ -77,24 +77,10 @@
 1. ✅ Verified no references to ~DatabaseService~ anywhere in the project
 2. ✅ Deleted ~Services/DatabaseService.cs~
 
-* B23: Image overlay rotation jams image to corner / clips
-
-** Location
-- ~Views/MainWindow.axaml~ — Image overlay panel (~RotateTransform~, ~RenderTransformOrigin~, ~ScrollViewer~)
-- ~Views/MainWindow.axaml.cs~ — ~UpdateOverlayImageSize()~, ~RecenterScrollViewerAfterLayout()~
-- ~ViewModels/MainWindowViewModel.cs~ — ~RotateCw~ / ~RotateCcw~, ~RotationAngle~
+* REMOVED B23: Image overlay rotation (code deleted entirely)
 
 ** Status
-- FIXED — square-layout fix applied
-
-** Root Cause
-
-#+BEGIN_QUOTE
-~UpdateOverlayImageSize()~ swapped Width↔Height when ~RotationAngle % 180 != 0~. This changed the layout size simultaneously with the ~RotateTransform~ visual rotation, creating a layout/transform mismatch — the image appeared jammed into the top-left corner and clipped. A secondary timing race in ~LayoutUpdated~-based recentering compounded the issue.
-#+END_QUOTE
-
-** Fix
-Replaced dimension swap with square layout: both Width and Height set to ~Math.Max(sourceW, sourceH) × ZoomLevel~. A square contains the image at any 90° rotation without clipping, eliminating the need for swap logic entirely. ~RenderTransformOrigin="0.5,0.5"~ keeps rotation centered within the square. No timing dependency, no corner jamming.
+- REMOVED — rotation buttons were removed from UI earlier; ~RotateCw~ / ~RotateCcw~ commands, ~RotationAngle~ property, ~RotateTransform~ XAML, and ~PropertyChanged~ handler now all deleted (Phase 5e)
 
 * FIXED B24: press `q` while opening an img floating window
 this would send me to the seach page(the decks page)
@@ -381,3 +367,9 @@ Combined with ~builder.UseSkia().UseX11()~ when ~XDG_SESSION_TYPE=wayland~.
 
 ** Files changed
 - ~Program.cs~ — ~null~ instead of ~""~ for WAYLAND_DISPLAY env var
+* B37: a tiny bug with the controllers in image layout
+
+when the UI or the window is shrinked
+(aka the user just resized the window to be smaller (i don't mean zoom in/out the whole app))
+
+the ◀ ▶ buttons get out of the image layout

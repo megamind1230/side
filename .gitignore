@@ -5,8 +5,11 @@
 # IDE
 **/.vs/
 **/.idea/
+**/.vscode/
 **/*.user
 **/*.suo
+**/*.DotSettings
+**/*.sln.docstates
 
 # OS
 **/.DS_Store

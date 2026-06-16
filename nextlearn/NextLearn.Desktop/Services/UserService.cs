@@ -7,7 +7,7 @@ using NextLearn.Desktop.Models;
 
 namespace NextLearn.Desktop.Services;
 
-public class UserService
+public class UserService : IUserService
 {
     private readonly AppDbContext _context;
     private User? _currentUser;
@@ -26,7 +26,7 @@ public class UserService
             _currentUser = new User
             {
                 DisplayName = "Guest",
-                IsGuest = true
+                IsGuest = true,
             };
             _context.Users.Add(_currentUser);
             _context.SaveChanges();
@@ -37,57 +37,100 @@ public class UserService
 
     public Guid GetCurrentUserId() => _currentUser!.Id;
 
-    public async Task UpdateStreakAsync()
+    public int ComputeStreak()
     {
-        var today = DateTime.UtcNow.Date;
-        var lastActive = _currentUser!.LastActiveDate.Date;
+        var today = Today();
 
-        if (lastActive == today)
-            return;
+        var activityDates = _context.DailyActivities
+            .Where(a => a.UserId == _currentUser!.Id && a.MinutesLearned > 0)
+            .Select(a => a.Date)
+            .AsEnumerable()
+            .Select(d => new DateTime(d.Year, d.Month, d.Day))
+            .ToHashSet();
 
-        var daysDiff = (today - lastActive).Days;
-
-        if (daysDiff == 1)
+        if (activityDates.Count == 0)
         {
-            _currentUser.CurrentStreak++;
-        }
-        else if (daysDiff > 1)
-        {
-            _currentUser.CurrentStreak = 1;
+            return 0;
         }
 
-        _currentUser.LastActiveDate = today;
-        
-        var activity = _context.DailyActivities
-            .FirstOrDefault(a => a.UserId == _currentUser.Id && a.Date == today);
-        
-        if (activity == null)
+        if (!activityDates.Contains(today) && !activityDates.Contains(today.AddDays(-1)))
         {
-            activity = new DailyActivity
-            {
-                UserId = _currentUser.Id,
-                Date = today
-            };
-            _context.DailyActivities.Add(activity);
+            return 0;
         }
 
-        await _context.SaveChangesAsync();
+        var streak = 0;
+        var checkDate = activityDates.Contains(today) ? today : today.AddDays(-1);
+
+        while (activityDates.Contains(checkDate))
+        {
+            streak++;
+            checkDate = checkDate.AddDays(-1);
+        }
+
+        return streak;
     }
 
-    public async Task RecordPageViewAsync(int pagesViewed = 1)
+    private static DateTime Today() => new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, DateTime.UtcNow.Day);
+
+    public async Task RecordTimeAsync(int minutes)
     {
-        var today = DateTime.UtcNow.Date;
-        
+        if (minutes <= 0)
+        {
+            return;
+        }
+
+        var today = Today();
         var activity = _context.DailyActivities
             .FirstOrDefault(a => a.UserId == _currentUser!.Id && a.Date == today);
-        
+
         if (activity == null)
         {
             activity = new DailyActivity
             {
                 UserId = _currentUser!.Id,
                 Date = today,
-                PagesViewed = pagesViewed
+                MinutesLearned = minutes,
+            };
+            _context.DailyActivities.Add(activity);
+        }
+        else
+        {
+            activity.MinutesLearned += minutes;
+        }
+
+        await _context.SaveChangesAsync().ConfigureAwait(false);
+    }
+
+    public (int minutes, int pages, int decks, int streak) GetTodayStats()
+    {
+        var today = Today();
+        var activity = _context.DailyActivities
+            .FirstOrDefault(a => a.UserId == _currentUser!.Id && a.Date == today);
+        var decksToday = _context.UserProgress
+            .Count(up => up.UserId == _currentUser!.Id
+                      && up.LastAccessedAt.Date == today);
+
+        return (
+            activity?.MinutesLearned ?? 0,
+            activity?.PagesViewed ?? 0,
+            decksToday,
+            ComputeStreak());
+    }
+
+    public async Task RecordPageViewAsync(int pagesViewed = 1)
+    {
+        var today = Today();
+
+        var activity = _context.DailyActivities
+            .FirstOrDefault(a => a.UserId == _currentUser!.Id && a.Date == today);
+
+        if (activity == null)
+        {
+            activity = new DailyActivity
+            {
+                UserId = _currentUser!.Id,
+                Date = today,
+                PagesViewed = pagesViewed,
             };
             _context.DailyActivities.Add(activity);
         }
@@ -96,13 +139,12 @@ public class UserService
             activity.PagesViewed += pagesViewed;
         }
 
-        await _context.SaveChangesAsync();
-        await UpdateStreakAsync();
+        await _context.SaveChangesAsync().ConfigureAwait(false);
     }
 
     public List<DailyActivity> GetActivityHistory(int days = 365)
     {
-        var startDate = DateTime.UtcNow.Date.AddDays(-days);
+        var startDate = Today().AddDays(-days);
         return _context.DailyActivities
             .Where(a => a.UserId == _currentUser!.Id && a.Date >= startDate)
             .OrderBy(a => a.Date)

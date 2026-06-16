@@ -94,13 +94,29 @@ Currently no way to browse decks by tag — only free-text search.
 - Desktop app is fully offline — never makes HTTP/S calls
 - Website is a separate repo for browsing/downloading decks & plugins
 
-* DONE P17: Progress heatmap in sidebar
+* DONE P17: Full-page heatmap overlay (snake layout, wall-clock tracking)
 
-** Steps
-1. Create ~Controls/HeatmapControl.axaml~ (7×53 grid of colored squares)
-2. Data from ~UserService.GetActivityHistory()~
-3. Color levels 0–4 based on pages viewed per day
-4. Show current streak text
+** What
+Heatmap overlay showing study activity for the current year (Jan 1 → today)
+with a continuous snake layout rotated 90° CCW (Jan 1 at bottom-left,
+days snake upward in each column, then left-to-right across columns).
+
+** Implementation
+1. ~Models/HeatmapCell.cs~ — Date, Count, Row, Col, computed Color (6-level orange), Tooltip with day name
+2. ~Controls/HeatmapPanel.axaml~ / ~.axaml.cs~ — full-page overlay, 20% stats cards + 80% Canvas with dynamic cell sizing
+3. ~ViewModels/MainWindowViewModel.cs~ — RefreshHeatmap: snake coords → 90° CCW rotation, zoom commands
+4. ~Services/IUserService.cs~ / ~UserService.cs~ — RecordTimeAsync (wall-clock upsert), GetTodayStats, GetActivityHistory
+5. ~ViewModels/LearningViewModel.cs~ — session timer (60s ticks), partial-minutes rounding on exit
+
+** Key details
+- Wall-clock minutes tracked via timer (not pages/decks viewed)
+- 6-level orange scale: 0→#1E293B, ≤5→#FED7AA, ≤15→#FDBA74, ≤30→#FB923C, ≤60→#EA580C, >60→#C2410C
+- Today cell gets green border (#10B981)
+- No day-of-week row labels (hover tooltip shows "ddd, MMM d, yyyy")
+- Base cell size 20px, zoomable via Ctrl+Shift+=/- (0.5×–3.0×), reset with Ctrl+Shift+0
+- 🔥 Streak button in sidebar toggles overlay; Esc closes
+- Streak computed dynamically from ~DailyActivity.MinutesLearned~ (not page views)
+- All dates normalized to ~DateTimeKind.Unspecified~ for SQLite compatibility
 
 * DONE P16: Focus/reading mode
 
@@ -1036,4 +1052,265 @@ back to the app just for studying. Simplifies the study page and settings.
 - ~Views/MainWindow.axaml.cs~ — added ~TextScaleChanged~ subscription, ~OnTextScaleChanged~ handler with logical tree walking, WebView JS zoom; ~Ctrl+Shift+=/-/0~ shortcuts
 - ~Services/HtmlContentBuilder.cs~ — ~case'+':case'_':case'0':case')'~ added to WebView JS key forwarding
 - ~README.org~ — updated features table and shortcuts table
+
+* TODO Clean code initiative
+
+** Why
+The codebase has grown organically — no .editorconfig, no .gitignore, no static
+analysis, no tests, no enforced style conventions. This initiative brings in
+tooling, fixes existing issues, and establishes standards for future
+contributions.
+
+** Priority legend
+- [P0] — project hygiene (blocker for anything else)
+- [P1] — high impact, moderate effort
+- [P2] — medium impact, moderate effort
+- [P3] — lower impact or higher effort
+
+** DONE Phase 1 — Project hygiene [P0]
+
+*** Add .gitignore
+- Ignore: ~bin/~, ~obj/~, ~*.user~, ~*.suo~, ~.idea/~, ~*.DotSettings~, ~*.DotSettings.user~, ~nuget.exe~
+- Add to ~.gitignore~ at repo root (not inside ~NextLearn.Desktop/~, since git-root is ~/sidetrack/nextlearn~)
+- ~git rm --cached~ for all currently tracked ~bin/~ and ~obj/~ files to untrack them
+
+*** Add .gitattributes
+- ~*.cs~ diff=csharp
+- ~*.axaml~ diff=xml
+- ~*.org~ diff=org
+- ~text=auto~ normalization
+- Unity-of-ending-style rules
+
+** DONE Phase 2 — .editorconfig [P1]
+
+*** Add .editorconfig at repo root
+- indent_style = space, indent_size = 4 for C#
+- dotnet_naming rules (private fields ~_camelCase~, public members ~PascalCase~)
+- ~charset = utf-8-bom~
+- ~end_of_line = lf~
+- ~trim_trailing_whitespace = true~
+- ~insert_final_newline = true~
+
+*** Fix all IDE warnings from dotnet build
+- Run ~dotnet build~ — fix any IDE-prefixed warnings
+- Categories: IDE0001–IDE0058 (simplify names, unused usings, redundant casts, etc.)
+- Each fix = one commit
+
+** DONE Phase 3 — Directory.Build.props + NetAnalyzers [P1]
+
+*** Add Directory.Build.props at repo root
+- Enable ~TreatWarningsAsErrors~ (or ~WarningsAsErrors~ for specific ones)
+- Enable ~EnforceCodeStyleInBuild~ true
+- Add ~Microsoft.CodeAnalysis.NetAnalyzers~ package
+- Set ~AnalysisLevel~ to latest
+- Do NOT add StyleCop yet
+
+*** Fix all CA warnings from dotnet build
+- Run ~dotnet build~ — fix any CA-prefixed warnings
+- Categories: CA1031 (catch specific exceptions), CA2007 (ConfigureAwait), etc.
+- Each fix = one commit
+
+** DONE Phase 4 — stylecop.json + StyleCop.Analyzers [P1]
+
+*** Add StyleCop.Analyzers package to Directory.Build.props
+- Added ~StyleCop.Analyzers~ 1.2.0-beta.556 to ~Directory.Build.props~ (not csproj, so all sub-projects get it)
+
+*** Create stylecop.json
+- ~documentationCulture~ set to ~en-US~
+- Rules disabled in ~.editorconfig~ (not stylecop.json, for consistency):
+  - SA1101: no ~this.~ prefix (modern C# style)
+  - SA1201/SA1202/SA1204: no element/access-modifier/static ordering enforcement
+  - SA1309: no ~_~ prefix requirement (conflicts with CommunityToolkit.Mvvm source generators)
+  - SA1600/SA1601/SA1602: public documentation (CS1591 already suppressed, deferred to Phase 7)
+  - SA1633: no file header requirement
+
+*** Fix all SA warnings from dotnet build
+- ~dotnet format~ auto-fixed ~800+~ violations: SA1028 (whitespace), SA1122 (string.Empty), SA1501/SA1503 (braces), SA1513 (blank lines), SA1413 (trailing commas), SA1107 (parameter spacing)
+- SA1117 (10): fixed parameter line-splitting in ~Constants.cs~, ~LearningViewModel.cs~, ~MainWindowViewModel.cs~, ~MainWindow.axaml.cs~
+- SA1402 (2): split ~ContentType~ enum into ~Models/ContentType.cs~
+- SA1137 (1): fixed lambda indentation in ~MainWindow.axaml.cs~
+- SA1201/SA1202/SA1204 (70): suppressed via ~.editorconfig~ (reordering 10+ files was not worth the churn)
+- Final result: **0 warnings, 0 errors** from ~dotnet build~
+
+** Phase 5 — Code review & refactoring [P2]
+
+Segmented into smaller independent sub-phases (5a–5e). Order-agnostic except 5e
+enables Phase 6 (tests).
+
+*** DONE 5a — Naming conventions (~30 min)
+- Private fields: **0 violations** — all ~_camelCase~ already
+- Async methods: renamed 5 methods to add ~Async~ suffix:
+  - ~BrowseDecksPath()~ → ~BrowseDecksPathAsync()~
+  - ~NavigateToHome()~ → ~NavigateToHomeAsync()~
+  - ~NavigateToLearning()~ → ~NavigateToLearningAsync()~
+  - ~ExitLearning()~ → ~ExitLearningAsync()~
+  - ~SetCurrentDeck()~ → ~SetCurrentDeckAsync()~
+  - CommunityToolkit.Mvvm auto-strips suffix from ~[RelayCommand]~ names, so XAML bindings unchanged
+- File name matches class name: only 2 "mismatches" are standard Avalonia code-behind convention (~App.axaml.cs~/~MainWindow.axaml.cs~) — acceptable
+- Public API casing: **0 violations** — all PascalCase already
+
+*** DONE 5b — Dead code removal (~20 min)
+- Orphaned ~using~: **0** — IDE0005 at warning level, build passes clean
+- Unused private methods: **0** — all are ~[RelayCommand]~, event handlers, or called internally
+- Commented-out code: **0** — only legitimate layout comments in XAML
+- ~ViewLocator.cs~: still referenced in ~App.axaml~ as ~DataTemplate~ — keep
+- ~Constants.cs~: both members used in ~HomeViewModel~ and ~LearningViewModel~ — keep
+
+*** DONE 5c — Split MainWindow files (~2 hours)
+- ~Views/MainWindow.axaml.cs~ (958 → 520 lines, **−438 lines**)
+  - Extract keyboard dispatch → ~Services/KeyboardHandler.cs~ (~Services/KeyboardActionKind.cs~ for enum)
+  - Extract WebView bridge → ~Services/WebViewBridge.cs~ (HTML loading, URI scheme decoding, JS helpers)
+  - Image overlay logic → ~Controls/ImageOverlay.axaml~ / ~Controls/ImageOverlay.axaml.cs~
+- ~Views/MainWindow.axaml~ (656 → 378 lines, **−278 lines**)
+  - 8 overlays extracted into separate ~UserControl~s:
+    - ~Controls/ImageOverlay.axaml~
+    - ~Controls/ShortcutsHandbook.axaml~
+    - ~Controls/SettingsPanel.axaml~
+    - ~Controls/PinnedDecksPanel.axaml~
+    - ~Controls/ArchivedDecksPanel.axaml~
+    - ~Controls/Sidebar.axaml~
+    - ~Controls/GoToPageDialog.axaml~
+    - ~Controls/MarketplacePanel.axaml~
+  - ~MainWindow.axaml~ now references ~xmlns:ctrls~ and uses ~<ctrls:Xxx/>~ in place of inline overlays
+  - ~Controls/ImageOverlay.axaml.cs~ carries image pan/zoom/scroll/recenter logic (previously in MainWindow)
+  - ~Controls/GoToPageDialog.axaml.cs~ carries auto-focus + Enter key handling
+
+*** DONE 5d — Split service files (~1 hour)
+- ~Services/HtmlContentBuilder.cs~ (938 → 725 lines, **−213 lines**)
+  - Extracted .md inline rendering → ~Services/MarkdownInlineRenderer.cs~ (91 lines)
+  - Extracted .org inline rendering → ~Services/OrgInlineRenderer.cs~ (138 lines)
+  - Created ~Services/IInlineRenderer.cs~ (interface, 8 lines)
+  - Shared helpers (~EscapeHtml~, ~RenderImageTag~, ~PreserveLeadingWhitespace~) made ~internal static~
+  - ~RenderInline()~ now selects strategy via ~isOrgFile~ switch
+- ~Services/DeckService.cs~ (296 → 172 lines, **−124 lines**)
+  - Moved file+DB operations → ~Services/DeckFileService.cs~ (141 lines)
+  - ~ArchiveDeck~/~UnarchiveDeck~/~PinDeck~/~UnpinDeck~, static ~GetArchivedDecks~/~GetPinnedDecks~ relocated
+  - ~DeckService~ now pure DB layer
+  - Both ViewModels updated: ~HomeViewModel~ + ~MainWindowViewModel~ inject ~DeckFileService~
+
+*** DONE 5e — Architecture & interfaces (~2–3 hours, enables Phase 6)
+- Created 5 interfaces (~IDeckService~, ~IUserService~, ~IDeckFileService~, ~ISettingsService~, ~IHtmlContentBuilder~)
+- All service classes implement their respective interfaces (~Implements~ keyword)
+- ~HtmlContentService~ wrapper class adapts static ~HtmlContentBuilder~ to ~IHtmlContentBuilder~
+- All ViewModel fields + constructor params changed to interface types
+- Layered dependency: ~DeckService~ constructor now accepts ~IUserService~ instead of concrete type
+- Build: **0 warnings, 0 errors**
+
+**Remaining sub-tasks (decide priority):**
+1. ~DeckFileParser~: static → instance (enables mocking in tests)
+2. ~App.axaml.cs~: verify ~DataAnnotationsValidator~ suppression still needed
+3. Review error handling consistency (silent ~catch { }~ in ~MigrateSchema~, etc.)
+4. Extract navigation state from ~MainWindowViewModel~ (760 lines, 18 overlay bools)
+5. Delegate settings handling to dedicated ~SettingsViewModel~
+
+** Phase 6 — Tests [P2]
+
+*** Create test project
+- Add ~tests/NextLearn.Desktop.Tests/NextLearn.Desktop.Tests.csproj~ targeting ~net10.0~
+- Reference ~NextLearn.Desktop~ project
+- Add ~xunit~, ~xunit.runner.visualstudio~, ~Microsoft.NET.Test.Sdk~
+- Add ~NSubstitute~ or ~Moq~ for mocking
+- Add ~FluentAssertions~ (optional, nice for readability)
+- Add ~Directory.Build.props~ to test project: ~IsPackable=false~
+
+*** Write tests for DeckFileParser
+- Valid .md file with YAML frontmatter → correct ~Deck~ and ~Page~ models
+- Valid .org file with keywords → correct parsing
+- Missing frontmatter → fallback to filename as title
+- Empty file → single empty page
+- Malformed YAML → graceful error handling
+- Deck with no headings → single page
+- Tags parsing (comma-separated, blank tags stripped)
+
+*** Write tests for HtmlContentBuilder
+- Markdown headings → correct HTML headings with anchor IDs
+- Org headings → correct HTML
+- **Bold**, *italic*, ~~strikethrough~~ → correct tags
+- Code blocks with syntax highlighting → ~<pre><code class="language-...">~
+- Inline code → ~<code>~
+- Images → ~<img>~ with correct src
+- Blockquotes → ~<blockquote>~
+- Tables → ~<table>~ structure
+- Org ~#+BEGIN_*~/~#+END_*~ blocks → correct containers
+- Mixed nesting → valid HTML
+
+*** Write tests for DeckService
+- ~LoadDecksAsync~ returns all non-archived decks from directory
+- ~GetDeckByIdAsync~ fetches from DB correctly
+- ~GetPagesByDeckIdAsync~ returns ordered pages
+- ~TogglePinAsync~ / ~ToggleArchiveAsync~ rename files and update DB
+- ~LoadArchivedDecksAsync~ returns only archived
+- ~LoadPinnedDecksAsync~ returns only pinned
+- ~GetUserProgressAsync~ / ~UpdateUserProgressAsync~ CRUD
+- Edge case: deck file deleted between loads → handle gracefully
+- Edge case: pin/archive file name collision
+
+*** Write tests for SettingsService
+- Round-trip: save then load returns identical object
+- Default values when file doesn't exist
+- Corrupted JSON → fallback to defaults (or graceful error)
+- ~DecksPath~ update persists correctly
+
+*** Write tests for UserService
+- ~GetOrCreateUserAsync~ creates guest user on first call
+- ~ComputeStreak~ consecutive days with ~MinutesLearned > 0~ → streak increments
+- ~ComputeStreak~ gap in study days → streak resets
+- ~RecordActivityAsync~ creates/updates ~DailyActivity~ correctly
+
+*** Write tests for edge cases & integration
+- ~AppDbContext~ can create/open SQLite file in-memory
+- ~DeckFileIdentity~ deterministic GUID for same path
+- Encoding: UTF-8 vs UTF-16 deck files
+- Very long file names, special characters in file paths
+- Unicode content in decks (CJK, RTL, emoji)
+- Decks directory doesn't exist → created on first load
+
+** Phase 7 — Documentation & XML comments [P3]
+
+*** Add XML documentation to public API
+- All service interfaces (once extracted): ~/// <summary>~
+- All public method parameters: ~/// <param name="...">~
+- All public properties: ~/// <summary>~
+- All model classes: brief description of the entity
+- Configure StyleCop SA1600 to require documentation on public members
+
+*** Add inline comments for complex logic (sparingly)
+- ~HtmlContentBuilder.cs~ regex/replacement chains — one-liner explanations
+- ~MainWindow.axaml.cs~ keyboard shortcut dispatch — mention key combos
+- ~DeckFileParser.cs~ heading-level logic — clarify nesting rules
+
+** Phase 8 — IDE / dev experience [P3]
+
+*** Add omnisharp.json (optional)
+- Enable Roslyn analyzers in VS / Rider
+- Configure ~fileOptions~ for ~.org~ files
+
+*** Verify Rider/.editorconfig integration
+- ~resharper~ hierarchy in ~.editorconfig~ for Rider-specific rules
+- Naming style: ~reservedNames~, ~instanceFields~, etc.
+
+** Files that will be created
+- ~.gitignore~ (repo root) — done
+- ~.gitattributes~ (repo root) — done
+- ~.editorconfig~ (repo root)
+- ~Directory.Build.props~ (repo root)
+- ~stylecop.json~ (repo root)
+- ~tests/NextLearn.Desktop.Tests/NextLearn.Desktop.Tests.csproj~
+- ~omnisharp.json~ (repo root, optional)
+
+** Files that will be modified
+- ~NextLearn.Desktop/NextLearn.Desktop.csproj~ — add analyzer refs (if not using ~Directory.Build.props~)
+- Every ~.cs~ file — style/naming fixes, XML docs, suppression pragmas
+- ~Views/MainWindow.axaml~ — splitting overlays into ~UserControl~s (maybe)
+- ~Views/MainWindow.axaml.cs~ — extracting keyboard handler, WebView bridge (maybe)
+
+** Estimation
+- Phase 1: ~30 min — done
+- Phase 2: ~30 min (setup .editorconfig + fix ~10–20 IDE warnings)
+- Phase 3: ~1 hour (setup Directory.Build.props + fix ~15–30 CA warnings)
+- Phase 4: ~1–2 hours (setup stylecop.json + fix ~1200+ SA warnings)
+- Phase 5: ~2–4 hours (depends on refactoring depth)
+- Phase 6: ~3–6 hours (depending on coverage ambition)
+- Phase 7: ~1 hour (can parallelize with Phase 2–4)
+- Phase 8: ~30 min
 

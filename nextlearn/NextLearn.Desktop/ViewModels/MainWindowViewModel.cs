@@ -1,13 +1,17 @@
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
-using CommunityToolkit.Mvvm.Input;
+
+// UI ViewModel — awaits must return to UI thread, no ConfigureAwait
+#pragma warning disable CA2007
 using NextLearn.Desktop.Data;
 using NextLearn.Desktop.Models;
 using NextLearn.Desktop.Services;
@@ -18,9 +22,10 @@ namespace NextLearn.Desktop.ViewModels;
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly AppDbContext _context;
-    private readonly UserService _userService;
-    private readonly DeckService _deckService;
-    private readonly SettingsService _settingsService;
+    private readonly IUserService _userService;
+    private readonly IDeckService _deckService;
+    private readonly IDeckFileService _deckFileService;
+    private readonly ISettingsService _settingsService;
 
     [ObservableProperty]
     private ViewModelBase? _currentView;
@@ -50,19 +55,40 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isArchivedViewOpen;
 
     [ObservableProperty]
+    private bool _isHeatmapOpen;
+
+    [ObservableProperty]
+    private int _todayMinutes;
+
+    [ObservableProperty]
+    private int _todayPages;
+
+    [ObservableProperty]
+    private int _todayDecks;
+
+    [ObservableProperty]
+    private int _todayStreak;
+
+    [ObservableProperty]
+    private ObservableCollection<HeatmapCell> _heatmapCells = new();
+
+    [ObservableProperty]
+    private double _heatmapCellScale = 1.0;
+
+    [ObservableProperty]
     private bool _isMarketplaceOpen;
 
     [ObservableProperty]
-    private string _theme = "";
+    private string _theme = string.Empty;
 
     [ObservableProperty]
-    private string _font = "";
+    private string _font = string.Empty;
 
     [ObservableProperty]
-    private string _decksPath = "";
+    private string _decksPath = string.Empty;
 
     [ObservableProperty]
-    private string _settingsStatus = "";
+    private string _settingsStatus = string.Empty;
 
     [ObservableProperty]
     private bool _isShortcutsHandbookOpen;
@@ -72,16 +98,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentImageFileName))]
-    private string _currentImagePath = "";
+    private string _currentImagePath = string.Empty;
 
     [ObservableProperty]
     private double _zoomLevel = 1.0;
 
     [ObservableProperty]
     private double _textScale = 1.0;
-
-    [ObservableProperty]
-    private int _rotationAngle;
 
     [ObservableProperty]
     private Avalonia.Media.Imaging.Bitmap? _currentImageBitmap;
@@ -102,9 +125,11 @@ public partial class MainWindowViewModel : ViewModelBase
             CurrentImageBitmap = null;
             return;
         }
+
         var capturedPath = value;
         Task.Run(() =>
         {
+#pragma warning disable CA1031
             try
             {
                 var bytes = File.ReadAllBytes(capturedPath);
@@ -136,19 +161,23 @@ public partial class MainWindowViewModel : ViewModelBase
                         CurrentImageBitmap = null;
                 });
             }
+#pragma warning restore CA1031
         });
     }
 
-    private Avalonia.Media.Imaging.Bitmap? CreateInvertedBitmap(Avalonia.Media.Imaging.Bitmap source)
+    private static Avalonia.Media.Imaging.Bitmap? CreateInvertedBitmap(Avalonia.Media.Imaging.Bitmap source)
     {
         try
         {
             using var ms = new MemoryStream();
             source.Save(ms);
             ms.Position = 0;
-            var skData = SKData.Create(ms);
+            using var skData = SKData.Create(ms);
             using var skBitmap = SKBitmap.Decode(skData);
-            if (skBitmap == null) return null;
+            if (skBitmap == null)
+            {
+                return null;
+            }
 
             for (var y = 0; y < skBitmap.Height; y++)
             {
@@ -167,7 +196,9 @@ public partial class MainWindowViewModel : ViewModelBase
             using var pngStream = pngData.AsStream();
             return new Avalonia.Media.Imaging.Bitmap(pngStream);
         }
+#pragma warning disable CA1031
         catch (Exception ex)
+#pragma warning restore CA1031
         {
             Log.Error(ex, "Failed to create inverted bitmap");
             return null;
@@ -175,6 +206,7 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     public HomeViewModel HomeViewModel { get; }
+
     public LearningViewModel LearningViewModel { get; }
 
     public MainWindowViewModel()
@@ -182,34 +214,114 @@ public partial class MainWindowViewModel : ViewModelBase
         _context = new AppDbContext();
         _context.Database.EnsureCreated();
         MigrateSchema(_context);
-        
+
         _userService = new UserService(_context);
         _deckService = new DeckService(_context, _userService);
+        _deckFileService = new DeckFileService(_context);
         _settingsService = new SettingsService();
+        var htmlContentBuilder = new HtmlContentService();
 
         LoadSettings();
 
         var decksPath = _settingsService.ResolvedDecksPath;
-        HomeViewModel = new HomeViewModel(_deckService, this, decksPath);
-        LearningViewModel = new LearningViewModel(_deckService, _userService, this, decksPath);
+        HomeViewModel = new HomeViewModel(_deckService, _deckFileService, this, decksPath);
+        LearningViewModel = new LearningViewModel(_deckService, _userService, htmlContentBuilder, this, decksPath);
 
         CurrentView = HomeViewModel;
     }
 
+#pragma warning disable CA1031
     private static void MigrateSchema(AppDbContext context)
     {
-        try { context.Database.ExecuteSqlRaw("ALTER TABLE Decks ADD COLUMN IsArchived INTEGER NOT NULL DEFAULT 0"); } catch { }
-        try { context.Database.ExecuteSqlRaw("ALTER TABLE Decks ADD COLUMN IsPinned INTEGER NOT NULL DEFAULT 0"); } catch { }
-        try { context.Database.ExecuteSqlRaw("ALTER TABLE Pages DROP COLUMN DurationSeconds"); } catch { }
-        try { context.Database.ExecuteSqlRaw("ALTER TABLE Pages DROP COLUMN MediaPath"); } catch { }
-        try { context.Database.ExecuteSqlRaw("ALTER TABLE Decks DROP COLUMN Category"); } catch { }
-        try { context.Database.ExecuteSqlRaw("ALTER TABLE Decks DROP COLUMN Difficulty"); } catch { }
-        try { context.Database.ExecuteSqlRaw("ALTER TABLE Decks DROP COLUMN DownloadsCount"); } catch { }
-        try { context.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN Email"); } catch { }
-        try { context.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN PasswordHash"); } catch { }
-        try { context.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN TotalDecksShared"); } catch { }
-        try { context.Database.ExecuteSqlRaw("ALTER TABLE UserProgress DROP COLUMN IsDownloaded"); } catch { }
+        try
+        {
+            context.Database.ExecuteSqlRaw("ALTER TABLE Decks ADD COLUMN IsArchived INTEGER NOT NULL DEFAULT 0");
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            context.Database.ExecuteSqlRaw("ALTER TABLE Decks ADD COLUMN IsPinned INTEGER NOT NULL DEFAULT 0");
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            context.Database.ExecuteSqlRaw("ALTER TABLE Pages DROP COLUMN DurationSeconds");
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            context.Database.ExecuteSqlRaw("ALTER TABLE Pages DROP COLUMN MediaPath");
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            context.Database.ExecuteSqlRaw("ALTER TABLE Decks DROP COLUMN Category");
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            context.Database.ExecuteSqlRaw("ALTER TABLE Decks DROP COLUMN Difficulty");
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            context.Database.ExecuteSqlRaw("ALTER TABLE Decks DROP COLUMN DownloadsCount");
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            context.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN Email");
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            context.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN PasswordHash");
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            context.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN TotalDecksShared");
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            context.Database.ExecuteSqlRaw("ALTER TABLE UserProgress DROP COLUMN IsDownloaded");
+        }
+        catch
+        {
+        }
     }
+#pragma warning restore CA1031
 
     private void LoadSettings()
     {
@@ -250,13 +362,15 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task BrowseDecksPath()
+    private async Task BrowseDecksPathAsync()
     {
         if (PickFolderHandler != null)
         {
             var result = await PickFolderHandler(DecksPath);
             if (result != null)
+            {
                 DecksPath = result;
+            }
         }
     }
 
@@ -267,7 +381,9 @@ public partial class MainWindowViewModel : ViewModelBase
         Log.Information("OpenDecksFolder: {Path}", path);
 
         if (!Directory.Exists(path))
+        {
             Directory.CreateDirectory(path);
+        }
 
         try
         {
@@ -290,7 +406,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 "thunar", "nautilus", "dolphin", "nemo", "caja",
                 "pcmanfm", "konqueror", "krusader", "doublecmd",
                 "spacefm", "xfe", "rox-filer",
-                "ranger", "nnn", "lf", "mc", "yazi"
+                "ranger", "nnn", "lf", "mc", "yazi",
             })
             {
                 try
@@ -299,7 +415,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     Log.Information("Opened via {FileManager}", fm);
                     return;
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
                 {
                     Log.Debug(ex, "{FileManager} not found for {Path}", fm, path);
                 }
@@ -311,33 +427,36 @@ public partial class MainWindowViewModel : ViewModelBase
                 Log.Information("Opened via xdg-open (last resort)");
                 return;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
             {
                 Log.Debug(ex, "xdg-open also failed for {Path}", path);
             }
 
             Log.Error("No file manager found to open {Path}", path);
         }
+#pragma warning disable CA1031
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to open decks folder: {Path}", path);
         }
+#pragma warning restore CA1031
     }
 
     [RelayCommand]
-    public async Task NavigateToHome()
+    public async Task NavigateToHomeAsync()
     {
         if (IsLearning)
         {
             await LearningViewModel.SaveProgressAsync();
         }
+
         IsLearning = false;
         CurrentView = HomeViewModel;
         HomeViewModel.Refresh();
     }
 
     [RelayCommand]
-    public async Task NavigateToLearning(Guid deckId)
+    public async Task NavigateToLearningAsync(Guid deckId)
     {
         IsPinnedViewOpen = false;
         IsArchivedViewOpen = false;
@@ -345,12 +464,13 @@ public partial class MainWindowViewModel : ViewModelBase
         var deck = HomeViewModel.Decks.FirstOrDefault(d => d.Id == deckId);
         if (deck != null)
         {
-            await LearningViewModel.SetCurrentDeck(deck);
+            await LearningViewModel.SetCurrentDeckAsync(deck);
         }
         else
         {
             LearningViewModel.StartLearning(deckId);
         }
+
         CurrentView = LearningViewModel;
     }
 
@@ -359,7 +479,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsPinnedViewOpen = false;
         IsArchivedViewOpen = false;
         IsLearning = true;
-        await LearningViewModel.SetCurrentDeck(deck);
+        await LearningViewModel.SetCurrentDeckAsync(deck);
         CurrentView = LearningViewModel;
     }
 
@@ -370,6 +490,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsPinnedViewOpen = false;
         IsArchivedViewOpen = false;
         IsSettingsOpen = false;
+        IsHeatmapOpen = false;
         IsMarketplaceOpen = true;
     }
 
@@ -380,13 +501,15 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    public async Task ExitLearning()
+    public async Task ExitLearningAsync()
     {
-        await NavigateToHome();
+        await NavigateToHomeAsync();
     }
 
     [RelayCommand]
+#pragma warning disable CA1822
     public void NavigateToPlugins()
+#pragma warning restore CA1822
     {
         Views.MainWindow.OpenInBrowser("https://github.com/megamind1230");
     }
@@ -401,21 +524,23 @@ public partial class MainWindowViewModel : ViewModelBase
     public void OpenSettings()
     {
         LoadSettings();
-        SettingsStatus = "";
+        SettingsStatus = string.Empty;
         IsSidebarOpen = false;
         IsPinnedViewOpen = false;
         IsArchivedViewOpen = false;
+        IsHeatmapOpen = false;
         IsSettingsOpen = true;
     }
 
     [RelayCommand]
     public void CloseSettings()
     {
-        SettingsStatus = "";
+        SettingsStatus = string.Empty;
         IsSettingsOpen = false;
     }
 
     public ObservableCollection<Deck> PinnedDecks { get; set; } = new();
+
     public ObservableCollection<Deck> ArchivedDecks { get; set; } = new();
 
     [RelayCommand]
@@ -423,11 +548,15 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         var decksPath = _settingsService.ResolvedDecksPath;
         PinnedDecks.Clear();
-        foreach (var d in _deckService.GetPinnedDecks(decksPath))
+        foreach (var d in DeckFileService.GetPinnedDecks(decksPath))
+        {
             PinnedDecks.Add(d);
+        }
+
         IsSidebarOpen = false;
         IsArchivedViewOpen = false;
         IsSettingsOpen = false;
+        IsHeatmapOpen = false;
         IsPinnedViewOpen = true;
     }
 
@@ -436,11 +565,15 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         var decksPath = _settingsService.ResolvedDecksPath;
         ArchivedDecks.Clear();
-        foreach (var d in _deckService.GetArchivedDecks(decksPath))
+        foreach (var d in DeckFileService.GetArchivedDecks(decksPath))
+        {
             ArchivedDecks.Add(d);
+        }
+
         IsSidebarOpen = false;
         IsPinnedViewOpen = false;
         IsSettingsOpen = false;
+        IsHeatmapOpen = false;
         IsArchivedViewOpen = true;
     }
 
@@ -459,8 +592,9 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     public void UnpinFromView(Deck deck)
     {
+        ArgumentNullException.ThrowIfNull(deck);
         var decksPath = _settingsService.ResolvedDecksPath;
-        _deckService.UnpinDeck(deck.Id, decksPath);
+        _deckFileService.UnpinDeck(deck.Id, decksPath);
         PinnedDecks.Remove(deck);
         HomeViewModel.Refresh();
     }
@@ -468,10 +602,91 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     public void Unarchive(Deck deck)
     {
+        ArgumentNullException.ThrowIfNull(deck);
         var decksPath = _settingsService.ResolvedDecksPath;
-        _deckService.UnarchiveDeck(deck.Id, decksPath);
+        _deckFileService.UnarchiveDeck(deck.Id, decksPath);
         ArchivedDecks.Remove(deck);
         HomeViewModel.Refresh();
+    }
+
+    [RelayCommand]
+    public void ShowHeatmap()
+    {
+        RefreshHeatmap();
+        IsSidebarOpen = false;
+        IsPinnedViewOpen = false;
+        IsArchivedViewOpen = false;
+        IsSettingsOpen = false;
+        IsMarketplaceOpen = false;
+        IsHeatmapOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseHeatmap()
+    {
+        IsHeatmapOpen = false;
+    }
+
+    [RelayCommand]
+    private void ZoomHeatmapIn()
+    {
+        HeatmapCellScale = Math.Min(3.0, HeatmapCellScale + 0.25);
+    }
+
+    [RelayCommand]
+    private void ZoomHeatmapOut()
+    {
+        HeatmapCellScale = Math.Max(0.5, HeatmapCellScale - 0.25);
+    }
+
+    [RelayCommand]
+    private void ZoomHeatmapReset()
+    {
+        HeatmapCellScale = 1.0;
+    }
+
+    private void RefreshHeatmap()
+    {
+        var (minutes, pages, decks, streak) = _userService.GetTodayStats();
+        TodayMinutes = minutes;
+        TodayPages = pages;
+        TodayDecks = decks;
+        TodayStreak = streak;
+
+        var activity = _userService.GetActivityHistory(365);
+        var activityByDate = activity.ToDictionary(a => a.Date, a => a.MinutesLearned);
+
+        var today = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, DateTime.UtcNow.Day);
+        HeatmapCells.Clear();
+
+        var year = today.Year;
+        var start = new DateTime(year, 1, 1);
+        var end = today;
+
+        var current = start;
+        while (current <= end)
+        {
+            var totalDays = (int)(current - start).TotalDays;
+            var oldRow = totalDays / 7;
+            var oldCol = (oldRow % 2 == 0) ? totalDays % 7 : 6 - (totalDays % 7);
+
+            // Rotate 90° CCW so Jan 1 is at bottom-left, days snake upward
+            const int maxOldCol = 6;
+            var row = maxOldCol - oldCol;
+            var col = oldRow;
+
+            activityByDate.TryGetValue(current, out var minutesLearned);
+
+            HeatmapCells.Add(new HeatmapCell
+            {
+                Date = current,
+                Count = minutesLearned,
+                Row = row,
+                Col = col,
+            });
+
+            current = current.AddDays(1);
+        }
     }
 
     [RelayCommand]
@@ -489,15 +704,19 @@ public partial class MainWindowViewModel : ViewModelBase
             CurrentImageIndex = idx >= 0 ? idx : 0;
             CurrentImagePath = imagePath;
             ZoomLevel = 1.0;
-            RotationAngle = 0;
             IsImageOverlayOpen = true;
-            Log.Information("Image overlay opened: {Path} (index {Index} of {Count})",
-                imagePath, CurrentImageIndex, paths.Count);
+            Log.Information(
+                "Image overlay opened: {Path} (index {Index} of {Count})",
+                imagePath,
+                CurrentImageIndex,
+                paths.Count);
         }
+#pragma warning disable CA1031
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to open image overlay for {Path}", imagePath);
         }
+#pragma warning restore CA1031
     }
 
     [ObservableProperty]
@@ -508,7 +727,6 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         IsImageOverlayOpen = false;
         ZoomLevel = 1.0;
-        RotationAngle = 0;
         Log.Information("Image overlay closed");
     }
 
@@ -557,22 +775,14 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void RotateCw()
-    {
-        RotationAngle = (RotationAngle + 90) % 360;
-    }
-
-    [RelayCommand]
-    private void RotateCcw()
-    {
-        RotationAngle = (RotationAngle - 90 + 360) % 360;
-    }
-
-    [RelayCommand]
     private void NextImage()
     {
         var paths = LearningViewModel.CurrentPageImagePaths;
-        if (paths.Count == 0) return;
+        if (paths.Count == 0)
+        {
+            return;
+        }
+
         CurrentImageIndex = (CurrentImageIndex + 1) % paths.Count;
         CurrentImagePath = paths[CurrentImageIndex];
         Log.Information("Image overlay next: {Path}", CurrentImagePath);
@@ -582,7 +792,11 @@ public partial class MainWindowViewModel : ViewModelBase
     private void PreviousImage()
     {
         var paths = LearningViewModel.CurrentPageImagePaths;
-        if (paths.Count == 0) return;
+        if (paths.Count == 0)
+        {
+            return;
+        }
+
         CurrentImageIndex = (CurrentImageIndex - 1 + paths.Count) % paths.Count;
         CurrentImagePath = paths[CurrentImageIndex];
         Log.Information("Image overlay previous: {Path}", CurrentImagePath);
@@ -592,7 +806,11 @@ public partial class MainWindowViewModel : ViewModelBase
     private void ToggleInvert()
     {
         IsInverted = !IsInverted;
-        if (_normalBitmap == null) return;
+        if (_normalBitmap == null)
+        {
+            return;
+        }
+
         CurrentImageBitmap = IsInverted
             ? (CreateInvertedBitmap(_normalBitmap) ?? _normalBitmap)
             : _normalBitmap;
@@ -602,22 +820,30 @@ public partial class MainWindowViewModel : ViewModelBase
     private void OpenImageInViewer()
     {
         if (string.IsNullOrEmpty(CurrentImagePath) || !File.Exists(CurrentImagePath))
+        {
             return;
+        }
+
         try
         {
             using var process = new Process();
             process.StartInfo = new ProcessStartInfo(CurrentImagePath)
             {
-                UseShellExecute = true
+                UseShellExecute = true,
             };
             process.Start();
         }
-        catch { }
+#pragma warning disable CA1031
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to open image in external viewer: {Path}", CurrentImagePath);
+        }
+#pragma warning restore CA1031
     }
 
     private async void ClearStatusAfterDelay()
     {
         await Task.Delay(3000);
-        SettingsStatus = "";
+        SettingsStatus = string.Empty;
     }
 }

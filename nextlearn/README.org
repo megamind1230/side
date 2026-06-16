@@ -47,7 +47,8 @@ is a separate project.
 | Get Plugins                     | ✅ Done    | Opens ~https://github.com/megamind1230~ in browser |
 | Stable progress across restarts | ✅ Done    | DeckFileIdentity + DeckService save                |
 | Auto-refresh on file change     | ✅ Done    | FileSystemWatcher watches decks dir                |
-| Streak tracking & daily log     | ✅ Done    | Built-in                                           |
+| Streak tracking & daily log     | ✅ Done    | Wall-clock minutes, daily activity                 |
+| Heatmap overlay (full-page)     | ✅ Done    | Snake layout 90° CCW, 6-level orange, green today  |
 | Keyboard shortcuts              | ✅ Done    | N/P/J/K/H/L/Q/D/E//Esc (see table below)           |
 | Settings (sidebar → ⚙)         | ✅ Done    | Theme, font, decks path, save/reset        |
 | Theme switching                 | 🚧 Plugin  | Will be extracted (Dark/Light)                     |
@@ -93,6 +94,15 @@ manual: user → website → download → drop into local folder.
 - ~~/.config/nextlearn/nextlearn.db~ — users, progress, activity
 - ~~/nextlearn/decks/*.md~ / ~*.org~ — deck content with YAML frontmatter
 
+** Clean Code Initiative
+
+Phase 5 of the clean code initiative is complete:
+- 5a: Naming conventions (async suffix, private field style)
+- 5b: Dead code removal (flashcard, feedback, editor, search)
+- 5c: Split MainWindow.axaml/.cs (~700 lines extracted into 8 UserControls, KeyboardHandler, WebViewBridge)
+- 5d: Split service files (HtmlContentBuilder → strategy pattern; DeckService → DB + file layers)
+- 5e: Service interfaces + DI preparation (IDeckService, IUserService, IDeckFileService, ISettingsService, IHtmlContentBuilder)
+
 ** Project Structure
 
 | Path                            | Purpose                               |
@@ -106,13 +116,17 @@ manual: user → website → download → drop into local folder.
 
 ** Key Services
 
-| Service          | Role                                        |
-|------------------+---------------------------------------------|
-| DeckFileParser   | Static parser: frontmatter + heading → Deck |
-| DeckFileIdentity | SHA256 of path → deterministic GUID         |
-| DeckService      | CRUD for decks in SQLite, progress tracking |
-| UserService      | Current user, daily activity, streak        |
-| SettingsService  | Persists theme/font/paths to JSON           |
+| Service             | Role                                        |
+|---------------------+---------------------------------------------|
+| DeckFileParser      | Static parser: frontmatter + heading → Deck |
+| DeckFileIdentity    | SHA256 of path → deterministic GUID         |
+| DeckService         | DB layer: decks, pages, progress tracking   |
+| DeckFileService     | File ops: archive/pin/rename decks          |
+| UserService         | Current user, daily activity, streak (computed from study minutes) |
+| SettingsService     | Persists theme/font/paths to JSON           |
+| HtmlContentBuilder  | Static HTML builder from Page model         |
+| MarkdownInlineRenderer | Strategy for .md inline rendering        |
+| OrgInlineRenderer   | Strategy for .org inline rendering          |
 
 * Deck File Format
 
@@ -201,7 +215,10 @@ Content
 | Key: n       | Last page       | Complete but stay (allows revision)      |
 | Ctrl+Shift++ | Global          | Text zoom in (larger)                    |
 | Ctrl+Shift+_ | Global          | Text zoom out (smaller)                  |
-| Ctrl+Shift+0 | Global          | Reset text zoom to default               |
+| Ctrl+Shift+0 | Global          | Reset text zoom / reset heatmap zoom      |
+| Ctrl+Shift+= | Heatmap open    | Heatmap zoom in                           |
+| Ctrl+Shift+- | Heatmap open    | Heatmap zoom out                          |
+| 🔥 Streak    | Home / Sidebar  | Open heatmap overlay                      |
 
 * How to Use
 

@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text.Json;
 using NextLearn.Desktop.Models;
 
 namespace NextLearn.Desktop.Services;
 
-public class SettingsService
+public class SettingsService : ISettingsService
 {
     private readonly string _filePath;
     private AppSettings _settings;
@@ -55,7 +55,7 @@ public class SettingsService
                 return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
             }
         }
-        catch
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException or JsonException or IOException)
         {
         }
 
@@ -71,7 +71,7 @@ public class SettingsService
             error = null;
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or JsonException)
         {
             error = ex.Message;
             return false;
