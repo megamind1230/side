@@ -29,7 +29,7 @@ is a separate project.
 | Page-by-page learning           | ✅ Done    | Prev/Next with keyboard shortcuts                                                  |
 | Section breadcrumb              | ✅ Done    | Shows ~# Section → ## Page~ with heading markers                                   |
 | Rendered markdown content       | ✅ Done    | NativeWebView (HTML rendering via data URI)                                        |
-| Code syntax highlighting        | ✅ Done    | highlight.js embedded, lang auto-detect                                            |
+| Code syntax highlighting        | ✅ Done    | highlight.js embedded, 52 langs w/ alias support                                   |
 | Table rendering (pipe tables)   | ✅ Done    | Markdown + Org table syntax → HTML <table>                                         |
 | .org file headings (~~** ~~)    | ✅ Done    | Parser regex matches ~*~/~~~** ~~ and ~#~/~~~## ~~                                 |
 | .org code blocks (#+BEGIN_SRC)  | ✅ Done    | ~#+BEGIN_SRC lang~ / ~#+END_SRC~ → <pre><code>                                     |
@@ -76,7 +76,7 @@ is a separate project.
 - Entity Framework Core 8.0.0 + SQLite
 - Serilog (file + console logging to ~~/nextlearn/log.txt~)
 - NativeWebView 0.1.0-alpha.3 + NativeWebView.Platform.Linux (WebView HTML rendering)
-- highlight.js 11.9.0 (syntax highlighting, embedded as Assets/highlight.min.js)
+- highlight.js 11.11.1 (syntax highlighting, 52 languages w/ alias support, embedded as Assets/custom-highlight.js)
 - Linux: requires ~libwpewebkit-2.0~, ~libwpe-1.0~, ~libWPEBackend-fdo-1.0~
 - Wayland: auto-detects ~XDG_SESSION_TYPE=wayland~, unsets ~WAYLAND_DISPLAY~
   (GLFW skip) + forces X11 backend via ~UseSkia().UseX11()~
@@ -361,6 +361,92 @@ It renders as monospace with a dark background.
 
 Supported block types: ~QUOTE~, ~EXAMPLE~, ~VERSE~, ~CENTER~, and any other
 ~#+BEGIN_<type>~ / ~#+END_<type>~ pair.
+
+* Keyboard Shortcuts / Key Bindings
+
+nextlearn supports three keybinding profiles: ~Vim~ (default), ~Emacs~, and ~Custom~.
+Switch between them in Settings → Key Bindings.
+
+The Vim preset ships with the app. You can also find the complete mapping below
+for reference or manual setup.
+
+** Vim preset (default)
+
+#+BEGIN_SRC json
+{
+  "_help": "[... help text ...]",
+  "bindings": [
+    { "_comment": "Zoom in on image",       "action": "ZoomIn",       "key": "OemPlus",  "modifiers": "Control",       "context": "ImageOverlay", "textBox": true },
+    { "_comment": "Zoom out on image",      "action": "ZoomOut",      "key": "OemMinus", "modifiers": "Control",       "context": "ImageOverlay", "textBox": true },
+    { "_comment": "Reset image zoom",       "action": "ResetZoom",    "key": "D0",       "modifiers": "Control",       "context": "ImageOverlay", "textBox": true },
+    { "_comment": "Reset image zoom",       "action": "ResetZoom",    "key": "NumPad0",  "modifiers": "Control",       "context": "ImageOverlay", "textBox": true },
+    { "_comment": "Next image in overlay",  "action": "NextImage",    "key": "N",        "modifiers": "Shift",         "context": "ImageOverlay" },
+    { "_comment": "Previous image",         "action": "PreviousImage","key": "P",        "modifiers": "Shift",         "context": "ImageOverlay" },
+    { "_comment": "Next page",              "action": "NextPage",     "key": "N",        "modifiers": "",              "context": "Learning" },
+    { "_comment": "Next page",              "action": "NextPage",     "key": "Right",    "modifiers": "",              "context": "Learning" },
+    { "_comment": "Previous page",          "action": "PreviousPage", "key": "P",       "modifiers": "",              "context": "Learning" },
+    { "_comment": "Previous page",          "action": "PreviousPage", "key": "Left",    "modifiers": "",              "context": "Learning" },
+    { "_comment": "Scroll content down",    "action": "ScrollDown",   "key": "J",        "modifiers": "",              "context": "Learning" },
+    { "_comment": "Scroll content up",      "action": "ScrollUp",     "key": "K",        "modifiers": "",              "context": "Learning" },
+    { "_comment": "Scroll content left",    "action": "ScrollLeft",   "key": "H",        "modifiers": "",              "context": "Learning" },
+    { "_comment": "Scroll content right",   "action": "ScrollRight",  "key": "L",        "modifiers": "",              "context": "Learning" },
+    { "_comment": "Exit to home",           "action": "NavigateHome", "key": "Q",        "modifiers": "",              "context": "Learning" },
+    { "_comment": "Exit to home",           "action": "NavigateHome", "key": "D",        "modifiers": "",              "context": "Learning" },
+    { "_comment": "Open go-to-page dialog", "action": "OpenGoToPage", "key": "G",        "modifiers": "Control",       "context": "Learning", "textBox": true },
+    { "_comment": "Go home",                "action": "NavigateHome", "key": "Q",        "modifiers": "",              "context": "Home" },
+    { "_comment": "Go home",                "action": "NavigateHome", "key": "D",        "modifiers": "",              "context": "Home" },
+    { "_comment": "Scroll deck list down",  "action": "ScrollDeckListDown", "key": "J", "modifiers": "",              "context": "Home" },
+    { "_comment": "Scroll deck list up",    "action": "ScrollDeckListUp",   "key": "K", "modifiers": "",              "context": "Home" },
+    { "_comment": "Focus search bar (/)",   "action": "FocusSearchBar", "key": "Oem2",   "modifiers": "",              "context": "Home" },
+    { "_comment": "Zoom text in",           "action": "ZoomTextIn",   "key": "OemPlus",  "modifiers": "Control+Shift",  "textBox": true },
+    { "_comment": "Zoom text out",          "action": "ZoomTextOut",  "key": "OemMinus", "modifiers": "Control+Shift",  "textBox": true },
+    { "_comment": "Reset text zoom",        "action": "ResetTextZoom","key": "D0",       "modifiers": "Control+Shift",  "textBox": true },
+    { "_comment": "Reset text zoom",        "action": "ResetTextZoom","key": "NumPad0",  "modifiers": "Control+Shift",  "textBox": true },
+    { "_comment": "Open settings (Ctrl+,)", "action": "OpenSettings", "key": "OemComma", "modifiers": "Control",       "textBox": true },
+    { "_comment": "Toggle shortcuts handbook", "action": "ToggleShortcutsHandbook", "key": "Oem2", "modifiers": "Shift" }
+  ]
+}
+#+END_SRC
+
+To use a custom config, copy the JSON above into ~/Desktop/nextlearn/keybindings.json~, rename the hidden template from the app's config directory:
+
+#+BEGIN_SRC sh
+cp ~/.config/nextlearn/keybindings.json~ ~/.config/nextlearn/keybindings.json
+vi ~/.config/nextlearn/keybindings.json
+#+END_SRC
+
+Then select ~Custom~ in Settings → Key Bindings and click Save.
+
+** Binding format reference
+
+| Field       | Required | Description                                                  |
+|-------------+----------+--------------------------------------------------------------|
+| ~action~    | yes      | One of the ~KeyboardActionKind~ enum values (see below)      |
+| ~key~       | yes      | Avalonia Key enum name (e.g. ~N~, ~Right~, ~OemPlus~)      |
+| ~modifiers~ | yes      | Comma-separated: ~Control~, ~Shift~, ~Alt~, or empty ~""~   |
+| ~context~   | no       | ~Learning~, ~Home~, ~ImageOverlay~, or omit for global       |
+| ~textBox~   | no       | Set ~true~ to allow in text input fields (default false)     |
+| ~_comment~  | no       | Ignored by the app — documentation only                      |
+
+Available ~action~ values:
+
+- ~NextPage~ / ~PreviousPage~ — flip deck pages during study
+- ~ScrollDown~ / ~ScrollUp~ / ~ScrollLeft~ / ~ScrollRight~ — scroll WebView content
+- ~NavigateHome~ — exit study or settings back to deck list
+- ~OpenSettings~ / ~CloseSettings~ — toggle settings panel
+- ~ZoomTextIn~ / ~ZoomTextOut~ / ~ResetTextZoom~ — font scaling
+- ~ZoomIn~ / ~ZoomOut~ / ~ResetZoom~ — image overlay zoom
+- ~NextImage~ / ~PreviousImage~ — cycle images in overlay
+- ~FocusSearchBar~ — focus the search bar on home screen
+- ~ScrollDeckListDown~ / ~ScrollDeckListUp~ — scroll the deck list
+- ~ToggleShortcutsHandbook~ — show/hide this handbook
+- ~OpenGoToPage~ — jump to a page number during study
+- ~ZoomHeatmapIn~ / ~ZoomHeatmapOut~ / ~ZoomHeatmapReset~ — heatmap zoom
+
+The following are handled internally and are not configurable:
+
+- =Esc=: closes overlays in priority order (GoToPage → Handbook → Image → ... → clear focus)
+- =g= then =i= chord: focus and clear search bar on home screen
 
 * Known Limitations
 

@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NextLearn.Desktop.Models;
 
+/// <summary>An active learning slot (up to 2 concurrent decks).</summary>
 public class ActiveLearning
 {
     [Key]

@@ -1,11 +1,11 @@
-﻿using Avalonia;
-using Serilog;
-using System;
+﻿using System;
 using System.IO;
+using Avalonia;
+using Serilog;
 
 namespace NextLearn.Desktop;
 
-sealed class Program
+internal sealed class Program
 {
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
@@ -33,7 +33,9 @@ sealed class Program
         {
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
+#pragma warning disable CA1031
         catch (Exception ex)
+#pragma warning restore CA1031
         {
             Log.Fatal(ex, "Application terminated unexpectedly");
         }

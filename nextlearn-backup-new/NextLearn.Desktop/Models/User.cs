@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace NextLearn.Desktop.Models;
 
+/// <summary>A user (always a local guest in offline mode).</summary>
 public class User
 {
     [Key]

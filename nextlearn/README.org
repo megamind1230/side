@@ -29,7 +29,7 @@ is a separate project.
 | Page-by-page learning           | ✅ Done    | Prev/Next with keyboard shortcuts                                                  |
 | Section breadcrumb              | ✅ Done    | Shows ~# Section → ## Page~ with heading markers                                   |
 | Rendered markdown content       | ✅ Done    | NativeWebView (HTML rendering via data URI)                                        |
-| Code syntax highlighting        | ✅ Done    | highlight.js embedded, lang auto-detect                                            |
+| Code syntax highlighting        | ✅ Done    | highlight.js embedded, 52 langs w/ alias support                                   |
 | Table rendering (pipe tables)   | ✅ Done    | Markdown + Org table syntax → HTML <table>                                         |
 | .org file headings (~~** ~~)    | ✅ Done    | Parser regex matches ~*~/~~~** ~~ and ~#~/~~~## ~~                                 |
 | .org code blocks (#+BEGIN_SRC)  | ✅ Done    | ~#+BEGIN_SRC lang~ / ~#+END_SRC~ → <pre><code>                                     |
@@ -76,7 +76,8 @@ is a separate project.
 - Entity Framework Core 8.0.0 + SQLite
 - Serilog (file + console logging to ~~/nextlearn/log.txt~)
 - NativeWebView 0.1.0-alpha.3 + NativeWebView.Platform.Linux (WebView HTML rendering)
-- highlight.js 11.9.0 (syntax highlighting, embedded as Assets/highlight.min.js)
+- YamlDotNet 18.0.0 (YAML serialization for settings + keybindings config)
+- highlight.js 11.11.1 (syntax highlighting, 52 languages w/ alias support, embedded as Assets/custom-highlight.js)
 - Linux: requires ~libwpewebkit-2.0~, ~libwpe-1.0~, ~libWPEBackend-fdo-1.0~
 - Wayland: auto-detects ~XDG_SESSION_TYPE=wayland~, unsets ~WAYLAND_DISPLAY~
   (GLFW skip) + forces X11 backend via ~UseSkia().UseX11()~
@@ -123,7 +124,7 @@ Phase 5 of the clean code initiative is complete:
 | DeckService         | DB layer: decks, pages, progress tracking   |
 | DeckFileService     | File ops: archive/pin/rename decks          |
 | UserService         | Current user, daily activity, streak (computed from study minutes) |
-| SettingsService     | Persists theme/font/paths to JSON           |
+| SettingsService     | Persists theme/font/paths to ~.yaml~        |
 | HtmlContentBuilder  | Static HTML builder from Page model         |
 | MarkdownInlineRenderer | Strategy for .md inline rendering        |
 | OrgInlineRenderer   | Strategy for .org inline rendering          |
@@ -361,6 +362,235 @@ It renders as monospace with a dark background.
 
 Supported block types: ~QUOTE~, ~EXAMPLE~, ~VERSE~, ~CENTER~, and any other
 ~#+BEGIN_<type>~ / ~#+END_<type>~ pair.
+
+* Keyboard Shortcuts / Key Bindings
+
+nextlearn supports three keybinding profiles: ~Vim~ (default), ~Emacs~, and ~Custom~.
+Switch between them in Settings → Key Bindings.
+
+The Vim preset ships with the app. You can also find the complete mapping below
+for reference or manual setup.
+
+** Vim preset (default)
+
+#+BEGIN_SRC yaml
+bindings:
+  # ── Image Overlay ─────────────────────────────────────
+  - action: ZoomIn
+    key: OemPlus       # + key
+    modifiers: Control
+    context: ImageOverlay
+    textBox: true
+    _comment: "Zoom in on image"
+
+  - action: ZoomOut
+    key: OemMinus      # - key
+    modifiers: Control
+    context: ImageOverlay
+    textBox: true
+    _comment: "Zoom out on image"
+
+  - action: ResetZoom
+    key: D0            # 0 key (top row)
+    modifiers: Control
+    context: ImageOverlay
+    textBox: true
+    _comment: "Reset image zoom"
+
+  - action: ResetZoom
+    key: NumPad0       # 0 key (numpad)
+    modifiers: Control
+    context: ImageOverlay
+    textBox: true
+    _comment: "Reset image zoom"
+
+  - action: NextImage
+    key: N
+    modifiers: Shift
+    context: ImageOverlay
+    _comment: "Next image in overlay"
+
+  - action: PreviousImage
+    key: P
+    modifiers: Shift
+    context: ImageOverlay
+    _comment: "Previous image in overlay"
+
+  # ── Learning ──────────────────────────────────────────
+  - action: NextPage
+    key: N
+    modifiers: ""
+    context: Learning
+    _comment: "Next page"
+
+  - action: NextPage
+    key: Right
+    modifiers: ""
+    context: Learning
+    _comment: "Next page"
+
+  - action: PreviousPage
+    key: P
+    modifiers: ""
+    context: Learning
+    _comment: "Previous page"
+
+  - action: PreviousPage
+    key: Left
+    modifiers: ""
+    context: Learning
+    _comment: "Previous page"
+
+  - action: ScrollDown
+    key: J
+    modifiers: ""
+    context: Learning
+    _comment: "Scroll content down"
+
+  - action: ScrollUp
+    key: K
+    modifiers: ""
+    context: Learning
+    _comment: "Scroll content up"
+
+  - action: ScrollLeft
+    key: H
+    modifiers: ""
+    context: Learning
+    _comment: "Scroll content left"
+
+  - action: ScrollRight
+    key: L
+    modifiers: ""
+    context: Learning
+    _comment: "Scroll content right"
+
+  - action: NavigateHome
+    key: Q
+    modifiers: ""
+    context: Learning
+    _comment: "Exit to home"
+
+  - action: NavigateHome
+    key: D
+    modifiers: ""
+    context: Learning
+    _comment: "Exit to home"
+
+  - action: OpenGoToPage
+    key: G
+    modifiers: Control
+    context: Learning
+    textBox: true
+    _comment: "Open go-to-page dialog"
+
+  # ── Home ──────────────────────────────────────────────
+  - action: NavigateHome
+    key: Q
+    modifiers: ""
+    context: Home
+    _comment: "Go home (no-op from home)"
+
+  - action: NavigateHome
+    key: D
+    modifiers: ""
+    context: Home
+    _comment: "Go home (no-op from home)"
+
+  - action: ScrollDeckListDown
+    key: J
+    modifiers: ""
+    context: Home
+    _comment: "Scroll deck list down"
+
+  - action: ScrollDeckListUp
+    key: K
+    modifiers: ""
+    context: Home
+    _comment: "Scroll deck list up"
+
+  - action: FocusSearchBar
+    key: Oem2          # / key
+    modifiers: ""
+    context: Home
+    _comment: "Focus search bar (/)"
+
+  # ── Global ────────────────────────────────────────────
+  - action: ZoomTextIn
+    key: OemPlus       # + key
+    modifiers: Control+Shift
+    textBox: true
+    _comment: "Zoom text in (also heatmap in)"
+
+  - action: ZoomTextOut
+    key: OemMinus      # - key
+    modifiers: Control+Shift
+    textBox: true
+    _comment: "Zoom text out (also heatmap out)"
+
+  - action: ResetTextZoom
+    key: D0            # 0 key (top row)
+    modifiers: Control+Shift
+    textBox: true
+    _comment: "Reset text zoom (also heatmap reset)"
+
+  - action: ResetTextZoom
+    key: NumPad0       # 0 key (numpad)
+    modifiers: Control+Shift
+    textBox: true
+    _comment: "Reset text zoom (also heatmap reset)"
+
+  - action: OpenSettings
+    key: OemComma      # , key
+    modifiers: Control
+    textBox: true
+    _comment: "Open settings (Ctrl+,)"
+
+  - action: ToggleShortcutsHandbook
+    key: Oem2          # / key (with Shift = ?)
+    modifiers: Shift
+    _comment: "Toggle shortcuts handbook (? or Shift+/)"
+#+END_SRC
+
+To use a custom config, unhide the template file written to the app's config directory:
+
+#+BEGIN_SRC sh
+mv ~/.config/nextlearn/keybindings.yaml~ ~/.config/nextlearn/keybindings.yaml
+$EDITOR ~/.config/nextlearn/keybindings.yaml
+#+END_SRC
+
+Then select ~Custom~ in Settings → Key Bindings and click Save.
+
+** Binding format reference
+
+| Field       | Required | Description                                                  |
+|-------------+----------+--------------------------------------------------------------|
+| ~action~    | yes      | One of the ~KeyboardActionKind~ enum values (see below)      |
+| ~key~       | yes      | Avalonia Key enum name; inline ~#~ comments explain the real key |
+| ~modifiers~ | yes      | ~Control~, ~Shift~, ~Alt~, ~Control+Shift~, or empty ~""~   |
+| ~context~   | no       | ~Learning~, ~Home~, ~ImageOverlay~, or omit for global       |
+| ~textBox~   | no       | Set ~true~ to allow in text input fields (default false)     |
+| ~_comment~  | no       | Description shown in the Shortcuts Handbook                   |
+
+Available ~action~ values:
+
+- ~NextPage~ / ~PreviousPage~ — flip deck pages during study
+- ~ScrollDown~ / ~ScrollUp~ / ~ScrollLeft~ / ~ScrollRight~ — scroll WebView content
+- ~NavigateHome~ — exit study or settings back to deck list
+- ~OpenSettings~ / ~CloseSettings~ — toggle settings panel
+- ~ZoomTextIn~ / ~ZoomTextOut~ / ~ResetTextZoom~ — font scaling
+- ~ZoomIn~ / ~ZoomOut~ / ~ResetZoom~ — image overlay zoom
+- ~NextImage~ / ~PreviousImage~ — cycle images in overlay
+- ~FocusSearchBar~ — focus the search bar on home screen
+- ~ScrollDeckListDown~ / ~ScrollDeckListUp~ — scroll the deck list
+- ~ToggleShortcutsHandbook~ — show/hide this handbook
+- ~OpenGoToPage~ — jump to a page number during study
+- ~ZoomHeatmapIn~ / ~ZoomHeatmapOut~ / ~ZoomHeatmapReset~ — heatmap zoom
+
+The following are handled internally and are not configurable:
+
+- =Esc=: closes overlays in priority order (GoToPage → Handbook → Image → ... → clear focus)
+- =g= then =i= chord: focus and clear search bar on home screen
 
 * Known Limitations
 

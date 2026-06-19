@@ -60,8 +60,10 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainWindowViewModel vm)
         {
-            _keyboardHandler = new KeyboardHandler(vm);
+            _keyboardHandler = new KeyboardHandler(vm, vm.KeyBindingService);
             _webViewBridge = new WebViewBridge(ContentWebView);
+
+            vm.KeyBindingsChanged += OnKeyBindingsChanged;
 
             vm.PickFolderHandler = async (currentPath) =>
             {
@@ -118,6 +120,11 @@ public partial class MainWindow : Window
                 || vm.IsShortcutsHandbookOpen || vm.IsPinnedViewOpen || vm.IsArchivedViewOpen
                 || vm.IsHeatmapOpen));
         }
+    }
+
+    private void OnKeyBindingsChanged()
+    {
+        _keyboardHandler?.RebuildLookup();
     }
 
     private void OnLearningViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

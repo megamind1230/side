@@ -190,6 +190,7 @@ FontSize="20" Foreground="White"
         <ctrls:PinnedDecksPanel/>
         <ctrls:ArchivedDecksPanel/>
         <ctrls:MarketplacePanel/>
+        <ctrls:HeatmapPanel/>
     </Panel>
 
     <Window.Styles>

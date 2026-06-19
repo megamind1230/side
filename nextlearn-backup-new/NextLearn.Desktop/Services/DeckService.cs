@@ -8,12 +8,12 @@ using NextLearn.Desktop.Models;
 
 namespace NextLearn.Desktop.Services;
 
-public class DeckService
+public class DeckService : IDeckService
 {
     private readonly AppDbContext _context;
-    private readonly UserService _userService;
+    private readonly IUserService _userService;
 
-    public DeckService(AppDbContext context, UserService userService)
+    public DeckService(AppDbContext context, IUserService userService)
     {
         _context = context;
         _userService = userService;

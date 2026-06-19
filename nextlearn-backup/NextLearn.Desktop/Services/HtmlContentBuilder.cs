@@ -11,11 +11,14 @@ public static class HtmlContentBuilder
 {
     public static string Build(Page? page, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
-        if (page == null) return EmptyHtml();
+        if (page == null)
+        {
+            return EmptyHtml();
+        }
 
         var body = new StringBuilder();
 
-        var textContent = page.TextContent ?? "";
+        var textContent = page.TextContent ?? string.Empty;
         var lines = textContent.Split('\n');
 
         var inParagraph = false;
@@ -58,7 +61,10 @@ public static class HtmlContentBuilder
             {
                 CloseParagraph(body, ref inParagraph);
                 if (emptyLineCount > 0)
+                {
                     body.AppendLine("<br>");
+                }
+
                 emptyLineCount++;
                 i++;
                 continue;
@@ -117,16 +123,20 @@ public static class HtmlContentBuilder
         return WrapInHtml(body.ToString());
     }
 
+    // Detects ``` fences (md) or #+BEGIN_SRC / #+END_SRC (org), collects inner lines as <pre><code>
     private static bool TryStartCodeBlock(string[] lines, ref int index, bool isOrgFile, out string html)
     {
-        html = "";
+        html = string.Empty;
 
         var line = lines[index].TrimEnd('\r');
 
         if (isOrgFile)
         {
             var orgMatch = Regex.Match(line, @"^#\+BEGIN_SRC\s*(\w*)$", RegexOptions.IgnoreCase);
-            if (!orgMatch.Success) return false;
+            if (!orgMatch.Success)
+            {
+                return false;
+            }
 
             var language = orgMatch.Groups[1].Value;
             var code = new StringBuilder();
@@ -141,19 +151,26 @@ public static class HtmlContentBuilder
                     index = j;
                     break;
                 }
+
                 code.AppendLine(lines[j]);
             }
 
-            if (!foundEnd) return false;
+            if (!foundEnd)
+            {
+                return false;
+            }
 
             var escapedCode = EscapeHtml(code.ToString().TrimEnd('\n', '\r'));
-            var langClass = string.IsNullOrEmpty(language) ? "" : $" class=\"language-{EscapeHtml(language)}\"";
+            var langClass = string.IsNullOrEmpty(language) ? string.Empty : $" class=\"language-{EscapeHtml(language)}\"";
             html = $"<pre><code{langClass}>{escapedCode}</code></pre>";
             return true;
         }
 
         var match = Regex.Match(line, @"^```(\w*)$");
-        if (!match.Success) return false;
+        if (!match.Success)
+        {
+            return false;
+        }
 
         var language2 = match.Groups[1].Value;
         var code2 = new StringBuilder();
@@ -165,26 +182,32 @@ public static class HtmlContentBuilder
             {
                 index = j;
                 var escapedCode = EscapeHtml(code2.ToString().TrimEnd('\n', '\r'));
-                var langClass = string.IsNullOrEmpty(language2) ? "" : $" class=\"language-{EscapeHtml(language2)}\"";
+                var langClass = string.IsNullOrEmpty(language2) ? string.Empty : $" class=\"language-{EscapeHtml(language2)}\"";
                 html = $"<pre><code{langClass}>{escapedCode}</code></pre>";
                 return true;
             }
+
             code2.AppendLine(lines[j]);
         }
 
         return false;
     }
 
+    // Gathers | -delimited rows, separates header from body via ---+--- separator, renders <table>
     private static bool TryRenderTable(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
-        html = "";
+        html = string.Empty;
         var start = index;
         var end = start;
         while (end < lines.Length && lines[end].TrimEnd('\r').Trim().StartsWith('|'))
         {
             end++;
         }
-        if (end - start < 1) return false;
+
+        if (end - start < 1)
+        {
+            return false;
+        }
 
         var rows = new List<string>();
         for (var r = start; r < end; r++)
@@ -212,20 +235,27 @@ public static class HtmlContentBuilder
             {
                 result.AppendLine($"<th>{cell}</th>");
             }
+
             result.AppendLine("</tr></thead>");
         }
 
         result.AppendLine("<tbody>");
         for (var r = sepIndex > 0 ? sepIndex + 1 : 0; r < rows.Count; r++)
         {
-            if (IsTableSeparator(rows[r])) continue;
+            if (IsTableSeparator(rows[r]))
+            {
+                continue;
+            }
+
             result.AppendLine("<tr>");
             foreach (var cell in SplitTableCell(rows[r], isOrgFile, imageDir, accumulatedImagePaths))
             {
                 result.AppendLine($"<td>{cell}</td>");
             }
+
             result.AppendLine("</tr>");
         }
+
         result.AppendLine("</tbody>");
         result.AppendLine("</table>");
 
@@ -248,6 +278,7 @@ public static class HtmlContentBuilder
         {
             result.Add(RenderInline(cells[i].Trim(), isOrgFile, imageDir, accumulatedImagePaths));
         }
+
         return result;
     }
 
@@ -260,9 +291,10 @@ public static class HtmlContentBuilder
         }
     }
 
+    // Matches # / ## (md) or * / ** (org) heading markers, renders <h1>–<h6> with visible marker span
     private static bool TryRenderHeading(string line, out string html, bool isOrgFile = false, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
-        html = "";
+        html = string.Empty;
 
         string marker;
         int level;
@@ -271,7 +303,11 @@ public static class HtmlContentBuilder
         if (isOrgFile)
         {
             var match = Regex.Match(line, @"^(\*{1,6})\s+(.+)$");
-            if (!match.Success) return false;
+            if (!match.Success)
+            {
+                return false;
+            }
+
             marker = match.Groups[1].Value;
             level = Math.Min(marker.Length, 6);
             content = match.Groups[2].Value;
@@ -288,7 +324,11 @@ public static class HtmlContentBuilder
             else
             {
                 match = Regex.Match(line, @"^(\*{1,2})\s+(.+)$");
-                if (!match.Success) return false;
+                if (!match.Success)
+                {
+                    return false;
+                }
+
                 marker = match.Groups[1].Value;
                 level = marker.Length;
                 content = match.Groups[2].Value;
@@ -302,11 +342,13 @@ public static class HtmlContentBuilder
 
     private static string RenderInline(string text, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
-        if (isOrgFile) return RenderOrgInline(text, imageDir, accumulatedImagePaths);
-        return RenderMarkdownInline(text, imageDir, accumulatedImagePaths);
+        var renderer = isOrgFile
+            ? (IInlineRenderer)new OrgInlineRenderer()
+            : new MarkdownInlineRenderer();
+        return renderer.RenderInline(text, imageDir, accumulatedImagePaths);
     }
 
-    private static string EscapeHtml(string text)
+    internal static string EscapeHtml(string text)
     {
         return text
             .Replace("&", "&amp;")
@@ -315,7 +357,7 @@ public static class HtmlContentBuilder
             .Replace("\"", "&quot;");
     }
 
-    private static string RenderImageTag(string alt, string rawPath, string? imageDir, List<string>? accumulatedImagePaths)
+    internal static string RenderImageTag(string alt, string rawPath, string? imageDir, List<string>? accumulatedImagePaths)
     {
         if (rawPath.StartsWith("http://") || rawPath.StartsWith("https://"))
         {
@@ -323,13 +365,17 @@ public static class HtmlContentBuilder
         }
 
         if (imageDir == null)
+        {
             return $"<span class=\"image-error\">image folder not configured: {EscapeHtml(rawPath)}</span>";
+        }
 
         var fullPath = Path.GetFullPath(Path.Combine(imageDir, rawPath));
 
         // Must stay within $DECKS_DIR
         if (!fullPath.StartsWith(Path.GetFullPath(imageDir), StringComparison.Ordinal))
+        {
             return $"<span class=\"image-error\">image path mis-referenced: {EscapeHtml(rawPath)}</span>";
+        }
 
         if (!File.Exists(fullPath))
         {
@@ -350,218 +396,42 @@ public static class HtmlContentBuilder
                 ".webp" => "image/webp",
                 ".bmp" => "image/bmp",
                 ".svg" => "image/svg+xml",
-                _ => "application/octet-stream"
+                _ => "application/octet-stream",
             };
             accumulatedImagePaths?.Add(fullPath);
             var encodedPath = Convert.ToBase64String(Encoding.UTF8.GetBytes(fullPath));
             return $"<a href=\"http://img.local/{encodedPath}\"><img class=\"inline-image\" src=\"data:{mime};base64,{b64}\" alt=\"{EscapeHtml(alt)}\" /></a>";
         }
-        catch
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException or UnauthorizedAccessException or PathTooLongException)
         {
             return $"<span class=\"image-error\">image not found: {EscapeHtml(rawPath)}</span>";
         }
     }
 
-    private static string RenderOrgInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null)
-    {
-        var result = EscapeHtml(text);
-        result = PreserveLeadingWhitespace(result);
-
-        // Protect org [[...]] and ![[...]] constructs from inline formatting (italic / etc.)
-        var orgLinkPlaceholders = new Dictionary<string, string>();
-        result = Regex.Replace(result, @"!?\[\[[^\]]+\](?:\[[^\]]*\])?\]", m =>
-        {
-            var key = $"%%%ORGLINK_{orgLinkPlaceholders.Count}%%%";
-            orgLinkPlaceholders[key] = m.Value;
-            return key;
-        });
-
-        // Protect ![...](...) and [...](...) from inline formatting (italic paths like /temp/)
-        result = Regex.Replace(result, @"!?\[[^\]]*\]\([^)]*\)", m =>
-        {
-            var key = $"%%%ORGLINK_{orgLinkPlaceholders.Count}%%%";
-            orgLinkPlaceholders[key] = m.Value;
-            return key;
-        });
-
-        result = Regex.Replace(result, @"\b(TODO|DONE)\b", m =>
-            m.Groups[1].Value switch
-            {
-                "TODO" => "<span class=\"todo-keyword\">TODO</span>",
-                "DONE" => "<span class=\"done-keyword\">DONE</span>",
-                _ => m.Value
-            });
-        result = Regex.Replace(result, @"~([^~]+)~", "<code>$1</code>");
-        result = Regex.Replace(result, @"/([^/]+)/", "<em>$1</em>");
-        result = Regex.Replace(result, @"(?<!\*)\*([^*]+)\*(?!\*)", "<strong>$1</strong>");
-
-        // Restore org link placeholders
-        foreach (var (key, value) in orgLinkPlaceholders)
-            result = result.Replace(key, value);
-
-        // Standard markdown link [text](url) — only process http/https URLs; skip ![...](...) and [![...](...)](...)
-        result = Regex.Replace(result, @"(?<!\!)\[(?!\!)([^\]]+)\]\(([^)]+)\)", m =>
-        {
-            var url = m.Groups[2].Value;
-            if (url.StartsWith("http://") || url.StartsWith("https://"))
-                return $"<a data-href=\"{url}\" rel=\"noopener\">{m.Groups[1].Value}</a>";
-            return m.Value;
-        });
-
-        // Standard markdown image ![](path) with optional title (handle &quot; from EscapeHtml)
-        result = Regex.Replace(result, @"!\[([^\]]*)\]\(([^\s)]+)(?:\s+(?:""|&quot;)[^""]*(?:""|&quot;))?\)", m =>
-        {
-            return RenderImageTag(m.Groups[1].Value, m.Groups[2].Value, imageDir, accumulatedImagePaths);
-        });
-
-        // [[file:path][alt]] — render as-is (no ! prefix means no image processing)
-        result = Regex.Replace(result, @"\[\[file:([^\]]+)\]\[([^\]]*)\]\]", m =>
-        {
-            return m.Value;
-        });
-
-        // Org [[url][text]] links — only http/https; file: images handled by ![[...]] version
-        result = Regex.Replace(result, @"\[\[([^\]]+)\]\[([^\]]*)\]\]", m =>
-        {
-            var url = m.Groups[1].Value;
-            var text = m.Groups[2].Value;
-            if (url.StartsWith("http://") || url.StartsWith("https://"))
-                return $"<a data-href=\"{url}\" rel=\"noopener\">{EscapeHtml(text)}</a>";
-            return $"[[{EscapeHtml(url)}][{EscapeHtml(text)}]]";
-        });
-
-        // Org [[url]] links — only http/https; file: images handled by ![[...]] version
-        result = Regex.Replace(result, @"\[\[([^\]]+)\]\]", m =>
-        {
-            var url = m.Groups[1].Value;
-            if (url.StartsWith("http://") || url.StartsWith("https://"))
-                return $"<a data-href=\"{url}\" rel=\"noopener\">{url}</a>";
-            return $"[[{EscapeHtml(url)}]]";
-        });
-
-        // ![[url][text]] — ! prefix: http/https → link, file: → image with alt, else → image
-        result = Regex.Replace(result, @"!\[\[([^\]]+)\]\[([^\]]*)\]\]", m =>
-        {
-            var url = m.Groups[1].Value;
-            var text = m.Groups[2].Value;
-            if (url.StartsWith("http://") || url.StartsWith("https://"))
-                return $"<a data-href=\"{url}\" rel=\"noopener\">{EscapeHtml(text)}</a>";
-            var path = url.StartsWith("file:") ? url[5..] : url;
-            return RenderImageTag(text, path, imageDir, accumulatedImagePaths);
-        });
-
-        // ![[path]] — ! prefix: http/https → link, file: → strip prefix, else → image
-        result = Regex.Replace(result, @"!\[\[([^\]]+)\]\]", m =>
-        {
-            var content = m.Groups[1].Value;
-            if (content.StartsWith("http://") || content.StartsWith("https://"))
-                return $"<a data-href=\"{content}\" rel=\"noopener\">{content}</a>";
-            var path = content.StartsWith("file:") ? content[5..] : content;
-            return RenderImageTag("", path, imageDir, accumulatedImagePaths);
-        });
-
-        // Bare URL auto-linking (not already inside <a> or href="")
-        result = Regex.Replace(result, @"(?<![""=\w])(https?://[^\s<>""'\]\[()]+)", m =>
-        {
-            var url = m.Groups[1].Value;
-            url = Regex.Replace(url, @"[.,;:!?)]+$", "");
-            if (string.IsNullOrEmpty(url)) return m.Value;
-            return $"<a data-href=\"{url}\" rel=\"noopener\">{url}</a>";
-        });
-
-        return result;
-    }
-
-    private static string RenderMarkdownInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null)
-    {
-        var result = EscapeHtml(text);
-        result = PreserveLeadingWhitespace(result);
-
-        var codeSpans = new List<string>();
-        var placeholderIdx = 0;
-        result = Regex.Replace(result, @"`([^`]+)`", m =>
-        {
-            codeSpans.Add(m.Groups[1].Value);
-            return $"%%%CODE_{placeholderIdx++}%%%";
-        });
-
-        result = Regex.Replace(result, @"\b(TODO|DONE)\b", m =>
-            m.Groups[1].Value switch
-            {
-                "TODO" => "<span class=\"todo-keyword\">TODO</span>",
-                "DONE" => "<span class=\"done-keyword\">DONE</span>",
-                _ => m.Value
-            });
-        result = Regex.Replace(result, @"\*\*([^*]+)\*\*", "<strong>$1</strong>");
-        result = Regex.Replace(result, @"(?<!\w)\*([^*]+)\*(?!\w)", "<em>$1</em>");
-
-        // Standard markdown link [text](url) — skip ![...](...) and [![...](...)](...); only process http/https URLs
-        result = Regex.Replace(result, @"(?<!\!)\[(?!\!)([^\]]+)\]\(([^)]+)\)", m =>
-        {
-            var url = m.Groups[2].Value;
-            if (url.StartsWith("http://") || url.StartsWith("https://"))
-                return $"<a data-href=\"{url}\" rel=\"noopener\">{m.Groups[1].Value}</a>";
-            return m.Value;
-        });
-
-        // Obsidian-style image ![[path]] — strip file: prefix for cross-format compat
-        result = Regex.Replace(result, @"!\[\[([^\]]+)\]\]", m =>
-        {
-            var content = m.Groups[1].Value;
-            var path = content.StartsWith("file:") ? content[5..] : content;
-            return RenderImageTag("", path, imageDir, accumulatedImagePaths);
-        });
-
-        // Standard markdown image ![](path) with optional title (handle &quot; from EscapeHtml)
-        result = Regex.Replace(result, @"!\[([^\]]*)\]\(([^\s)]+)(?:\s+(?:""|&quot;)[^""]*(?:""|&quot;))?\)", m =>
-        {
-            return RenderImageTag(m.Groups[1].Value, m.Groups[2].Value, imageDir, accumulatedImagePaths);
-        });
-
-        // Wiki-style link [[text]] — only process http/https URLs
-        result = Regex.Replace(result, @"\[\[([^\]]+)\]\]", m =>
-        {
-            var content = m.Groups[1].Value;
-            if (content.StartsWith("http://") || content.StartsWith("https://"))
-                return $"<a data-href=\"{content}\" rel=\"noopener\">{content}</a>";
-            return m.Value;
-        });
-
-        for (var i = 0; i < codeSpans.Count; i++)
-        {
-            result = result.Replace($"%%%CODE_{i}%%%", $"<code>{codeSpans[i]}</code>");
-        }
-
-        // Bare URL auto-linking (not already inside <a> or href="")
-        result = Regex.Replace(result, @"(?<![""=\w])(https?://[^\s<>""'\]\[()]+)", m =>
-        {
-            var url = m.Groups[1].Value;
-            url = Regex.Replace(url, @"[.,;:!?)]+$", "");
-            if (string.IsNullOrEmpty(url)) return m.Value;
-            return $"<a data-href=\"{url}\" rel=\"noopener\">{url}</a>";
-        });
-
-        return result;
-    }
-
     private static bool TryRenderList(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
-        html = "";
+        html = string.Empty;
         var firstLine = lines[index].TrimEnd('\r');
         var firstTrimmed = firstLine.Trim();
 
         string? listTag;
         if (Regex.IsMatch(firstTrimmed, @"^[-+*]\s"))
+        {
             listTag = "ul";
+        }
         else if (Regex.IsMatch(firstTrimmed, @"^\d+[.)]\s"))
+        {
             listTag = "ol";
+        }
         else
+        {
             return false;
+        }
 
         var sb = new StringBuilder();
         var i = index;
 
-        // Stack of (listTag, indent)
+        // Stack of (listTag, indent) — tracks nesting depth for sub-lists
         var levels = new List<(string tag, int indent)>();
         levels.Add((listTag, firstLine.Length - firstLine.TrimStart().Length));
         sb.Append($"<{listTag}>");
@@ -581,7 +451,9 @@ public static class HtmlContentBuilder
             bool isUl = Regex.IsMatch(lineTrimmed, @"^[-+*]\s");
             bool isOl = Regex.IsMatch(lineTrimmed, @"^\d+[.)]\s");
             if (!isUl && !isOl)
+            {
                 break;
+            }
 
             var lineIndent = rawLine.Length - rawLine.TrimStart().Length;
             var lineListTag = isUl ? "ul" : "ol";
@@ -589,8 +461,14 @@ public static class HtmlContentBuilder
             // Find parent level (closest indent <= current)
             var parentIdx = levels.Count - 1;
             while (parentIdx >= 0 && levels[parentIdx].indent > lineIndent)
+            {
                 parentIdx--;
-            if (parentIdx < 0) parentIdx = 0;
+            }
+
+            if (parentIdx < 0)
+            {
+                parentIdx = 0;
+            }
 
             // Close over-indented levels
             while (levels.Count > parentIdx + 1)
@@ -616,8 +494,8 @@ public static class HtmlContentBuilder
             var contentStart = isUl ? 2 : Regex.Match(lineTrimmed, @"^\d+[.)]\s").Length;
             var content = lineTrimmed.Substring(contentStart);
 
-            // Handle checkbox
-            var checkboxHtml = "";
+            // Render [ ], [x], or [-] as styled todo-checkbox spans
+            var checkboxHtml = string.Empty;
             var cbMatch = Regex.Match(content, @"^\[( |x|X|-)\]\s*");
             if (cbMatch.Success)
             {
@@ -626,7 +504,7 @@ public static class HtmlContentBuilder
                     " " => "<span class=\"todo-unchecked\"></span>",
                     "x" or "X" => "<span class=\"todo-checked\"></span>",
                     "-" => "<span class=\"todo-inprogress\"></span>",
-                    _ => ""
+                    _ => string.Empty,
                 };
                 content = content.Substring(cbMatch.Length);
             }
@@ -648,14 +526,18 @@ public static class HtmlContentBuilder
         return true;
     }
 
+    // Lines starting with > are grouped into <blockquote><p>…</p></blockquote>
     private static bool TryRenderBlockquote(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
-        html = "";
+        html = string.Empty;
 
         var line = lines[index].TrimEnd('\r');
         var trimmed = line.Trim();
 
-        if (!trimmed.StartsWith('>')) return false;
+        if (!trimmed.StartsWith('>'))
+        {
+            return false;
+        }
 
         var sb = new StringBuilder();
         sb.AppendLine("<blockquote>");
@@ -673,6 +555,7 @@ public static class HtmlContentBuilder
                     i++;
                     break;
                 }
+
                 break;
             }
 
@@ -689,16 +572,22 @@ public static class HtmlContentBuilder
 
     private static bool TryRenderOrgBlock(string[] lines, ref int index, out string html)
     {
-        html = "";
+        html = string.Empty;
 
         var line = lines[index].TrimEnd('\r');
         var trimmed = line.Trim();
 
         var match = Regex.Match(trimmed, @"^#\+BEGIN_(\w+)$", RegexOptions.IgnoreCase);
-        if (!match.Success) return false;
+        if (!match.Success)
+        {
+            return false;
+        }
 
         var blockType = match.Groups[1].Value;
-        if (string.Equals(blockType, "SRC", StringComparison.OrdinalIgnoreCase)) return false;
+        if (string.Equals(blockType, "SRC", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
 
         var content = new StringBuilder();
         var startIndex = index + 1;
@@ -712,36 +601,50 @@ public static class HtmlContentBuilder
                 index = j;
                 break;
             }
+
             content.AppendLine(EscapeHtml(lines[j].TrimEnd('\r')));
         }
 
-        if (!foundEnd) return false;
+        if (!foundEnd)
+        {
+            return false;
+        }
 
         var escapedContent = content.ToString().TrimEnd('\n', '\r');
         html = $"<pre class=\"org-block\">{escapedContent}</pre>";
         return true;
     }
 
-    private static string PreserveLeadingWhitespace(string text)
+    internal static string PreserveLeadingWhitespace(string text)
     {
-        if (string.IsNullOrEmpty(text)) return text;
+        if (string.IsNullOrEmpty(text))
+        {
+            return text;
+        }
 
         var i = 0;
         while (i < text.Length && (text[i] == ' ' || text[i] == '\t'))
+        {
             i++;
+        }
 
-        if (i == 0) return text;
+        if (i == 0)
+        {
+            return text;
+        }
 
         var prefix = new StringBuilder();
         for (var j = 0; j < i; j++)
+        {
             prefix.Append(text[j] == '\t' ? "&nbsp;&nbsp;&nbsp;&nbsp;" : "&nbsp;");
+        }
 
         return prefix + text.Substring(i);
     }
 
     private static string EmptyHtml()
     {
-        return WrapInHtml("");
+        return WrapInHtml(string.Empty);
     }
 
     private static string WrapInHtml(string bodyContent)

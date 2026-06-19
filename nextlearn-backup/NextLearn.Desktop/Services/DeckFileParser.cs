@@ -31,8 +31,8 @@ public static class DeckFileParser
                 var orgMeta = ParseOrgKeywords(lines);
                 hasExplicitTitle = orgMeta.title != null;
                 title = orgMeta.title ?? FirstNonEmptyLine(lines, orgMeta.contentStart) ?? Path.GetFileName(filePath);
-                description = orgMeta.description ?? SecondNonEmptyLine(lines, orgMeta.contentStart) ?? "";
-                tags = orgMeta.tags ?? "";
+                description = orgMeta.description ?? SecondNonEmptyLine(lines, orgMeta.contentStart) ?? string.Empty;
+                tags = orgMeta.tags ?? string.Empty;
                 contentStart = orgMeta.contentStart;
             }
             else
@@ -42,8 +42,8 @@ public static class DeckFileParser
                 {
                     hasExplicitTitle = frontmatter.Value.title != null;
                     title = frontmatter.Value.title ?? FirstNonEmptyLine(lines, frontmatter.Value.endIndex + 1) ?? Path.GetFileName(filePath);
-                    description = frontmatter.Value.description ?? SecondNonEmptyLine(lines, frontmatter.Value.endIndex + 1) ?? "";
-                    tags = frontmatter.Value.tags ?? "";
+                    description = frontmatter.Value.description ?? SecondNonEmptyLine(lines, frontmatter.Value.endIndex + 1) ?? string.Empty;
+                    tags = frontmatter.Value.tags ?? string.Empty;
                     contentStart = frontmatter.Value.endIndex + 1;
                 }
                 else
@@ -51,8 +51,8 @@ public static class DeckFileParser
                     hasExplicitTitle = false;
                     var nonEmpty = lines.Where(l => !string.IsNullOrWhiteSpace(l)).Take(2).ToArray();
                     title = nonEmpty.Length > 0 ? nonEmpty[0].Trim() : Path.GetFileName(filePath);
-                    description = nonEmpty.Length > 1 ? (nonEmpty[1].Length > 200 ? nonEmpty[1][..200] : nonEmpty[1]) : "";
-                    tags = "";
+                    description = nonEmpty.Length > 1 ? (nonEmpty[1].Length > 200 ? nonEmpty[1][..200] : nonEmpty[1]) : string.Empty;
+                    tags = string.Empty;
                     contentStart = 0;
                 }
             }
@@ -66,7 +66,7 @@ public static class DeckFileParser
                     Title = title,
                     TextContent = content.Trim(),
                     ContentType = ContentType.Text,
-                    PageNumber = 1
+                    PageNumber = 1,
                 });
             }
 
@@ -84,7 +84,7 @@ public static class DeckFileParser
                 IsPinned = fileName.StartsWith('+'),
                 CreatedAt = File.GetCreationTime(filePath),
                 PageCount = pages.Count,
-                Pages = pages
+                Pages = pages,
             };
 
             foreach (var page in pages)
@@ -94,7 +94,7 @@ public static class DeckFileParser
 
             return deck;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException or UnauthorizedAccessException or PathTooLongException or IOException)
         {
             Log.Error(ex, "Failed to parse deck file {FilePath}", filePath);
             return null;
@@ -106,8 +106,11 @@ public static class DeckFileParser
         for (int i = start; i < lines.Length; i++)
         {
             if (!string.IsNullOrWhiteSpace(lines[i]))
+            {
                 return lines[i].Trim();
+            }
         }
+
         return null;
     }
 
@@ -123,9 +126,11 @@ public static class DeckFileParser
                     var val = lines[i].Trim();
                     return val.Length > 200 ? val[..200] : val;
                 }
+
                 count++;
             }
         }
+
         return null;
     }
 
@@ -140,11 +145,15 @@ public static class DeckFileParser
         {
             var trimmed = lines[i].Trim();
             if (string.IsNullOrWhiteSpace(trimmed))
+            {
                 continue;
+            }
 
             var match = Regex.Match(trimmed, @"^#\+(\w+):\s*(.*)", RegexOptions.IgnoreCase);
             if (!match.Success)
+            {
                 break;
+            }
 
             var keyword = match.Groups[1].Value.ToUpperInvariant();
             var value = match.Groups[2].Value.Trim();
@@ -168,10 +177,16 @@ public static class DeckFileParser
 
     private static string NormalizeOrgTags(string raw)
     {
-        if (string.IsNullOrWhiteSpace(raw)) return "";
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return string.Empty;
+        }
+
         raw = raw.Trim();
         if (!raw.StartsWith(':') || !raw.EndsWith(':'))
+        {
             return raw;
+        }
 
         var inner = raw.Substring(1, raw.Length - 2);
         inner = inner.Replace("::", "/");
@@ -182,7 +197,9 @@ public static class DeckFileParser
     private static (string? title, string? description, string? tags, int endIndex)? ParseFrontmatter(string[] lines)
     {
         if (lines.Length == 0 || !lines[0].Trim().Equals("---"))
+        {
             return null;
+        }
 
         string? title = null;
         string? description = null;
@@ -193,14 +210,22 @@ public static class DeckFileParser
         {
             var trimmed = lines[i].Trim();
             if (trimmed == "---")
+            {
                 return (title, description, tags, i);
+            }
 
             if (trimmed.StartsWith("title:", StringComparison.OrdinalIgnoreCase))
+            {
                 title = trimmed[6..].Trim();
+            }
             else if (trimmed.StartsWith("description:", StringComparison.OrdinalIgnoreCase))
+            {
                 description = trimmed[12..].Trim();
+            }
             else if (trimmed.StartsWith("tags:", StringComparison.OrdinalIgnoreCase))
+            {
                 tags = trimmed[5..].Trim();
+            }
         }
 
         return (title, description, tags, i);
@@ -209,13 +234,15 @@ public static class DeckFileParser
     private static List<Page> ParsePages(string[] lines, int startLine, string fallbackTitle, bool isOrg)
     {
         var pages = new List<Page>();
-        var currentSection = "";
-        var currentTitle = "";
+        var currentSection = string.Empty;
+        var currentTitle = string.Empty;
         var currentContent = new StringBuilder();
         var sectionContent = new StringBuilder();
         bool inPage = false;
         bool hasSectionContent = false;
         int pageNum = 1;
+
+        // Scan once to determine two-level (H1→H2 section/page) or flat (H1-only) heading structure
         bool hasH2 = false;
         var h2Marker = isOrg ? "**" : "##";
 
@@ -243,33 +270,91 @@ public static class DeckFileParser
             if (isFence)
             {
                 inCodeBlock = !inCodeBlock;
-                if (seenFirstHeading) { if (inPage) currentContent.AppendLine(line); else if (hasSectionContent) sectionContent.AppendLine(line); }
-                else preContent.AppendLine(line);
+                if (seenFirstHeading)
+                {
+                    if (inPage)
+                    {
+                        currentContent.AppendLine(line);
+                    }
+                    else if (hasSectionContent)
+                    {
+                        sectionContent.AppendLine(line);
+                    }
+                }
+                else
+                {
+                    preContent.AppendLine(line);
+                }
+
                 continue;
             }
+
             if (isBeginSrc)
             {
                 inCodeBlock = true;
-                if (seenFirstHeading) { if (inPage) currentContent.AppendLine(line); else if (hasSectionContent) sectionContent.AppendLine(line); }
-                else preContent.AppendLine(line);
+                if (seenFirstHeading)
+                {
+                    if (inPage)
+                    {
+                        currentContent.AppendLine(line);
+                    }
+                    else if (hasSectionContent)
+                    {
+                        sectionContent.AppendLine(line);
+                    }
+                }
+                else
+                {
+                    preContent.AppendLine(line);
+                }
+
                 continue;
             }
+
             if (isEndSrc)
             {
                 inCodeBlock = false;
-                if (seenFirstHeading) { if (inPage) currentContent.AppendLine(line); else if (hasSectionContent) sectionContent.AppendLine(line); }
-                else preContent.AppendLine(line);
+                if (seenFirstHeading)
+                {
+                    if (inPage)
+                    {
+                        currentContent.AppendLine(line);
+                    }
+                    else if (hasSectionContent)
+                    {
+                        sectionContent.AppendLine(line);
+                    }
+                }
+                else
+                {
+                    preContent.AppendLine(line);
+                }
+
                 continue;
             }
 
             if (inCodeBlock)
             {
-                if (seenFirstHeading) { if (inPage) currentContent.AppendLine(line); else if (hasSectionContent) sectionContent.AppendLine(line); }
-                else preContent.AppendLine(line);
+                if (seenFirstHeading)
+                {
+                    if (inPage)
+                    {
+                        currentContent.AppendLine(line);
+                    }
+                    else if (hasSectionContent)
+                    {
+                        sectionContent.AppendLine(line);
+                    }
+                }
+                else
+                {
+                    preContent.AppendLine(line);
+                }
+
                 continue;
             }
 
-            // Before the first heading, accumulate content as pre-content
+            // Content before the first heading becomes an IsPreHeadingPage (e.g. YAML frontmatter text)
             if (!seenFirstHeading)
             {
                 var isH1 = Regex.IsMatch(line, isOrg ? @"^\*\s+" : @"^[#*]\s+");
@@ -287,7 +372,7 @@ public static class DeckFileParser
                             TextContent = preContent.ToString().Trim(),
                             ContentType = ContentType.Text,
                             PageNumber = pageNum++,
-                            IsPreHeadingPage = true
+                            IsPreHeadingPage = true,
                         });
                     }
                 }
@@ -301,11 +386,14 @@ public static class DeckFileParser
             var h1Match = Regex.Match(line, isOrg ? @"^\*\s+(.+)$" : @"^[#*]\s+(.+)$");
             var h2Match = Regex.Match(line, isOrg ? @"^\*\*\s+(.+)$" : @"^(?:##|\*\*)\s+(.+)$");
 
+            // H2 heading: flush previous page, start a new page under the current H1 section
             if (h2Match.Success)
             {
                 string? orphanContent = null;
                 if (hasSectionContent && sectionContent.Length > 0)
+                {
                     orphanContent = sectionContent.ToString().Trim();
+                }
 
                 hasSectionContent = false;
                 sectionContent.Clear();
@@ -319,7 +407,7 @@ public static class DeckFileParser
                         Title = currentTitle,
                         TextContent = currentContent.ToString().Trim(),
                         ContentType = ContentType.Text,
-                        PageNumber = pageNum++
+                        PageNumber = pageNum++,
                     });
                 }
 
@@ -332,7 +420,7 @@ public static class DeckFileParser
                         Title = currentSection,
                         TextContent = $"{h2Marker} no H2 heading found yet\n\n{orphanContent}",
                         ContentType = ContentType.Text,
-                        PageNumber = pageNum++
+                        PageNumber = pageNum++,
                     });
                 }
 
@@ -342,6 +430,8 @@ public static class DeckFileParser
 
                 currentContent.AppendLine(line);
             }
+
+            // H1 heading: flush pending pages, set new section context. With H2→H1 sections act as heading groups; without H2→H1 is the page title directly
             else if (h1Match.Success)
             {
                 // Flush any pending section-level page first
@@ -354,7 +444,7 @@ public static class DeckFileParser
                         Title = currentSection,
                         TextContent = $"{h2Marker} no H2 heading found yet\n\n{sectionContent.ToString().Trim()}",
                         ContentType = ContentType.Text,
-                        PageNumber = pageNum++
+                        PageNumber = pageNum++,
                     });
                 }
 
@@ -367,12 +457,12 @@ public static class DeckFileParser
                         Title = currentTitle,
                         TextContent = currentContent.ToString().Trim(),
                         ContentType = ContentType.Text,
-                        PageNumber = pageNum++
+                        PageNumber = pageNum++,
                     });
                 }
 
                 currentSection = h1Match.Groups[1].Value.Trim();
-                currentTitle = hasH2 ? "" : currentSection;
+                currentTitle = hasH2 ? string.Empty : currentSection;
                 currentContent.Clear();
                 sectionContent.Clear();
                 inPage = !hasH2;
@@ -380,7 +470,9 @@ public static class DeckFileParser
 
                 // Include H1 heading line in content for inline rendering (page-only mode)
                 if (!hasH2)
+                {
                     currentContent.AppendLine(line);
+                }
             }
             else if (inPage)
             {
@@ -402,7 +494,7 @@ public static class DeckFileParser
                 TextContent = preContent.ToString().Trim(),
                 ContentType = ContentType.Text,
                 PageNumber = pageNum++,
-                IsPreHeadingPage = true
+                IsPreHeadingPage = true,
             });
         }
         else if (hasSectionContent && sectionContent.Length > 0)
@@ -414,7 +506,7 @@ public static class DeckFileParser
                 Title = currentSection,
                 TextContent = $"{h2Marker} no H2 heading found yet\n\n{sectionContent.ToString().Trim()}",
                 ContentType = ContentType.Text,
-                PageNumber = pageNum++
+                PageNumber = pageNum++,
             });
         }
         else if (inPage && currentTitle.Length > 0)
@@ -426,11 +518,10 @@ public static class DeckFileParser
                 Title = currentTitle,
                 TextContent = currentContent.ToString().Trim(),
                 ContentType = ContentType.Text,
-                PageNumber = pageNum++
+                PageNumber = pageNum++,
             });
         }
 
         return pages;
     }
-
 }

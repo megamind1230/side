@@ -1,3 +1,301 @@
+* DONE P33: shortcuts page must be the top/upmost layer
+> feature: the`?` menu must be layered as the top most layer at every senario
+
+Fixed by P38 Phase A: ZIndex changed to 999, LIFO Esc order, mutual exclusion for full-page overlays.
+
+* DONE P38: ZIndex cleanup + Esc LIFO + Archive/Pin support for decks
+
+**Status:** DONE
+
+**Phase A — ZIndex & Esc cleanup**
+
+**A1: Shortcuts Handbook ZIndex → 999**
+- File: ~Views/MainWindow.axaml~ — change ~ZIndex="150"~ → ~ZIndex="999"~
+
+**A2: LIFO Esc close order**
+- File: ~Views/MainWindow.axaml.cs~ — reorder Esc chain by ZIndex descending:
+  Handbook (999) → Image overlay (400) → Archived (310) → Settings (300) → Pinned (300) → Sidebar (200)
+
+**A3: Mutual exclusion for full-page overlays**
+- File: ~ViewModels/MainWindowViewModel.cs~ — each show command closes all other full-page overlays:
+  ~IsPinnedViewOpen = IsArchivedViewOpen = IsSettingsOpen = false;~
+
+**Phase B — Archive & Pin via file rename**
+
+How it works:
+- ~deck.md~ → ~+deck.md~ (pin) — stays in search, ~+~ prefix visible
+- ~deck.md~ → ~deck.md~ (archive) — excluded from ~*.md~ glob, hidden from search
+- ~DeckFileIdentity~ strips ~+~/~~~ before hashing → same ID across renames → progress preserved
+
+ZIndex plan for overlays:
+| Overlay | ZIndex |
+|---------|--------|
+| In-deck search | 100 |
+| Sidebar | 200 |
+| Pinned view | 300 |
+| Settings | 300 |
+| Archived view | 310 |
+| Image overlay | 400 |
+| Shortcuts Handbook | 999 |
+
+**B1 — DeckFileIdentity: stable IDs across renames**
+- File: ~Services/DeckFileIdentity.cs~
+- Before SHA256 hashing, strip leading ~+~ and trailing ~~~ from ~Path.GetFileName(filePath)~
+- Return new path string for hashing
+
+**B2 — Deck model: add state flags**
+- File: ~Models/Deck.cs~
+- Add ~IsArchived~ (bool)
+- Add ~IsPinned~ (bool)
+
+**B3 — DeckFileParser: detect flags from filename**
+- File: ~Services/DeckFileParser.cs~
+- In ~LoadDeckFromFile~: ~deck.IsArchived = fileName.EndsWith('~')~; ~deck.IsPinned = fileName.StartsWith('+')~
+
+**B4 — DeckService: archive/pin operations**
+- File: ~Services/DeckService.cs~
+- ~ArchiveDeck(id)~ / ~UnarchiveDeck(id)~ — rename file + update DB
+- ~PinDeck(id)~ / ~UnpinDeck(id)~ — rename file + update DB
+- ~GetArchivedDecks()~ — glob ~*.md~ / ~*.org~~~, parse via ~LoadDeckFromFile~, return list
+- ~GetPinnedDecks()~ — glob ~+*.md~ / ~+*.org~, parse via ~LoadDeckFromFile~, return list
+- ~SaveOrUpdateDeck~ — preserve pin/archive state from DB when updating
+
+**B5 — HomeViewModel: deck card commands**
+- File: ~ViewModels/HomeViewModel.cs~
+- ~PinDeckCommand(Deck)~ / ~UnpinDeckCommand(Deck)~ → service call + ~Refresh()~
+- ~ArchiveDeckCommand(Deck)~ → service call + ~Refresh()~
+
+**B6 — MainWindowViewModel: sidebar & overlay views**
+- File: ~ViewModels/MainWindowViewModel.cs~
+- Add ~IsPinnedViewOpen~, ~IsArchivedViewOpen~ (bool)
+- Add ~PinnedDecks~, ~ArchivedDecks~ (ObservableCollection)
+- ~ShowPinnedViewCommand~ — loads pinned decks, opens overlay, closes sidebar + other full-page overlays
+- ~ShowArchivedViewCommand~ — loads archived decks, opens overlay, closes sidebar + other full-page overlays
+- ~UnpinFromViewCommand(Deck)~ / ~UnarchiveCommand(Deck)~ — action + refresh list
+
+**B7 — MainWindow.axaml: deck card 3-dot menu**
+- In deck card ~DataTemplate~ (right ~StackPanel~, next to "Learn"):
+  - Add ~⋮~ Button with ~Popup~ containing:
+    - "📌 Pin" / "📌 Unpin" (toggle based on ~IsPinned~)
+    - "🗄️ Archive"
+  - Menu items bound to ~HomeViewModel.PinDeckCommand~ / ~ArchiveDeckCommand~
+
+**B8 — MainWindow.axaml: sidebar items**
+- In sidebar ~StackPanel~ (after settings button):
+  - ~📌 Pinned~ → ~ShowPinnedViewCommand~
+  - ~🗄️ Archived~ → ~ShowArchivedViewCommand~
+
+**B9 — MainWindow.axaml: pinned overlay view**
+- Full-page panel (~ZIndex="300"~), visible when ~IsPinnedViewOpen~
+- Top bar: "← Pinned Decks" back button + close ✕
+- Content: ~ItemsControl~ bound to ~PinnedDecks~, each card shows unpin button
+
+**B10 — MainWindow.axaml: archived overlay view**
+- Full-page panel (~ZIndex="310"~), visible when ~IsArchivedViewOpen~
+- Same pattern as pinned, each card shows unarchive button
+
+**Post-implementation fixes:**
+- DB migration: existing SQLite databases lack ~IsArchived~/~IsPinned~ columns → ~MigrateSchema()~ runs ~ALTER TABLE ADD COLUMN~ via ~ExecuteSqlRaw()~ on startup
+- Flyout binding: `x:CompileBindings="False"` regions can't use ~((vm:Type)DataContext)~ cast syntax → changed to ~$parent[ItemsControl].DataContext.Path~ for runtime reflection
+
+**Files changed (12 total):**
+- ~Services/DeckFileIdentity.cs~
+- ~Models/Deck.cs~
+- ~Services/DeckFileParser.cs~
+- ~Services/DeckService.cs~
+- ~Services/DatabaseService.cs~ — migration SQL
+- ~ViewModels/HomeViewModel.cs~
+- ~ViewModels/MainWindowViewModel.cs~ — ~MigrateSchema()~, ~using Microsoft.EntityFrameworkCore~
+- ~Views/MainWindow.axaml~
+- ~Views/MainWindow.axaml.cs~
+
+* DONE Marketplace placeholder page
+
+** What
+Marketplace button shows a full-panel placeholder with:
+- "← Back" button → closes and goes home
+- "Marketplace coming soon" message
+- Links to alternatives: Telegram, 0x0.st, Google Drive
+
+** Files changed
+- ~Views/MainWindow.axaml~ — new ~MarketplacePanel~ overlay (ZIndex 300)
+- ~ViewModels/MainWindowViewModel.cs~ — ~IsMarketplace~, ~CloseMarketplaceCommand~, navigations
+
+* DONE Get Plugins uses OpenInBrowser
+
+** What
+Replaced placeholder with ~MainWindow.OpenInBrowser()~ (same method used
+for links inside the study box), so "Get Plugins" opens a URL in the system
+browser with proper Wayland handling (Firefox first, Chromium with
+~--ozone-platform-hint=x11~, xdg-open last).
+
+** Files changed
+- ~ViewModels/MainWindowViewModel.cs~ — ~NavigateToPlugins~ calls ~MainWindow.OpenInBrowser()~
+- ~Views/MainWindow.axaml.cs~ — ~OpenInBrowser()~ made internal static for ViewModel access
+
+* DONE Settings folder picker
+
+** What
+Decks path setting uses ~StorageProvider.OpenFolderPickerAsync~ (folder picker
+dialog) instead of a text input. Defaults to ~$HOME/nextlearn/decks/~.
+
+** Implementation
+- ~MainWindow.axaml.cs~ — ~PickFolderHandler~ delegate, ~BrowseDecksPath~ event
+- ~MainWindow.axaml~ — ~Button~ next to path ~TextBox~
+- ~MainWindowViewModel.cs~ — ~BrowseDecksPathCommand~ invokes dialog
+
+* DONE Sidebar restructuring
+
+** What
+- Settings sidebar item docked to bottom of sidebar (separator above it)
+- Open Decks Folder, Pinned, Archived items above
+- Renamed "Open Decks" → "Open Decks Folder"
+
+** Implementation
+- ~Views/MainWindow.axaml~ — sidebar ~StackPanel~ → ~DockPanel~
+  - ~DockPanel.Dock="Bottom"~ for Settings
+  - ~Separator~ between navigation and settings
+- ~ViewModels/MainWindowViewModel.cs~ — ~IsOpenDecksFolder~ removed
+  (never used; button always visible)
+
+* DONE P36: Open Decks Folder button + keyboard shortcut
+
+** What
+- "Open Decks Folder" button in sidebar opens the decks directory in the
+  default file manager
+- ~o~ key on home page triggers the same action
+- Falls back through 17 file managers:
+  ~thunar~, ~nautilus~, ~dolphin~, ~nemo~, ~caja~, ~pcmanfm~, ~konqueror~,
+  ~krusader~, ~doublecmd~, ~spacefm~, ~xfe~, ~rox-filer~,
+  ~ranger~, ~nnn~, ~lf~, ~mc~, ~yazi~
+- Each failed attempt logged (~Log.Debug~), only final failure is ~Log.Error~
+- Tries file managers first, then ~xdg-open~ as last resort (avoids GLFW
+  Wayland spam from ~xdg-open~)
+
+** Files changed
+- ~ViewModels/MainWindowViewModel.cs~ — ~OpenDecksFolderCommand~ with
+  file manager fallback loop + logging
+- ~Views/MainWindow.axaml.cs~ — ~o~ key handler in home context
+- ~Views/MainWindow.axaml~ — sidebar button + list of file managers
+
+* DONE Wayland/GLFW startup crash fix
+
+** What
+On Hyprland (Wayland), NativeWebView's embedded GLFW tried to initialize
+the Wayland backend, got ~wl_display_connect("")~ failure, emitted 10+
+~[glfw error 65544]: Wayland: Failed to connect to display~ messages.
+The app still ran but with terminal spam.
+
+** Root cause
+~Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", "")~ calls
+~setenv("WAYLAND_DISPLAY", "")~ → GLFW's ~getenv("WAYLAND_DISPLAY")~
+returns a non-NULL pointer (empty string), so GLFW thinks Wayland IS
+configured and tries to connect. Connect fails because display name is "".
+
+** Fix
+~Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", null)~ calls
+~unsetenv("WAYLAND_DISPLAY")~ → ~getenv()~ returns NULL → GLFW skips
+the Wayland backend entirely and falls through to X11.
+
+Also forces X11 backend via ~UseSkia().UseX11()~ when
+~XDG_SESSION_TYPE=wayland~.
+
+** Files changed
+- ~Program.cs~ — ~SetEnvironmentVariable("WAYLAND_DISPLAY", null)~ +
+  ~UseSkia().UseX11()~ in Wayland branch
+
+* DONE Regex search + deck filtering on home page
+
+** What
+- Regex checkbox toggles between plain substring and regex matching
+- Non-matching decks are filtered out (hidden)
+- #tag search also supports regex when checkbox is on (e.g. ~#.*desc~ matches ~no-desc~)
+- Decks cached in memory (`_allDecks`) — no re-read from disk on keystroke
+
+** Files changed
+- ~ViewModels/HomeViewModel.cs~ — added ~UseRegex~, ~_allDecks~ cache, ~ApplySearchFilter()~ in-memory filtering; ~OnUseRegexChanged~ handler; ~TokenMatches()~ with ~Regex.IsMatch~ branch; regex support for ~#tag~ tokens
+- ~Views/MainWindow.axaml~ — regex CheckBox next to search bar
+
+* DONE Go to page: Ctrl+G inside study page
+
+** What
+- Pressing ~Ctrl+G~ during study opens a small centered overlay with a
+  page-number input
+- Validates input (empty, non-numeric, out-of-range → inline red error)
+- ~Enter~ in the text box or clicking "Go" navigates to that page
+- ~Esc~ or backdrop click closes the dialog
+- WebView is hidden while the dialog is open (same pattern as ~?~ handbook)
+- TextBox auto-focuses and selects all on open for fast re-entry
+
+** Files changed
+- ~ViewModels/LearningViewModel.cs~ — added ~IsGoToPageOpen~, ~GoToPageInput~,
+  ~GoToPageError~/~HasGoToPageError~, ~GoToPageCommand~ (validate + navigate),
+  ~CancelGoToPageCommand~
+- ~Views/MainWindow.axaml~ — added centered overlay panel with TextBox,
+  error label, Cancel/Go buttons; updated shortcuts handbook grid with
+  ~Ctrl+G~ entry
+- ~Views/MainWindow.axaml.cs~ — ~Ctrl+G~ handler in learning context,
+  ~Esc~ LIFO entry (highest priority), ~Enter~ on TextBox handler,
+  backdrop click handler, auto-focus on Open via PropertyChanged
+
+* DONE Remove study-page `/` search and edit `e` key
+
+** What
+Study page is now focused purely on studying/reading. No in-deck search,
+no edit button, no editor settings.
+
+** Removed: in-deck search (`/` key on study page)
+- ~LearningViewModel.ShowSearch~, ~SearchText~, ~SearchResults~ properties
+- ~ToggleSearchCommand~ and ~OnSearchTextChanged~
+- Search overlay panel (~DeckSearchBox~, results list) from ~MainWindow.axaml~
+- ~Key.Oem2~ (toggle), ~Key.Escape~ (close), ~Key.Enter~ (open in editor)
+  handlers from ~MainWindow.axaml.cs~
+
+** Removed: edit deck (`e` key + Edit button)
+- ~Key.E~ handler and ~OpenInSystemEditor()~ from ~MainWindow.axaml.cs~
+- Edit button from study page top bar in ~MainWindow.axaml~
+- ~OpenEditorCommand~ and ~CloseEditor()~ from ~MainWindowViewModel.cs~
+- ~EditorLauncher~ property + ~EditorLauncher.cs~ (file deleted)
+- ~Editor~ property from ~AppSettings.cs~ and ~SettingsService.cs~
+- Editor picker ComboBox from settings panel in ~MainWindow.axaml~
+- ~EditorViewModel.cs~ (entire file deleted, was in-app markdown editor)
+- ~IsEditorOpen~ editor panel from ~MainWindow.axaml~
+- ~GetDeckMarkdownPath()~ and ~ToSlug()~ from ~LearningViewModel.cs~
+  (only used by OpenInSystemEditor)
+
+** Rationale
+User now uses file manager to edit/create/search deck text files and comes
+back to the app just for studying. Simplifies the study page and settings.
+
+* DONE Learn button on pinned deck cards
+
+** What
+- Pin overlay's deck cards now show a "Learn" button above "Unpin"
+- Clicking Learn closes the pinned overlay and navigates to the study page
+- ~IsPinnedViewOpen~ / ~IsArchivedViewOpen~ cleared in both ~NavigateToLearning()~ and ~NavigateToLearningByDeck()~
+- Exiting study via ~q~/~d~ lands on normal home page with no leftover overlays
+
+** Files changed
+- ~Views/MainWindow.axaml~ — added "Learn" button in pinned view DataTemplate
+- ~ViewModels/MainWindowViewModel.cs~ — added ~IsPinnedViewOpen = false~ / ~IsArchivedViewOpen = false~ before ~IsLearning = true~ in both navigation methods
+
+* DONE Text zoom: Ctrl+Shift++/Ctrl+Shift+_/Ctrl+Shift+0
+
+** What
+- Font-only zoom that scales text size while keeping component layout unchanged
+- ~TextScale~ property (1.0, 0.2 increments, range 0.6–2.0)
+- Logical tree walk scales ~TextBlock.FontSize~ and ~TextBox.FontSize~ by ratio
+- WebView content zoomed via ~document.body.style.fontSize~ JS injection
+- Does NOT scale images, borders, padding, or any non-text UI elements
+- Tightened image overlay shortcuts to exact modifier match (~modifiers == KeyModifiers.Control~) to avoid conflict on ~Ctrl+Shift+=~
+
+** Files changed
+- ~ViewModels/MainWindowViewModel.cs~ — added ~TextScale~, ~TextScaleChanged~ event, ~ZoomTextIn~, ~ZoomTextOut~, ~ResetTextZoom~ commands
+- ~Views/MainWindow.axaml~ — added "Text Zoom" section in Shortcuts Handbook
+- ~Views/MainWindow.axaml.cs~ — added ~TextScaleChanged~ subscription, ~OnTextScaleChanged~ handler with logical tree walking, WebView JS zoom; ~Ctrl+Shift+=/-/0~ shortcuts
+- ~Services/HtmlContentBuilder.cs~ — ~case'+':case'_':case'0':case')'~ added to WebView JS key forwarding
+- ~README.org~ — updated features table and shortcuts table
+
 * DONE Deck card layout: Learn + ⋮ on same line
 Buttons inside deck cards now sit side by side (horizontal StackPanel) for a more compact, stylish look.
 
@@ -58,7 +356,6 @@ the dead code was deleted entirely.
 
 
 
-
 * DONE P27: Filter home view by tag
 
 ** Why
@@ -70,7 +367,6 @@ Currently no way to browse decks by tag — only free-text search.
 3. Clicking a tag filters to decks containing that tag
 4. Multi-select: clicking additional tags adds to the filter (OR logic)
 5. Active tag chips show with highlight, click again to remove
-
 
 * DONE P36: add a button to open decks directory, but first make sure the settings page is working fine
 * DONE P18: Anki APKG import
@@ -563,11 +859,12 @@ All ~catch {}~ blocks are silent, making debugging impossible.
 * DONE Code syntax highlighting via highlight.js
 
 ** What
-- Embedded highlight.js 11.9.0 (highlight.min.js) + atom-one-dark theme
+- Embedded highlight.js 11.11.1 (custom-highlight.js, 52 languages) + atom-one-dark theme
 - Languages auto-detected, matching ~class="language-xxx"~ on ~<code>~ blocks
-- Supports bash, C, JavaScript, Python, and 190+ other languages
+- Aliases registered: ~asm~→~x86asm~, ~php-template~→~php~, ~python-repl~→~python~, ~shell~→~bash~
+- 52 bundled languages (36 common + 16 extra): bash, c, cpp, csharp, css, diff, go, graphql, ini, java, javascript, json, kotlin, less, lua, makefile, markdown, objectivec, perl, php, php-template, plaintext, python, python-repl, r, ruby, rust, scss, shell, sql, swift, typescript, vbnet, wasm, xml, yaml, lisp, scheme, scala, haskell, fsharp, erlang, elixir, prolog, dart, powershell, x86asm, armasm, julia, matlab, fortran, dockerfile
 - Inline ~<script>hljs.highlightAll()</script>~ runs after page load
-- 121KB JS + 856B CSS loaded from ~Assets/~ at build output, inlined into data URI
+- 189KB JS + 856B CSS loaded from ~Assets/~ at build output, inlined into data URI
 
 ** Files changed
 - ~Services/HtmlContentBuilder.cs~ — added ~<!--HIGHLIGHT_CSS-->~ and ~/* HIGHLIGHT_JS */~ placeholders
@@ -729,7 +1026,6 @@ clear rules for every syntax variant in both .md and .org formats.
 
 
 
-
 * P23: Optimize LoadDecks — filter in-memory on search
 
 ** Why
@@ -749,309 +1045,6 @@ StartLearning re-parses all files when the deck is already loaded (B17).
 1. Pass ~Deck~ directly instead of scanning all files
 2. Remove file-scan fallback or keep only as last resort
 
-
-
-* P33: shortcuts page must be the top/upmost layer
-> feature: the`?` menu must be layered as the top most layer at every senario
-
-Fixed by P38 Phase A: ZIndex changed to 999, LIFO Esc order, mutual exclusion for full-page overlays.
-
-* P37: `/` inside of study page
-it shows under the study box
-
-* DONE P38: ZIndex cleanup + Esc LIFO + Archive/Pin support for decks
-
-**Status:** DONE
-
-**Phase A — ZIndex & Esc cleanup**
-
-**A1: Shortcuts Handbook ZIndex → 999**
-- File: ~Views/MainWindow.axaml~ — change ~ZIndex="150"~ → ~ZIndex="999"~
-
-**A2: LIFO Esc close order**
-- File: ~Views/MainWindow.axaml.cs~ — reorder Esc chain by ZIndex descending:
-  Handbook (999) → Image overlay (400) → Archived (310) → Settings (300) → Pinned (300) → Sidebar (200)
-
-**A3: Mutual exclusion for full-page overlays**
-- File: ~ViewModels/MainWindowViewModel.cs~ — each show command closes all other full-page overlays:
-  ~IsPinnedViewOpen = IsArchivedViewOpen = IsSettingsOpen = false;~
-
-**Phase B — Archive & Pin via file rename**
-
-How it works:
-- ~deck.md~ → ~+deck.md~ (pin) — stays in search, ~+~ prefix visible
-- ~deck.md~ → ~deck.md~ (archive) — excluded from ~*.md~ glob, hidden from search
-- ~DeckFileIdentity~ strips ~+~/~~~ before hashing → same ID across renames → progress preserved
-
-ZIndex plan for overlays:
-| Overlay | ZIndex |
-|---------|--------|
-| In-deck search | 100 |
-| Sidebar | 200 |
-| Pinned view | 300 |
-| Settings | 300 |
-| Archived view | 310 |
-| Image overlay | 400 |
-| Shortcuts Handbook | 999 |
-
-**B1 — DeckFileIdentity: stable IDs across renames**
-- File: ~Services/DeckFileIdentity.cs~
-- Before SHA256 hashing, strip leading ~+~ and trailing ~~~ from ~Path.GetFileName(filePath)~
-- Return new path string for hashing
-
-**B2 — Deck model: add state flags**
-- File: ~Models/Deck.cs~
-- Add ~IsArchived~ (bool)
-- Add ~IsPinned~ (bool)
-
-**B3 — DeckFileParser: detect flags from filename**
-- File: ~Services/DeckFileParser.cs~
-- In ~LoadDeckFromFile~: ~deck.IsArchived = fileName.EndsWith('~')~; ~deck.IsPinned = fileName.StartsWith('+')~
-
-**B4 — DeckService: archive/pin operations**
-- File: ~Services/DeckService.cs~
-- ~ArchiveDeck(id)~ / ~UnarchiveDeck(id)~ — rename file + update DB
-- ~PinDeck(id)~ / ~UnpinDeck(id)~ — rename file + update DB
-- ~GetArchivedDecks()~ — glob ~*.md~ / ~*.org~~~, parse via ~LoadDeckFromFile~, return list
-- ~GetPinnedDecks()~ — glob ~+*.md~ / ~+*.org~, parse via ~LoadDeckFromFile~, return list
-- ~SaveOrUpdateDeck~ — preserve pin/archive state from DB when updating
-
-**B5 — HomeViewModel: deck card commands**
-- File: ~ViewModels/HomeViewModel.cs~
-- ~PinDeckCommand(Deck)~ / ~UnpinDeckCommand(Deck)~ → service call + ~Refresh()~
-- ~ArchiveDeckCommand(Deck)~ → service call + ~Refresh()~
-
-**B6 — MainWindowViewModel: sidebar & overlay views**
-- File: ~ViewModels/MainWindowViewModel.cs~
-- Add ~IsPinnedViewOpen~, ~IsArchivedViewOpen~ (bool)
-- Add ~PinnedDecks~, ~ArchivedDecks~ (ObservableCollection)
-- ~ShowPinnedViewCommand~ — loads pinned decks, opens overlay, closes sidebar + other full-page overlays
-- ~ShowArchivedViewCommand~ — loads archived decks, opens overlay, closes sidebar + other full-page overlays
-- ~UnpinFromViewCommand(Deck)~ / ~UnarchiveCommand(Deck)~ — action + refresh list
-
-**B7 — MainWindow.axaml: deck card 3-dot menu**
-- In deck card ~DataTemplate~ (right ~StackPanel~, next to "Learn"):
-  - Add ~⋮~ Button with ~Popup~ containing:
-    - "📌 Pin" / "📌 Unpin" (toggle based on ~IsPinned~)
-    - "🗄️ Archive"
-  - Menu items bound to ~HomeViewModel.PinDeckCommand~ / ~ArchiveDeckCommand~
-
-**B8 — MainWindow.axaml: sidebar items**
-- In sidebar ~StackPanel~ (after settings button):
-  - ~📌 Pinned~ → ~ShowPinnedViewCommand~
-  - ~🗄️ Archived~ → ~ShowArchivedViewCommand~
-
-**B9 — MainWindow.axaml: pinned overlay view**
-- Full-page panel (~ZIndex="300"~), visible when ~IsPinnedViewOpen~
-- Top bar: "← Pinned Decks" back button + close ✕
-- Content: ~ItemsControl~ bound to ~PinnedDecks~, each card shows unpin button
-
-**B10 — MainWindow.axaml: archived overlay view**
-- Full-page panel (~ZIndex="310"~), visible when ~IsArchivedViewOpen~
-- Same pattern as pinned, each card shows unarchive button
-
-**Post-implementation fixes:**
-- DB migration: existing SQLite databases lack ~IsArchived~/~IsPinned~ columns → ~MigrateSchema()~ runs ~ALTER TABLE ADD COLUMN~ via ~ExecuteSqlRaw()~ on startup
-- Flyout binding: `x:CompileBindings="False"` regions can't use ~((vm:Type)DataContext)~ cast syntax → changed to ~$parent[ItemsControl].DataContext.Path~ for runtime reflection
-
-**Files changed (12 total):**
-- ~Services/DeckFileIdentity.cs~
-- ~Models/Deck.cs~
-- ~Services/DeckFileParser.cs~
-- ~Services/DeckService.cs~
-- ~Services/DatabaseService.cs~ — migration SQL
-- ~ViewModels/HomeViewModel.cs~
-- ~ViewModels/MainWindowViewModel.cs~ — ~MigrateSchema()~, ~using Microsoft.EntityFrameworkCore~
-- ~Views/MainWindow.axaml~
-- ~Views/MainWindow.axaml.cs~
-
-* DONE Marketplace placeholder page
-
-** What
-Marketplace button shows a full-panel placeholder with:
-- "← Back" button → closes and goes home
-- "Marketplace coming soon" message
-- Links to alternatives: Telegram, 0x0.st, Google Drive
-
-** Files changed
-- ~Views/MainWindow.axaml~ — new ~MarketplacePanel~ overlay (ZIndex 300)
-- ~ViewModels/MainWindowViewModel.cs~ — ~IsMarketplace~, ~CloseMarketplaceCommand~, navigations
-
-* DONE Get Plugins uses OpenInBrowser
-
-** What
-Replaced placeholder with ~MainWindow.OpenInBrowser()~ (same method used
-for links inside the study box), so "Get Plugins" opens a URL in the system
-browser with proper Wayland handling (Firefox first, Chromium with
-~--ozone-platform-hint=x11~, xdg-open last).
-
-** Files changed
-- ~ViewModels/MainWindowViewModel.cs~ — ~NavigateToPlugins~ calls ~MainWindow.OpenInBrowser()~
-- ~Views/MainWindow.axaml.cs~ — ~OpenInBrowser()~ made internal static for ViewModel access
-
-* DONE Settings folder picker
-
-** What
-Decks path setting uses ~StorageProvider.OpenFolderPickerAsync~ (folder picker
-dialog) instead of a text input. Defaults to ~$HOME/nextlearn/decks/~.
-
-** Implementation
-- ~MainWindow.axaml.cs~ — ~PickFolderHandler~ delegate, ~BrowseDecksPath~ event
-- ~MainWindow.axaml~ — ~Button~ next to path ~TextBox~
-- ~MainWindowViewModel.cs~ — ~BrowseDecksPathCommand~ invokes dialog
-
-* DONE Sidebar restructuring
-
-** What
-- Settings sidebar item docked to bottom of sidebar (separator above it)
-- Open Decks Folder, Pinned, Archived items above
-- Renamed "Open Decks" → "Open Decks Folder"
-
-** Implementation
-- ~Views/MainWindow.axaml~ — sidebar ~StackPanel~ → ~DockPanel~
-  - ~DockPanel.Dock="Bottom"~ for Settings
-  - ~Separator~ between navigation and settings
-- ~ViewModels/MainWindowViewModel.cs~ — ~IsOpenDecksFolder~ removed
-  (never used; button always visible)
-
-* DONE P36: Open Decks Folder button + keyboard shortcut
-
-** What
-- "Open Decks Folder" button in sidebar opens the decks directory in the
-  default file manager
-- ~o~ key on home page triggers the same action
-- Falls back through 17 file managers:
-  ~thunar~, ~nautilus~, ~dolphin~, ~nemo~, ~caja~, ~pcmanfm~, ~konqueror~,
-  ~krusader~, ~doublecmd~, ~spacefm~, ~xfe~, ~rox-filer~,
-  ~ranger~, ~nnn~, ~lf~, ~mc~, ~yazi~
-- Each failed attempt logged (~Log.Debug~), only final failure is ~Log.Error~
-- Tries file managers first, then ~xdg-open~ as last resort (avoids GLFW
-  Wayland spam from ~xdg-open~)
-
-** Files changed
-- ~ViewModels/MainWindowViewModel.cs~ — ~OpenDecksFolderCommand~ with
-  file manager fallback loop + logging
-- ~Views/MainWindow.axaml.cs~ — ~o~ key handler in home context
-- ~Views/MainWindow.axaml~ — sidebar button + list of file managers
-
-* DONE Wayland/GLFW startup crash fix
-
-** What
-On Hyprland (Wayland), NativeWebView's embedded GLFW tried to initialize
-the Wayland backend, got ~wl_display_connect("")~ failure, emitted 10+
-~[glfw error 65544]: Wayland: Failed to connect to display~ messages.
-The app still ran but with terminal spam.
-
-** Root cause
-~Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", "")~ calls
-~setenv("WAYLAND_DISPLAY", "")~ → GLFW's ~getenv("WAYLAND_DISPLAY")~
-returns a non-NULL pointer (empty string), so GLFW thinks Wayland IS
-configured and tries to connect. Connect fails because display name is "".
-
-** Fix
-~Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", null)~ calls
-~unsetenv("WAYLAND_DISPLAY")~ → ~getenv()~ returns NULL → GLFW skips
-the Wayland backend entirely and falls through to X11.
-
-Also forces X11 backend via ~UseSkia().UseX11()~ when
-~XDG_SESSION_TYPE=wayland~.
-
-** Files changed
-- ~Program.cs~ — ~SetEnvironmentVariable("WAYLAND_DISPLAY", null)~ +
-  ~UseSkia().UseX11()~ in Wayland branch
-
-* DONE Regex search + deck filtering on home page
-
-** What
-- Regex checkbox toggles between plain substring and regex matching
-- Non-matching decks are filtered out (hidden)
-- #tag search also supports regex when checkbox is on (e.g. ~#.*desc~ matches ~no-desc~)
-- Decks cached in memory (`_allDecks`) — no re-read from disk on keystroke
-
-** Files changed
-- ~ViewModels/HomeViewModel.cs~ — added ~UseRegex~, ~_allDecks~ cache, ~ApplySearchFilter()~ in-memory filtering; ~OnUseRegexChanged~ handler; ~TokenMatches()~ with ~Regex.IsMatch~ branch; regex support for ~#tag~ tokens
-- ~Views/MainWindow.axaml~ — regex CheckBox next to search bar
-
-* DONE Go to page: Ctrl+G inside study page
-
-** What
-- Pressing ~Ctrl+G~ during study opens a small centered overlay with a
-  page-number input
-- Validates input (empty, non-numeric, out-of-range → inline red error)
-- ~Enter~ in the text box or clicking "Go" navigates to that page
-- ~Esc~ or backdrop click closes the dialog
-- WebView is hidden while the dialog is open (same pattern as ~?~ handbook)
-- TextBox auto-focuses and selects all on open for fast re-entry
-
-** Files changed
-- ~ViewModels/LearningViewModel.cs~ — added ~IsGoToPageOpen~, ~GoToPageInput~,
-  ~GoToPageError~/~HasGoToPageError~, ~GoToPageCommand~ (validate + navigate),
-  ~CancelGoToPageCommand~
-- ~Views/MainWindow.axaml~ — added centered overlay panel with TextBox,
-  error label, Cancel/Go buttons; updated shortcuts handbook grid with
-  ~Ctrl+G~ entry
-- ~Views/MainWindow.axaml.cs~ — ~Ctrl+G~ handler in learning context,
-  ~Esc~ LIFO entry (highest priority), ~Enter~ on TextBox handler,
-  backdrop click handler, auto-focus on Open via PropertyChanged
-
-* DONE Remove study-page `/` search and edit `e` key
-
-** What
-Study page is now focused purely on studying/reading. No in-deck search,
-no edit button, no editor settings.
-
-** Removed: in-deck search (`/` key on study page)
-- ~LearningViewModel.ShowSearch~, ~SearchText~, ~SearchResults~ properties
-- ~ToggleSearchCommand~ and ~OnSearchTextChanged~
-- Search overlay panel (~DeckSearchBox~, results list) from ~MainWindow.axaml~
-- ~Key.Oem2~ (toggle), ~Key.Escape~ (close), ~Key.Enter~ (open in editor)
-  handlers from ~MainWindow.axaml.cs~
-
-** Removed: edit deck (`e` key + Edit button)
-- ~Key.E~ handler and ~OpenInSystemEditor()~ from ~MainWindow.axaml.cs~
-- Edit button from study page top bar in ~MainWindow.axaml~
-- ~OpenEditorCommand~ and ~CloseEditor()~ from ~MainWindowViewModel.cs~
-- ~EditorLauncher~ property + ~EditorLauncher.cs~ (file deleted)
-- ~Editor~ property from ~AppSettings.cs~ and ~SettingsService.cs~
-- Editor picker ComboBox from settings panel in ~MainWindow.axaml~
-- ~EditorViewModel.cs~ (entire file deleted, was in-app markdown editor)
-- ~IsEditorOpen~ editor panel from ~MainWindow.axaml~
-- ~GetDeckMarkdownPath()~ and ~ToSlug()~ from ~LearningViewModel.cs~
-  (only used by OpenInSystemEditor)
-
-** Rationale
-User now uses file manager to edit/create/search deck text files and comes
-back to the app just for studying. Simplifies the study page and settings.
-
-* DONE Learn button on pinned deck cards
-
-** What
-- Pin overlay's deck cards now show a "Learn" button above "Unpin"
-- Clicking Learn closes the pinned overlay and navigates to the study page
-- ~IsPinnedViewOpen~ / ~IsArchivedViewOpen~ cleared in both ~NavigateToLearning()~ and ~NavigateToLearningByDeck()~
-- Exiting study via ~q~/~d~ lands on normal home page with no leftover overlays
-
-** Files changed
-- ~Views/MainWindow.axaml~ — added "Learn" button in pinned view DataTemplate
-- ~ViewModels/MainWindowViewModel.cs~ — added ~IsPinnedViewOpen = false~ / ~IsArchivedViewOpen = false~ before ~IsLearning = true~ in both navigation methods
-
-
-* DONE Text zoom: Ctrl+Shift++/Ctrl+Shift+_/Ctrl+Shift+0
-
-** What
-- Font-only zoom that scales text size while keeping component layout unchanged
-- ~TextScale~ property (1.0, 0.2 increments, range 0.6–2.0)
-- Logical tree walk scales ~TextBlock.FontSize~ and ~TextBox.FontSize~ by ratio
-- WebView content zoomed via ~document.body.style.fontSize~ JS injection
-- Does NOT scale images, borders, padding, or any non-text UI elements
-- Tightened image overlay shortcuts to exact modifier match (~modifiers == KeyModifiers.Control~) to avoid conflict on ~Ctrl+Shift+=~
-
-** Files changed
-- ~ViewModels/MainWindowViewModel.cs~ — added ~TextScale~, ~TextScaleChanged~ event, ~ZoomTextIn~, ~ZoomTextOut~, ~ResetTextZoom~ commands
-- ~Views/MainWindow.axaml~ — added "Text Zoom" section in Shortcuts Handbook
-- ~Views/MainWindow.axaml.cs~ — added ~TextScaleChanged~ subscription, ~OnTextScaleChanged~ handler with logical tree walking, WebView JS zoom; ~Ctrl+Shift+=/-/0~ shortcuts
-- ~Services/HtmlContentBuilder.cs~ — ~case'+':case'_':case'0':case')'~ added to WebView JS key forwarding
-- ~README.org~ — updated features table and shortcuts table
 
 * TODO Clean code initiative
 
@@ -1132,7 +1125,7 @@ contributions.
 - SA1201/SA1202/SA1204 (70): suppressed via ~.editorconfig~ (reordering 10+ files was not worth the churn)
 - Final result: **0 warnings, 0 errors** from ~dotnet build~
 
-** Phase 5 — Code review & refactoring [P2]
+** DONE Phase 5 — Code review & refactoring [P2]
 
 Segmented into smaller independent sub-phases (5a–5e). Order-agnostic except 5e
 enables Phase 6 (tests).
@@ -1203,114 +1196,130 @@ enables Phase 6 (tests).
 4. Extract navigation state from ~MainWindowViewModel~ (760 lines, 18 overlay bools)
 5. Delegate settings handling to dedicated ~SettingsViewModel~
 
-** Phase 6 — Tests [P2]
+** DONE Phase 6 — Tests [P2]
 
-*** Create test project
+*** DONE Enable testability — 3 small refactors
+
+| Class | Change needed | Reason |
+|-------+--------------+--------|
+| ~AppDbContext~ | Add constructor overload ~AppDbContext(DbContextOptions<AppDbContext> options)~ | Allows ~UseInMemoryDatabase()~ in tests instead of real SQLite |
+| ~SettingsService~ | Add constructor overload ~SettingsService(string configDir)~ | Allows temp-directory isolation instead of ~/.config/nextlearn~ |
+| ~DeckFileParser~ / ~HtmlContentBuilder~ | Already static, testable directly via temp files / direct calls | — |
+
+*** DONE Create test project
 - Add ~tests/NextLearn.Desktop.Tests/NextLearn.Desktop.Tests.csproj~ targeting ~net10.0~
 - Reference ~NextLearn.Desktop~ project
-- Add ~xunit~, ~xunit.runner.visualstudio~, ~Microsoft.NET.Test.Sdk~
-- Add ~NSubstitute~ or ~Moq~ for mocking
-- Add ~FluentAssertions~ (optional, nice for readability)
-- Add ~Directory.Build.props~ to test project: ~IsPackable=false~
+- Packages: ~xunit~, ~xunit.runner.visualstudio~, ~Microsoft.NET.Test.Sdk~, ~NSubstitute~, ~FluentAssertions~, ~Microsoft.EntityFrameworkCore.InMemory~
+- Add ~Directory.Build.props~ to test project dir: ~<IsPackable>false</IsPackable>~
 
-*** Write tests for DeckFileParser
-- Valid .md file with YAML frontmatter → correct ~Deck~ and ~Page~ models
-- Valid .org file with keywords → correct parsing
-- Missing frontmatter → fallback to filename as title
+*** DONE Write tests for DeckFileParser
+- ~LoadDeckFromFile(valid.md with YAML frontmatter)~ → correct ~Deck~ and ~Page~ models
+- ~LoadDeckFromFile(valid.org with #+TITLE:)~ → correct parsing
+- Missing frontmatter → fallback to first content line as title
 - Empty file → single empty page
-- Malformed YAML → graceful error handling
-- Deck with no headings → single page
-- Tags parsing (comma-separated, blank tags stripped)
+- Malformed/garbage file → null (graceful error, logged)
+- Deck with no headings → single page with fallback title
+- Tags parsing (comma-separated, blank tags stripped; org ~:tag1:tag2:~ normalized)
 
-*** Write tests for HtmlContentBuilder
-- Markdown headings → correct HTML headings with anchor IDs
-- Org headings → correct HTML
-- **Bold**, *italic*, ~~strikethrough~~ → correct tags
-- Code blocks with syntax highlighting → ~<pre><code class="language-...">~
-- Inline code → ~<code>~
-- Images → ~<img>~ with correct src
-- Blockquotes → ~<blockquote>~
-- Tables → ~<table>~ structure
-- Org ~#+BEGIN_*~/~#+END_*~ blocks → correct containers
-- Mixed nesting → valid HTML
+*** DONE Write tests for HtmlContentBuilder (34 tests)
+- ~Build(page, isOrgFile)~ with markdown ~# H1~ / ~~~## ~~H2~ → ~<h1>~ / ~<h2>~ with heading-marker spans
+- Org ~* H1~ / ~~** ~~H2~ → same HTML structure
+- ~~**bold**~~, ~*italic*~, ~~~strikethrough~~~ → ~<strong>~, ~<em>~, ~<s>~ (or ~<del>~)
+- Code fences ~~~```csharp\n...\n```~~~ → ~<pre><code class="language-csharp">~
+- Inline code ~`code`~ → ~<code>code</code>~
+- ~![alt](image.png)~ → ~<img class="inline-image"…>~ (with mock image dir)
+- ~> quote~ → ~<blockquote><p>quote</p></blockquote>~
+- Pipe tables ~|A|B|\n|---|---|\n|1|2|~ → ~<table><thead><tr><th>A</th>…</thead><tbody>…~
+- Org ~#+BEGIN_VERSE…​#+END_VERSE~ → ~<pre class="org-block">~
+- Mixed bold + italic + code nesting → valid HTML
 
-*** Write tests for DeckService
-- ~LoadDecksAsync~ returns all non-archived decks from directory
-- ~GetDeckByIdAsync~ fetches from DB correctly
-- ~GetPagesByDeckIdAsync~ returns ordered pages
-- ~TogglePinAsync~ / ~ToggleArchiveAsync~ rename files and update DB
-- ~LoadArchivedDecksAsync~ returns only archived
-- ~LoadPinnedDecksAsync~ returns only pinned
-- ~GetUserProgressAsync~ / ~UpdateUserProgressAsync~ CRUD
-- Edge case: deck file deleted between loads → handle gracefully
+*** DONE Write tests for DeckService (22 tests)
+- ~GetPublishedDecks()~ returns only ~IsPublished && IsReviewed~, ordered by ~CreatedAt~ desc
+- ~GetDeckById(Guid)~ fetches deck with pages ordered by ~PageNumber~
+- ~SaveOrUpdateDeck(Deck)~ creates new deck with ~AuthorId~ from user service; updates existing deck
+- ~GetPage(Guid)~ returns single page by ID
+- ~GetUserProgressAsync(Guid)~ returns progress for current user + deck
+- ~StartLearningAsync(Guid)~ creates progress row if missing; adds active learning slot (max 2)
+- ~UpdateProgressAsync(Guid, int)~ creates or updates progress with ~LastAccessedAt~
+- ~MarkCompletedAsync(Guid)~ sets ~IsCompleted=true~, increments ~TotalDecksCompleted~
+- ~GetActiveLearningSlots()~ returns active slots for current user, ordered by slot
+
+*** DONE Write tests for DeckFileService (pin/archive operations) — 12 tests
+- ~PinDeck(Guid, decksPath)~ renames file with ~+~ prefix, sets ~IsPinned=true~, updates ~FileName~
+- ~UnpinDeck(Guid, decksPath)~ strips ~+~ prefix, sets ~IsPinned=false~
+- ~ArchiveDeck(Guid, decksPath)~ appends ~~~ suffix, sets ~IsArchived=true~
+- ~UnarchiveDeck(Guid, decksPath)~ strips ~~~ suffix, sets ~IsArchived=false~
+- ~GetArchivedDecks(decksPath)~ (static) globs ~*.md~~~ / ~*.org~~~, parses each → returns archived list
+- ~GetPinnedDecks(decksPath)~ (static) globs ~+*.md~ / ~+*.org~, parses each → returns pinned list
+- Edge case: deck file deleted between lookup and rename → graceful skip
 - Edge case: pin/archive file name collision
 
-*** Write tests for SettingsService
-- Round-trip: save then load returns identical object
-- Default values when file doesn't exist
-- Corrupted JSON → fallback to defaults (or graceful error)
+*** DONE Write tests for SettingsService — 8 tests
+- Round-trip: save (~TrySave~) then reload returns identical ~AppSettings~
+- Default values (~Theme=Dark~, ~Font=Inter~, ~DecksPath=$HOME/nextlearn/decks~) when file doesn't exist
+- Corrupted JSON → fallback to defaults (catches ~JsonException~)
 - ~DecksPath~ update persists correctly
 
-*** Write tests for UserService
-- ~GetOrCreateUserAsync~ creates guest user on first call
-- ~ComputeStreak~ consecutive days with ~MinutesLearned > 0~ → streak increments
-- ~ComputeStreak~ gap in study days → streak resets
-- ~RecordActivityAsync~ creates/updates ~DailyActivity~ correctly
+*** DONE Write tests for UserService — 20 tests
+- Constructor creates guest user on first call (via private ~EnsureGuestUser()~)
+- ~ComputeStreak()~ consecutive days with ~MinutesLearned > 0~ → streak increments
+- ~ComputeStreak()~ gap in study days → streak resets to 0
+- ~RecordTimeAsync(int)~ creates/updates ~DailyActivity~ with accumulated minutes
+- ~RecordPageViewAsync(int)~ creates/updates ~DailyActivity~ with accumulated page views
+- ~GetTodayStats()~ returns today's minutes, pages, decks studied, streak
+- ~GetActivityHistory(int)~ returns ordered records within date window
+- ~GetDecksCompleted()~ counts completed ~UserProgress~ records
 
-*** Write tests for edge cases & integration
-- ~AppDbContext~ can create/open SQLite file in-memory
-- ~DeckFileIdentity~ deterministic GUID for same path
-- Encoding: UTF-8 vs UTF-16 deck files
-- Very long file names, special characters in file paths
-- Unicode content in decks (CJK, RTL, emoji)
-- Decks directory doesn't exist → created on first load
+*** DONE Write tests for edge cases & integration — 14 tests
+- ~AppDbContext~ with ~UseInMemoryDatabase()~ creates schema, all ~DbSet~s available
+- ~DeckFileIdentity.GetId()~ same path → same GUID; ~+deck.md~ / ~deck.md~~~ → same GUID as ~deck.md~
+- Very long file names (~a~×200~.md), special characters (~!@#$%^&.md~) → parse succeeds
+- Unicode content in decks (CJK ~# 安녕하세요~, RTL ~* مرحبا~, emoji ~## 🚀~) → correct HTML output
+- Decks directory doesn't exist → ~Directory.CreateDirectory~ called on first load (no crash)
 
-** Phase 7 — Documentation & XML comments [P3]
+** DONE Phase 7 — Documentation & XML comments [P3] — **100% done**
 
-*** Add XML documentation to public API
-- All service interfaces (once extracted): ~/// <summary>~
-- All public method parameters: ~/// <param name="...">~
-- All public properties: ~/// <summary>~
-- All model classes: brief description of the entity
-- Configure StyleCop SA1600 to require documentation on public members
+*** Add XML documentation to public API — **done**
+- All service interfaces (once extracted): ~/// <summary>~ — **done** (6 interfaces: IDeckService, IUserService, IDeckFileService, ISettingsService, IHtmlContentBuilder, IInlineRenderer)
+- All public method parameters: ~/// <param name="...">~ — **done**
+- All public properties: ~/// <summary>~ — **done**
+- All model classes: brief description of the entity — **done** (8 models: Deck, Page, User, UserProgress, DailyActivity, ActiveLearning, AppSettings, ContentType, HeatmapCell)
+- Configure StyleCop SA1600 to require documentation on public members — **done** (documentInterfaces: true in stylecop.json)
 
-*** Add inline comments for complex logic (sparingly)
-- ~HtmlContentBuilder.cs~ regex/replacement chains — one-liner explanations
-- ~MainWindow.axaml.cs~ keyboard shortcut dispatch — mention key combos
-- ~DeckFileParser.cs~ heading-level logic — clarify nesting rules
+*** Add inline comments for complex logic (sparingly) — **done**
+- ~HtmlContentBuilder.cs~ regex/replacement chains — one-liner explanations — **done**
+- ~MainWindow.axaml.cs~ keyboard shortcut dispatch — mention key combos — **done**
+- ~DeckFileParser.cs~ heading-level logic — clarify nesting rules — **done**
+- Build: 0 errors, 0 warnings
 
-** Phase 8 — IDE / dev experience [P3]
+* DONE Fixed highlight.js alias registrations (B38)
 
-*** Add omnisharp.json (optional)
-- Enable Roslyn analyzers in VS / Rider
-- Configure ~fileOptions~ for ~.org~ files
+** What
+- Registered 4 missing aliases in custom-highlight.js:
+  - ~asm~ → ~x86asm~
+  - ~php-template~ → ~php~
+  - ~python-repl~ → ~python~
+  - ~shell~ → ~bash~
 
-*** Verify Rider/.editorconfig integration
-- ~resharper~ hierarchy in ~.editorconfig~ for Rider-specific rules
-- Naming style: ~reservedNames~, ~instanceFields~, etc.
+** Files changed
+- ~NextLearn.Desktop/Assets/custom-highlight.js~
 
-** Files that will be created
-- ~.gitignore~ (repo root) — done
-- ~.gitattributes~ (repo root) — done
-- ~.editorconfig~ (repo root)
-- ~Directory.Build.props~ (repo root)
-- ~stylecop.json~ (repo root)
-- ~tests/NextLearn.Desktop.Tests/NextLearn.Desktop.Tests.csproj~
-- ~omnisharp.json~ (repo root, optional)
+* DONE Expanded code-block fence regex to accept hyphens/dots in language names (B39)
 
-** Files that will be modified
-- ~NextLearn.Desktop/NextLearn.Desktop.csproj~ — add analyzer refs (if not using ~Directory.Build.props~)
-- Every ~.cs~ file — style/naming fixes, XML docs, suppression pragmas
-- ~Views/MainWindow.axaml~ — splitting overlays into ~UserControl~s (maybe)
-- ~Views/MainWindow.axaml.cs~ — extracting keyboard handler, WebView bridge (maybe)
+** What
+- Changed ~\w*~ to ~[\w.-]*~ in both ~#+BEGIN_SRC~ and ~~~` fence regexes
+- Allows language names like ~php-template~, ~python-repl~, ~c++~
 
-** Estimation
-- Phase 1: ~30 min — done
-- Phase 2: ~30 min (setup .editorconfig + fix ~10–20 IDE warnings)
-- Phase 3: ~1 hour (setup Directory.Build.props + fix ~15–30 CA warnings)
-- Phase 4: ~1–2 hours (setup stylecop.json + fix ~1200+ SA warnings)
-- Phase 5: ~2–4 hours (depends on refactoring depth)
-- Phase 6: ~3–6 hours (depending on coverage ambition)
-- Phase 7: ~1 hour (can parallelize with Phase 2–4)
-- Phase 8: ~30 min
+** Files changed
+- ~NextLearn.Desktop/Services/HtmlContentBuilder.cs~ — lines 135, 169
+
+* DONE Cleaned up duplicate sections in syntax-highlighting-test files (B40)
+
+** What
+- Removed duplicate PHP Template and Python REPL sections from .md test file
+- Changed ~#+BEGIN_SRC bash~ to ~#+BEGIN_SRC shell~ in .org test file
+
+** Files changed
+- ~~/nextlearn/decks/syntax-highlighting-test.md~
+- ~~/nextlearn/decks/syntax-highlighting-test.org~
 

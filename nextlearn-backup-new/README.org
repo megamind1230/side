@@ -16,57 +16,58 @@ is a separate project.
 
 * Features
 
-| Feature                         | Status     | Note                                               |
-|---------------------------------+------------+----------------------------------------------------|
-| Fully offline                   | ✅ Done    | No network calls ever                              |
-| File-based decks (.md / .org)   | ✅ Done    | YAML frontmatter + `#` / `##` headings             |
-| Frontmatter metadata            | ✅ Done    | ~title:~, ~description:~, ~tags:~ in --- block     |
-| Org #+TITLE:/#+DESCRIPTION:     | ✅ Done    | ~#+TITLE:~ / ~#+DESCRIPTION:~ / ~#+TAGS:~ in .org |
-| Tag system from frontmatter     | ✅ Done    | ~tags: health, morning, sleep~                     |
-| #tag search (incremental)       | ✅ Done    | ~#st~ matches ~study~ (prefix match)               |
-| Regex search toggle             | ✅ Done    | ☐ Regex checkbox switches title/desc/name + tags to regex |
-| Search by title/desc/filename   | ✅ Done    | Plain text tokens search all three                 |
-| Page-by-page learning           | ✅ Done    | Prev/Next with keyboard shortcuts                  |
-| Section breadcrumb              | ✅ Done    | Shows ~# Section → ## Page~ with heading markers   |
-| Rendered markdown content       | ✅ Done    | NativeWebView (HTML rendering via data URI)        |
-| Code syntax highlighting        | ✅ Done    | highlight.js embedded, lang auto-detect            |
-| Table rendering (pipe tables)   | ✅ Done    | Markdown + Org table syntax → HTML <table>         |
-| .org file headings (~~** ~~)    | ✅ Done    | Parser regex matches ~*~/~~~** ~~ and ~#~/~~~## ~~ |
-| .org code blocks (#+BEGIN_SRC)  | ✅ Done    | ~#+BEGIN_SRC lang~ / ~#+END_SRC~ → <pre><code>     |
-| Inline code protection          | ✅ Done    | ~[text](url)~ inside backticks renders literally   |
-| Code-block-aware page splits    | ✅ Done    | ~#~ inside code blocks don't trigger page breaks   |
-| Deterministic deck identity     | ✅ Done    | SHA256 of file path → stable GUID                  |
-| Dark mode theming               | ✅ Done    | #1E293B cards, amber Name: line                    |
-| Selection color                 | ✅ Done    | Blue bg (#2563EB) + white text in WebView          |
-| vim-style j/k scroll            | ✅ Done    | J/K scrolls home deck list, study box content      |
-| h/l horizontal scroll           | ✅ Done    | H/L scrolls study box content left/right           |
-| Inline search (no popup)        | ✅ Done    | `/` focuses bar, Esc unfocuses                     |
-| Sidebar (☰ → settings, info)    | ✅ Done    | Backdrop click + Esc to close                      |
-| Settings overlay page           | ✅ Done    | ⚙ in sidebar, placeholder content                 |
-| Marketplace                     | ✅ Done    | Opens ~https://google.com~ in browser              |
-| Get Plugins                     | ✅ Done    | Opens ~https://github.com/megamind1230~ in browser |
-| Stable progress across restarts | ✅ Done    | DeckFileIdentity + DeckService save                |
-| Auto-refresh on file change     | ✅ Done    | FileSystemWatcher watches decks dir                |
-| Streak tracking & daily log     | ✅ Done    | Built-in                                           |
-| Keyboard shortcuts              | ✅ Done    | N/P/J/K/H/L/Q/D/E//Esc (see table below)           |
-| Settings (sidebar → ⚙)         | ✅ Done    | Theme, font, decks path, save/reset        |
-| Theme switching                 | 🚧 Plugin  | Will be extracted (Dark/Light)                     |
-| Tag cloud / tag filter          | ❌ Not yet | Planned (P27)                                      |
-| Image/video content types       | ❌ Not yet | Models exist, UI missing                           |
-| Spaced repetition algorithm     | ❌ Not yet | Basic 24h review only                              |
-| Image rendering (markdown)      | ✅ Done    | ~![]()~ and ~![[path]]~ → inline image in WebView  |
-| Go to page (Ctrl+G)             | ✅ Done    | Jump to any page by number during study             |
-| Text zoom (Ctrl+Shift++/_)      | ✅ Done    | Font-only zoom, keeps component layout              |
-| Image rendering (org)           | ✅ Done    | ~![[file:path]]~ / ~![[file:path][alt]]~           |
-| Image overlay toolbar           | ✅ Done    | ◀▶ nav, zoom slider, invert, open in viewer        |
+| Feature                         | Status     | Note                                                                               |
+|---------------------------------+------------+------------------------------------------------------------------------------------|
+| Fully offline                   | ✅ Done    | No network calls ever                                                              |
+| File-based decks (.md / .org)   | ✅ Done    | YAML frontmatter + `#` / `##` headings                                             |
+| Frontmatter metadata            | ✅ Done    | ~title:~, ~description:~, ~tags:~ in --- block                                     |
+| Org #+TITLE:/#+DESCRIPTION:     | ✅ Done    | ~#+TITLE:~ / ~#+DESCRIPTION:~ / ~#+TAGS:~ in .org                                  |
+| Tag system from frontmatter     | ✅ Done    | ~tags: health, morning, sleep~                                                     |
+| #tag search (incremental)       | ✅ Done    | ~#st~ matches ~study~ (prefix match)                                               |
+| Regex search toggle             | ✅ Done    | ☐ Regex checkbox switches title/desc/name + tags to regex                         |
+| Search by title/desc/filename   | ✅ Done    | Plain text tokens search all three                                                 |
+| Page-by-page learning           | ✅ Done    | Prev/Next with keyboard shortcuts                                                  |
+| Section breadcrumb              | ✅ Done    | Shows ~# Section → ## Page~ with heading markers                                   |
+| Rendered markdown content       | ✅ Done    | NativeWebView (HTML rendering via data URI)                                        |
+| Code syntax highlighting        | ✅ Done    | highlight.js embedded, 52 langs w/ alias support                                   |
+| Table rendering (pipe tables)   | ✅ Done    | Markdown + Org table syntax → HTML <table>                                         |
+| .org file headings (~~** ~~)    | ✅ Done    | Parser regex matches ~*~/~~~** ~~ and ~#~/~~~## ~~                                 |
+| .org code blocks (#+BEGIN_SRC)  | ✅ Done    | ~#+BEGIN_SRC lang~ / ~#+END_SRC~ → <pre><code>                                     |
+| Inline code protection          | ✅ Done    | ~[text](url)~ inside backticks renders literally                                   |
+| Code-block-aware page splits    | ✅ Done    | ~#~ inside code blocks don't trigger page breaks                                   |
+| Deterministic deck identity     | ✅ Done    | SHA256 of file path → stable GUID                                                  |
+| Dark mode theming               | ✅ Done    | #1E293B cards, amber Name: line                                                    |
+| Selection color                 | ✅ Done    | Blue bg (#2563EB) + white text in WebView                                          |
+| vim-style j/k scroll            | ✅ Done    | J/K scrolls home deck list, study box content                                      |
+| h/l horizontal scroll           | ✅ Done    | H/L scrolls study box content left/right                                           |
+| Inline search (no popup)        | ✅ Done    | `/` focuses bar, Esc unfocuses                                                     |
+| Sidebar (☰ → settings, info)    | ✅ Done    | Backdrop click + Esc to close                                                      |
+| Settings overlay page           | ✅ Done    | ⚙ in sidebar, placeholder content                                                 |
+| Marketplace                     | ✅ Done    | Opens ~https://google.com~ in browser                                              |
+| Get Plugins                     | ✅ Done    | Opens ~https://github.com/megamind1230~ in browser                                 |
+| Stable progress across restarts | ✅ Done    | DeckFileIdentity + DeckService save                                                |
+| Auto-refresh on file change     | ✅ Done    | FileSystemWatcher watches decks dir                                                |
+| Streak tracking & daily log     | ✅ Done    | Wall-clock minutes, daily activity                                                 |
+| Heatmap overlay (full-page)     | ✅ Done    | Snake layout 90° CCW, 6-level orange, green today                                  |
+| Keyboard shortcuts              | ✅ Done    | N/P/J/K/H/L/Q/D/E//Esc (see table below)                                           |
+| Settings (sidebar → ⚙)         | ✅ Done    | Theme, font, decks path, save/reset                                                |
+| Theme switching                 | 🚧 Plugin  | Will be extracted (Dark/Light)                                                     |
+| Tag cloud / tag filter          | ❌ Not yet | Planned (P27)                                                                      |
+| Image/video content types       | ❌ Not yet | Models exist, UI missing                                                           |
+| Spaced repetition algorithm     | ❌ Not yet | Basic 24h review only                                                              |
+| Image rendering (markdown)      | ✅ Done    | ~![]()~ and ~![[path]]~ → inline image in WebView                                  |
+| Go to page (Ctrl+G)             | ✅ Done    | Jump to any page by number during study                                            |
+| Text zoom (Ctrl+Shift++/_)      | ✅ Done    | Font-only zoom, keeps component layout                                             |
+| Image rendering (org)           | ✅ Done    | ~![[file:path]]~ / ~![[file:path][alt]]~                                           |
+| Image overlay toolbar           | ✅ Done    | ◀▶ nav, zoom slider, invert, open in viewer                                        |
 | Archive / Pin decks             | ✅ Done    | Rename-based: ~.md~~ / ~+.md~, stable progress IDs; "Learn" button on pinned cards |
-| Open decks folder               | ✅ Done    | File manager fallback (17 binaries) → xdg-open      |
-| Clickable links (http/https)    | ✅ Done    | ~[text](url)~ / ~[[url]]~ / ~[[url][text]]~ → <a>  |
-| Bare URL auto-linking           | ✅ Done    | ~https://...~ auto-linked in both .md and .org     |
-| Non-http URLs shown as-is       | ✅ Done    | ~[text](local/path)~ → raw text, not broken link   |
-| Org [[...]] placeholder protect | ✅ Done    | Prevents italic regex from corrupting file paths   |
-| Quote blocks (> syntax)         | ✅ Done    | Renders `>` lines as <blockquote> in md and org    |
-| Org block rendering (#+BEGIN_*) | ✅ Done    | #+BEGIN_QUOTE etc → monospace pre with dark bg     |
+| Open decks folder               | ✅ Done    | File manager fallback (17 binaries) → xdg-open                                     |
+| Clickable links (http/https)    | ✅ Done    | ~[text](url)~ / ~[[url]]~ / ~[[url][text]]~ → <a>                                  |
+| Bare URL auto-linking           | ✅ Done    | ~https://...~ auto-linked in both .md and .org                                     |
+| Non-http URLs shown as-is       | ✅ Done    | ~[text](local/path)~ → raw text, not broken link                                   |
+| Org [[...]] placeholder protect     | ✅ Done    | Prevents italic regex from corrupting file paths                                   |
+| Quote blocks (> syntax)         | ✅ Done    | Renders `>` lines as <blockquote> in md and org                                    |
+| Org block rendering (#+BEGIN_*) | ✅ Done    | #+BEGIN_QUOTE etc → monospace pre with dark bg                                     |
 
 * Tech Stack
 
@@ -75,7 +76,7 @@ is a separate project.
 - Entity Framework Core 8.0.0 + SQLite
 - Serilog (file + console logging to ~~/nextlearn/log.txt~)
 - NativeWebView 0.1.0-alpha.3 + NativeWebView.Platform.Linux (WebView HTML rendering)
-- highlight.js 11.9.0 (syntax highlighting, embedded as Assets/highlight.min.js)
+- highlight.js 11.11.1 (syntax highlighting, 52 languages w/ alias support, embedded as Assets/custom-highlight.js)
 - Linux: requires ~libwpewebkit-2.0~, ~libwpe-1.0~, ~libWPEBackend-fdo-1.0~
 - Wayland: auto-detects ~XDG_SESSION_TYPE=wayland~, unsets ~WAYLAND_DISPLAY~
   (GLFW skip) + forces X11 backend via ~UseSkia().UseX11()~
@@ -93,6 +94,15 @@ manual: user → website → download → drop into local folder.
 - ~~/.config/nextlearn/nextlearn.db~ — users, progress, activity
 - ~~/nextlearn/decks/*.md~ / ~*.org~ — deck content with YAML frontmatter
 
+** Clean Code Initiative
+
+Phase 5 of the clean code initiative is complete:
+- 5a: Naming conventions (async suffix, private field style)
+- 5b: Dead code removal (flashcard, feedback, editor, search)
+- 5c: Split MainWindow.axaml/.cs (~700 lines extracted into 8 UserControls, KeyboardHandler, WebViewBridge)
+- 5d: Split service files (HtmlContentBuilder → strategy pattern; DeckService → DB + file layers)
+- 5e: Service interfaces + DI preparation (IDeckService, IUserService, IDeckFileService, ISettingsService, IHtmlContentBuilder)
+
 ** Project Structure
 
 | Path                            | Purpose                               |
@@ -106,13 +116,17 @@ manual: user → website → download → drop into local folder.
 
 ** Key Services
 
-| Service          | Role                                        |
-|------------------+---------------------------------------------|
-| DeckFileParser   | Static parser: frontmatter + heading → Deck |
-| DeckFileIdentity | SHA256 of path → deterministic GUID         |
-| DeckService      | CRUD for decks in SQLite, progress tracking |
-| UserService      | Current user, daily activity, streak        |
-| SettingsService  | Persists theme/font/paths to JSON           |
+| Service             | Role                                        |
+|---------------------+---------------------------------------------|
+| DeckFileParser      | Static parser: frontmatter + heading → Deck |
+| DeckFileIdentity    | SHA256 of path → deterministic GUID         |
+| DeckService         | DB layer: decks, pages, progress tracking   |
+| DeckFileService     | File ops: archive/pin/rename decks          |
+| UserService         | Current user, daily activity, streak (computed from study minutes) |
+| SettingsService     | Persists theme/font/paths to JSON           |
+| HtmlContentBuilder  | Static HTML builder from Page model         |
+| MarkdownInlineRenderer | Strategy for .md inline rendering        |
+| OrgInlineRenderer   | Strategy for .org inline rendering          |
 
 * Deck File Format
 
@@ -174,34 +188,37 @@ Content
 
 * Keyboard Shortcuts
 
-| Key          | Context         | Action                                   |
-|--------------+-----------------+------------------------------------------|
-| Ctrl + ,     | Global          | Open Settings                            |
-| ?            | Global          | Toggle Shortcuts Handbook                |
-| Esc          | Any overlay     | Close current overlay                    |
-| Ctrl + G     | Learning        | Go to page (opens page-number dialog)    |
-| n / Right    | Learning        | Next page                                |
-| p / Left     | Learning        | Previous page                            |
-| j            | Learning        | Scroll content down 40px                 |
-| k            | Learning        | Scroll content up 40px                   |
-| h            | Learning        | Scroll content left 40px                 |
-| l            | Learning        | Scroll content right 40px                |
-| j            | Home            | Scroll deck list down 40px               |
-| k            | Home            | Scroll deck list up 40px                 |
-| q / d        | Any             | Go home (saves progress)                 |
-| q / d        | Settings        | Close settings + go home                 |
-| o            | Global          | Open decks folder in file manager        |
-| `g` then `i` | Home            | Focus inline search bar (clear search)   |
-| `/`          | Home            | Focus inline search bar                  |
-| Click image  | Learning        | Open image in floating overlay           |
-| Ctrl + = / - | Image overlay   | Zoom in / out                            |
-| Ctrl + 0     | Image overlay   | Reset zoom to 1:1                        |
-| N / P / ◀ ▶ | Image overlay   | Next / prev image on current page        |
-| Button: Done | Last page       | Complete deck + navigate home            |
-| Key: n       | Last page       | Complete but stay (allows revision)      |
-| Ctrl+Shift++ | Global          | Text zoom in (larger)                    |
-| Ctrl+Shift+_ | Global          | Text zoom out (smaller)                  |
-| Ctrl+Shift+0 | Global          | Reset text zoom to default               |
+| Key          | Context        | Action                                 |
+|--------------+----------------+----------------------------------------|
+| Ctrl + ,     | Global         | Open Settings                          |
+| ?            | Global         | Toggle Shortcuts Handbook              |
+| Esc          | Any overlay    | Close current overlay                  |
+| Ctrl + G     | Learning       | Go to page (opens page-number dialog)  |
+| n / Right    | Learning       | Next page                              |
+| p / Left     | Learning       | Previous page                          |
+| j            | Learning       | Scroll content down 40px               |
+| k            | Learning       | Scroll content up 40px                 |
+| h            | Learning       | Scroll content left 40px               |
+| l            | Learning       | Scroll content right 40px              |
+| j            | Home           | Scroll deck list down 40px             |
+| k            | Home           | Scroll deck list up 40px               |
+| q / d        | Any            | Go home (saves progress)               |
+| q / d        | Settings       | Close settings + go home               |
+| o            | Global         | Open decks folder in file manager      |
+| `g` then `i` | Home           | Focus inline search bar (clear search) |
+| `/`          | Home           | Focus inline search bar                |
+| Click image  | Learning       | Open image in floating overlay         |
+| Ctrl + = / - | Image overlay  | Zoom in / out                          |
+| Ctrl + 0     | Image overlay  | Reset zoom to 1:1                      |
+| N / P / ◀ ▶  | Image overlay  | Next / prev image on current page      |
+| Button: Done | Last page      | Complete deck + navigate home          |
+| Key: n       | Last page      | Complete but stay (allows revision)    |
+| Ctrl+Shift++ | Global         | Text zoom in (larger)                  |
+| Ctrl+Shift+_ | Global         | Text zoom out (smaller)                |
+| Ctrl+Shift+0 | Global         | Reset text zoom / reset heatmap zoom   |
+| Ctrl+Shift+= | Heatmap open   | Heatmap zoom in                        |
+| Ctrl+Shift+- | Heatmap open   | Heatmap zoom out                       |
+| 🔥 Streak    | Home / Sidebar | Open heatmap overlay                   |
 
 * How to Use
 

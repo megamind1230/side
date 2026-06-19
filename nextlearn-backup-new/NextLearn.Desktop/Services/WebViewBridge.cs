@@ -32,7 +32,7 @@ public class WebViewBridge
 
             var appAssets = Path.Combine(AppContext.BaseDirectory, "Assets");
             var cssPath = Path.Combine(appAssets, "atom-one-dark.min.css");
-            var jsPath = Path.Combine(appAssets, "highlight.min.js");
+            var jsPath = Path.Combine(appAssets, "custom-highlight.js");
 
             if (File.Exists(cssPath))
             {

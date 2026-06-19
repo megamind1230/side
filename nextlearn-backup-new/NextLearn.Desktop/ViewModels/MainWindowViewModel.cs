@@ -22,10 +22,10 @@ namespace NextLearn.Desktop.ViewModels;
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly AppDbContext _context;
-    private readonly UserService _userService;
-    private readonly DeckService _deckService;
-    private readonly DeckFileService _deckFileService;
-    private readonly SettingsService _settingsService;
+    private readonly IUserService _userService;
+    private readonly IDeckService _deckService;
+    private readonly IDeckFileService _deckFileService;
+    private readonly ISettingsService _settingsService;
 
     [ObservableProperty]
     private ViewModelBase? _currentView;
@@ -53,6 +53,27 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isArchivedViewOpen;
+
+    [ObservableProperty]
+    private bool _isHeatmapOpen;
+
+    [ObservableProperty]
+    private int _todayMinutes;
+
+    [ObservableProperty]
+    private int _todayPages;
+
+    [ObservableProperty]
+    private int _todayDecks;
+
+    [ObservableProperty]
+    private int _todayStreak;
+
+    [ObservableProperty]
+    private ObservableCollection<HeatmapCell> _heatmapCells = new();
+
+    [ObservableProperty]
+    private double _heatmapCellScale = 1.0;
 
     [ObservableProperty]
     private bool _isMarketplaceOpen;
@@ -84,9 +105,6 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private double _textScale = 1.0;
-
-    [ObservableProperty]
-    private int _rotationAngle;
 
     [ObservableProperty]
     private Avalonia.Media.Imaging.Bitmap? _currentImageBitmap;
@@ -201,12 +219,13 @@ public partial class MainWindowViewModel : ViewModelBase
         _deckService = new DeckService(_context, _userService);
         _deckFileService = new DeckFileService(_context);
         _settingsService = new SettingsService();
+        var htmlContentBuilder = new HtmlContentService();
 
         LoadSettings();
 
         var decksPath = _settingsService.ResolvedDecksPath;
         HomeViewModel = new HomeViewModel(_deckService, _deckFileService, this, decksPath);
-        LearningViewModel = new LearningViewModel(_deckService, _userService, this, decksPath);
+        LearningViewModel = new LearningViewModel(_deckService, _userService, htmlContentBuilder, this, decksPath);
 
         CurrentView = HomeViewModel;
     }
@@ -471,6 +490,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsPinnedViewOpen = false;
         IsArchivedViewOpen = false;
         IsSettingsOpen = false;
+        IsHeatmapOpen = false;
         IsMarketplaceOpen = true;
     }
 
@@ -508,6 +528,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsSidebarOpen = false;
         IsPinnedViewOpen = false;
         IsArchivedViewOpen = false;
+        IsHeatmapOpen = false;
         IsSettingsOpen = true;
     }
 
@@ -535,6 +556,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsSidebarOpen = false;
         IsArchivedViewOpen = false;
         IsSettingsOpen = false;
+        IsHeatmapOpen = false;
         IsPinnedViewOpen = true;
     }
 
@@ -551,6 +573,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsSidebarOpen = false;
         IsPinnedViewOpen = false;
         IsSettingsOpen = false;
+        IsHeatmapOpen = false;
         IsArchivedViewOpen = true;
     }
 
@@ -587,6 +610,86 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    public void ShowHeatmap()
+    {
+        RefreshHeatmap();
+        IsSidebarOpen = false;
+        IsPinnedViewOpen = false;
+        IsArchivedViewOpen = false;
+        IsSettingsOpen = false;
+        IsMarketplaceOpen = false;
+        IsHeatmapOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseHeatmap()
+    {
+        IsHeatmapOpen = false;
+    }
+
+    [RelayCommand]
+    private void ZoomHeatmapIn()
+    {
+        HeatmapCellScale = Math.Min(3.0, HeatmapCellScale + 0.25);
+    }
+
+    [RelayCommand]
+    private void ZoomHeatmapOut()
+    {
+        HeatmapCellScale = Math.Max(0.5, HeatmapCellScale - 0.25);
+    }
+
+    [RelayCommand]
+    private void ZoomHeatmapReset()
+    {
+        HeatmapCellScale = 1.0;
+    }
+
+    private void RefreshHeatmap()
+    {
+        var (minutes, pages, decks, streak) = _userService.GetTodayStats();
+        TodayMinutes = minutes;
+        TodayPages = pages;
+        TodayDecks = decks;
+        TodayStreak = streak;
+
+        var activity = _userService.GetActivityHistory(365);
+        var activityByDate = activity.ToDictionary(a => a.Date, a => a.MinutesLearned);
+
+        var today = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, DateTime.UtcNow.Day);
+        HeatmapCells.Clear();
+
+        var year = today.Year;
+        var start = new DateTime(year, 1, 1);
+        var end = today;
+
+        var current = start;
+        while (current <= end)
+        {
+            var totalDays = (int)(current - start).TotalDays;
+            var oldRow = totalDays / 7;
+            var oldCol = (oldRow % 2 == 0) ? totalDays % 7 : 6 - (totalDays % 7);
+
+            // Rotate 90° CCW so Jan 1 is at bottom-left, days snake upward
+            const int maxOldCol = 6;
+            var row = maxOldCol - oldCol;
+            var col = oldRow;
+
+            activityByDate.TryGetValue(current, out var minutesLearned);
+
+            HeatmapCells.Add(new HeatmapCell
+            {
+                Date = current,
+                Count = minutesLearned,
+                Row = row,
+                Col = col,
+            });
+
+            current = current.AddDays(1);
+        }
+    }
+
+    [RelayCommand]
     public void CloseShortcutsHandbook()
     {
         IsShortcutsHandbookOpen = false;
@@ -601,7 +704,6 @@ public partial class MainWindowViewModel : ViewModelBase
             CurrentImageIndex = idx >= 0 ? idx : 0;
             CurrentImagePath = imagePath;
             ZoomLevel = 1.0;
-            RotationAngle = 0;
             IsImageOverlayOpen = true;
             Log.Information(
                 "Image overlay opened: {Path} (index {Index} of {Count})",
@@ -625,7 +727,6 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         IsImageOverlayOpen = false;
         ZoomLevel = 1.0;
-        RotationAngle = 0;
         Log.Information("Image overlay closed");
     }
 
@@ -671,18 +772,6 @@ public partial class MainWindowViewModel : ViewModelBase
         var old = TextScale;
         TextScale = 1.0;
         TextScaleChanged?.Invoke(old, TextScale);
-    }
-
-    [RelayCommand]
-    private void RotateCw()
-    {
-        RotationAngle = (RotationAngle + 90) % 360;
-    }
-
-    [RelayCommand]
-    private void RotateCcw()
-    {
-        RotationAngle = (RotationAngle - 90 + 360) % 360;
     }
 
     [RelayCommand]

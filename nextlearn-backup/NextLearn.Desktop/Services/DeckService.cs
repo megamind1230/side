@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -9,12 +8,12 @@ using NextLearn.Desktop.Models;
 
 namespace NextLearn.Desktop.Services;
 
-public class DeckService
+public class DeckService : IDeckService
 {
     private readonly AppDbContext _context;
-    private readonly UserService _userService;
+    private readonly IUserService _userService;
 
-    public DeckService(AppDbContext context, UserService userService)
+    public DeckService(AppDbContext context, IUserService userService)
     {
         _context = context;
         _userService = userService;
@@ -38,6 +37,7 @@ public class DeckService
 
     public void SaveOrUpdateDeck(Deck deck)
     {
+        ArgumentNullException.ThrowIfNull(deck);
         var existing = _context.Decks.Include(d => d.Pages)
             .FirstOrDefault(d => d.Id == deck.Id);
         if (existing != null)
@@ -62,6 +62,7 @@ public class DeckService
             deck.AuthorId = _userService.GetCurrentUserId();
             _context.Decks.Add(deck);
         }
+
         _context.SaveChanges();
     }
 
@@ -74,15 +75,15 @@ public class DeckService
     {
         var userId = _userService.GetCurrentUserId();
         return await _context.UserProgress
-            .FirstOrDefaultAsync(up => up.UserId == userId && up.DeckId == deckId);
+            .FirstOrDefaultAsync(up => up.UserId == userId && up.DeckId == deckId).ConfigureAwait(false);
     }
 
     public async Task<UserProgress> StartLearningAsync(Guid deckId)
     {
         var userId = _userService.GetCurrentUserId();
-        
+
         var progress = await _context.UserProgress
-            .FirstOrDefaultAsync(up => up.UserId == userId && up.DeckId == deckId);
+            .FirstOrDefaultAsync(up => up.UserId == userId && up.DeckId == deckId).ConfigureAwait(false);
 
         if (progress == null)
         {
@@ -91,14 +92,14 @@ public class DeckService
                 UserId = userId,
                 DeckId = deckId,
                 CurrentPage = 1,
-                IsCompleted = false
+                IsCompleted = false,
             };
             _context.UserProgress.Add(progress);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync().ConfigureAwait(false);
         }
 
         var activeCount = await _context.ActiveLearning
-            .CountAsync(al => al.UserId == userId);
+            .CountAsync(al => al.UserId == userId).ConfigureAwait(false);
 
         if (activeCount < 2)
         {
@@ -107,10 +108,10 @@ public class DeckService
             {
                 UserId = userId,
                 DeckId = deckId,
-                Slot = slot
+                Slot = slot,
             };
             _context.ActiveLearning.Add(active);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync().ConfigureAwait(false);
         }
 
         return progress;
@@ -119,9 +120,9 @@ public class DeckService
     public async Task UpdateProgressAsync(Guid deckId, int currentPage)
     {
         var userId = _userService.GetCurrentUserId();
-        
+
         var progress = await _context.UserProgress
-            .FirstOrDefaultAsync(up => up.UserId == userId && up.DeckId == deckId);
+            .FirstOrDefaultAsync(up => up.UserId == userId && up.DeckId == deckId).ConfigureAwait(false);
 
         if (progress == null)
         {
@@ -130,7 +131,7 @@ public class DeckService
                 UserId = userId,
                 DeckId = deckId,
                 CurrentPage = currentPage,
-                IsCompleted = false
+                IsCompleted = false,
             };
             _context.UserProgress.Add(progress);
         }
@@ -138,23 +139,24 @@ public class DeckService
         {
             progress.CurrentPage = currentPage;
         }
+
         progress.LastAccessedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync().ConfigureAwait(false);
     }
 
     public async Task MarkCompletedAsync(Guid deckId)
     {
         var userId = _userService.GetCurrentUserId();
-        
+
         var progress = await _context.UserProgress
-            .FirstOrDefaultAsync(up => up.UserId == userId && up.DeckId == deckId);
+            .FirstOrDefaultAsync(up => up.UserId == userId && up.DeckId == deckId).ConfigureAwait(false);
 
         if (progress != null)
         {
             progress.IsCompleted = true;
             var user = _userService.GetCurrentUser();
             user.TotalDecksCompleted++;
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync().ConfigureAwait(false);
         }
     }
 
@@ -166,90 +168,5 @@ public class DeckService
             .Where(al => al.UserId == userId)
             .OrderBy(al => al.Slot)
             .ToList();
-    }
-
-    public void ArchiveDeck(Guid deckId, string decksPath)
-    {
-        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
-        if (deck == null) return;
-        var oldPath = Path.Combine(decksPath, deck.FileName);
-        var newPath = oldPath + "~";
-        if (File.Exists(oldPath))
-            File.Move(oldPath, newPath);
-        deck.IsArchived = true;
-        _context.SaveChanges();
-    }
-
-    public void UnarchiveDeck(Guid deckId, string decksPath)
-    {
-        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
-        if (deck == null) return;
-        var archivedPath = Path.Combine(decksPath, deck.FileName + "~");
-        var restoredPath = Path.Combine(decksPath, deck.FileName);
-        if (File.Exists(archivedPath))
-            File.Move(archivedPath, restoredPath);
-        deck.IsArchived = false;
-        _context.SaveChanges();
-    }
-
-    public void PinDeck(Guid deckId, string decksPath)
-    {
-        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
-        if (deck == null) return;
-        var oldPath = Path.Combine(decksPath, deck.FileName);
-        var newPath = Path.Combine(decksPath, "+" + deck.FileName);
-        if (File.Exists(oldPath))
-            File.Move(oldPath, newPath);
-        deck.IsPinned = true;
-        deck.FileName = "+" + deck.FileName;
-        _context.SaveChanges();
-    }
-
-    public void UnpinDeck(Guid deckId, string decksPath)
-    {
-        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
-        if (deck == null) return;
-        var fileName = deck.FileName;
-        if (!fileName.StartsWith('+')) return;
-        var oldPath = Path.Combine(decksPath, fileName);
-        var newFileName = fileName[1..];
-        var newPath = Path.Combine(decksPath, newFileName);
-        if (File.Exists(oldPath))
-            File.Move(oldPath, newPath);
-        deck.IsPinned = false;
-        deck.FileName = newFileName;
-        _context.SaveChanges();
-    }
-
-    public List<Deck> GetArchivedDecks(string decksPath)
-    {
-        var list = new List<Deck>();
-        var extensions = new[] { "*.md~", "*.org~" };
-        foreach (var ext in extensions)
-        {
-            foreach (var file in Directory.GetFiles(decksPath, ext))
-            {
-                var deck = DeckFileParser.LoadDeckFromFile(file);
-                if (deck != null)
-                    list.Add(deck);
-            }
-        }
-        return list;
-    }
-
-    public List<Deck> GetPinnedDecks(string decksPath)
-    {
-        var list = new List<Deck>();
-        var extensions = new[] { "+*.md", "+*.org" };
-        foreach (var ext in extensions)
-        {
-            foreach (var file in Directory.GetFiles(decksPath, ext))
-            {
-                var deck = DeckFileParser.LoadDeckFromFile(file);
-                if (deck != null)
-                    list.Add(deck);
-            }
-        }
-        return list;
     }
 }

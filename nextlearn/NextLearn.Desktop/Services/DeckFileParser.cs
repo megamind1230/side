@@ -362,14 +362,15 @@ public static class DeckFileParser
                 if (isH1 || isH2)
                 {
                     seenFirstHeading = true;
-                    if (preContent.Length > 0)
+                    var preText = preContent.ToString().Trim();
+                    if (preText.Length > 0)
                     {
                         pages.Add(new Page
                         {
                             Id = Guid.NewGuid(),
                             SectionTitle = null,
                             Title = fallbackTitle,
-                            TextContent = preContent.ToString().Trim(),
+                            TextContent = preText,
                             ContentType = ContentType.Text,
                             PageNumber = pageNum++,
                             IsPreHeadingPage = true,
@@ -468,11 +469,7 @@ public static class DeckFileParser
                 inPage = !hasH2;
                 hasSectionContent = hasH2;
 
-                // Include H1 heading line in content for inline rendering (page-only mode)
-                if (!hasH2)
-                {
-                    currentContent.AppendLine(line);
-                }
+                // H1 heading is rendered as breadcrumb; don't duplicate it in content
             }
             else if (inPage)
             {
@@ -514,7 +511,7 @@ public static class DeckFileParser
             pages.Add(new Page
             {
                 Id = Guid.NewGuid(),
-                SectionTitle = hasH2 ? currentSection : null,
+                SectionTitle = currentSection,
                 Title = currentTitle,
                 TextContent = currentContent.ToString().Trim(),
                 ContentType = ContentType.Text,

@@ -1,22 +1,23 @@
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace NextLearn.Desktop.Models;
 
+/// <summary>A user (always a local guest in offline mode).</summary>
 public class User
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
-    
+
     public string DisplayName { get; set; } = "Guest";
-    
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    
+
     public int TotalDecksCompleted { get; set; }
-    
+
     public int CurrentStreak { get; set; }
-    
+
     public DateTime LastActiveDate { get; set; } = DateTime.UtcNow.Date;
-    
+
     public bool IsGuest { get; set; } = true;
 }

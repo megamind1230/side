@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NextLearn.Desktop.Models;
 
+/// <summary>A single study page within a deck.</summary>
 public class Page
 {
     [Key]

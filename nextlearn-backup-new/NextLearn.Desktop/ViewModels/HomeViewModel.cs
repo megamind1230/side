@@ -13,8 +13,8 @@ namespace NextLearn.Desktop.ViewModels;
 
 public partial class HomeViewModel : ViewModelBase
 {
-    private readonly DeckService _deckService;
-    private readonly DeckFileService _deckFileService;
+    private readonly IDeckService _deckService;
+    private readonly IDeckFileService _deckFileService;
     private readonly MainWindowViewModel _mainViewModel;
     private readonly string _decksPath;
     private FileSystemWatcher? _watcher;
@@ -29,7 +29,7 @@ public partial class HomeViewModel : ViewModelBase
     [ObservableProperty]
     private bool _useRegex;
 
-    public HomeViewModel(DeckService deckService, DeckFileService deckFileService, MainWindowViewModel mainViewModel, string? decksPath = null)
+    public HomeViewModel(IDeckService deckService, IDeckFileService deckFileService, MainWindowViewModel mainViewModel, string? decksPath = null)
     {
         _deckService = deckService;
         _deckFileService = deckFileService;

@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NextLearn.Desktop.Models;
 
+/// <summary>A deck of study pages loaded from a markdown or org file.</summary>
 public class Deck
 {
     [Key]

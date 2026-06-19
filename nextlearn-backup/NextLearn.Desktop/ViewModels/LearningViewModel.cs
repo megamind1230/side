@@ -2,25 +2,32 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using NextLearn.Desktop;
 using NextLearn.Desktop.Models;
 using NextLearn.Desktop.Services;
+
+// UI ViewModel — awaits must return to UI thread, no ConfigureAwait
+#pragma warning disable CA2007
 
 namespace NextLearn.Desktop.ViewModels;
 
 public partial class LearningViewModel : ViewModelBase
 {
-    private readonly DeckService _deckService;
-    private readonly UserService _userService;
+    private readonly IDeckService _deckService;
+    private readonly IUserService _userService;
+    private readonly IHtmlContentBuilder _htmlContentBuilder;
     private readonly MainWindowViewModel _mainViewModel;
     private readonly string _decksPath;
 
     private Deck? _currentDeck;
     private List<Page> _pages = new();
     private UserProgress? _progress;
+    private Timer? _sessionTimer;
+    private DateTime _sessionStartTime;
+    private int _recordedMinutes;
 
     [ObservableProperty]
     private int _currentPageIndex;
@@ -29,20 +36,20 @@ public partial class LearningViewModel : ViewModelBase
     private Page? _currentPage;
 
     [ObservableProperty]
-    private string _currentSectionTitle = "";
+    private string _currentSectionTitle = string.Empty;
 
     [ObservableProperty]
-    private string _currentSectionDisplay = "";
+    private string _currentSectionDisplay = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSection))]
-    private string _currentSectionBreadcrumb = "";
+    private string _currentSectionBreadcrumb = string.Empty;
 
     [ObservableProperty]
-    private string _currentPageBreadcrumb = "";
+    private string _currentPageBreadcrumb = string.Empty;
 
     [ObservableProperty]
-    private string _renderedHtml = "";
+    private string _renderedHtml = string.Empty;
 
     [ObservableProperty]
     private bool _isOrgFile;
@@ -50,7 +57,7 @@ public partial class LearningViewModel : ViewModelBase
     public bool HasSection => !string.IsNullOrEmpty(CurrentSectionBreadcrumb);
 
     [ObservableProperty]
-    private string _deckTitle = "";
+    private string _deckTitle = string.Empty;
 
     [ObservableProperty]
     private int _totalPages;
@@ -80,7 +87,7 @@ public partial class LearningViewModel : ViewModelBase
     private bool _isGoToPageOpen;
 
     [ObservableProperty]
-    private string _goToPageInput = "";
+    private string _goToPageInput = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasGoToPageError))]
@@ -88,17 +95,23 @@ public partial class LearningViewModel : ViewModelBase
 
     public bool HasGoToPageError => !string.IsNullOrEmpty(GoToPageError);
 
-    public LearningViewModel(DeckService deckService,
-        UserService userService, MainWindowViewModel mainViewModel, string? decksPath = null)
+    public LearningViewModel(
+        IDeckService deckService,
+        IUserService userService,
+        IHtmlContentBuilder htmlContentBuilder,
+        MainWindowViewModel mainViewModel,
+        string? decksPath = null)
     {
         _deckService = deckService;
         _userService = userService;
+        _htmlContentBuilder = htmlContentBuilder;
         _mainViewModel = mainViewModel;
         _decksPath = Constants.GetDecksPath(decksPath);
     }
 
-    public async Task SetCurrentDeck(Deck deck)
+    public async Task SetCurrentDeckAsync(Deck deck)
     {
+        ArgumentNullException.ThrowIfNull(deck);
         _currentDeck = deck;
         _pages = deck.Pages.OrderBy(p => p.PageNumber).ToList();
         TotalPages = _pages.Count;
@@ -114,20 +127,54 @@ public partial class LearningViewModel : ViewModelBase
         if (_progress.CurrentPage > 0)
         {
             CurrentPageIndex = _progress.CurrentPage - 1;
-            if (CurrentPageIndex >= _pages.Count) CurrentPageIndex = _pages.Count - 1;
+            if (CurrentPageIndex >= _pages.Count)
+            {
+                CurrentPageIndex = _pages.Count - 1;
+            }
         }
         else
         {
             CurrentPageIndex = 0;
         }
+
+        StartSessionTimer();
         UpdateCurrentPage();
     }
 
     public async Task SaveProgressAsync()
     {
+        await StopSessionTimerAsync();
         if (_currentDeck != null)
         {
             await _deckService.UpdateProgressAsync(_currentDeck.Id, CurrentPageIndex + 1);
+        }
+    }
+
+    private void StartSessionTimer()
+    {
+        _sessionStartTime = DateTime.UtcNow;
+        _recordedMinutes = 0;
+        _sessionTimer = new Timer(
+            async _ =>
+            {
+                _recordedMinutes++;
+                await _userService.RecordTimeAsync(1);
+            },
+            null,
+            TimeSpan.FromMinutes(1),
+            TimeSpan.FromMinutes(1));
+    }
+
+    private async Task StopSessionTimerAsync()
+    {
+        _sessionTimer?.Dispose();
+        _sessionTimer = null;
+        var totalSeconds = (int)(DateTime.UtcNow - _sessionStartTime).TotalSeconds;
+        var totalMinutes = totalSeconds > 0 ? (totalSeconds + 59) / 60 : 0;
+        var remaining = totalMinutes - _recordedMinutes;
+        if (remaining > 0)
+        {
+            await _userService.RecordTimeAsync(remaining);
         }
     }
 
@@ -141,7 +188,7 @@ public partial class LearningViewModel : ViewModelBase
 
         var extensions = new[] { "*.md", "*.org" };
         Deck? deck = null;
-        
+
         foreach (var ext in extensions)
         {
             var files = Directory.GetFiles(_decksPath, ext);
@@ -154,7 +201,11 @@ public partial class LearningViewModel : ViewModelBase
                     break;
                 }
             }
-            if (deck != null) break;
+
+            if (deck != null)
+            {
+                break;
+            }
         }
 
         if (deck == null)
@@ -183,19 +234,29 @@ public partial class LearningViewModel : ViewModelBase
         }
 
         CurrentPageIndex = _progress.CurrentPage - 1;
-        if (CurrentPageIndex < 0) CurrentPageIndex = 0;
-        if (CurrentPageIndex >= _pages.Count) CurrentPageIndex = _pages.Count - 1;
+        if (CurrentPageIndex < 0)
+        {
+            CurrentPageIndex = 0;
+        }
+
+        if (CurrentPageIndex >= _pages.Count)
+        {
+            CurrentPageIndex = _pages.Count - 1;
+        }
 
         UpdateCurrentPage();
     }
 
     private void UpdateCurrentPage()
     {
-        if (_pages.Count == 0) return;
+        if (_pages.Count == 0)
+        {
+            return;
+        }
 
         CurrentPage = _pages[CurrentPageIndex];
-        CurrentSectionTitle = CurrentPage?.SectionTitle ?? "";
-        CurrentSectionDisplay = !string.IsNullOrEmpty(CurrentSectionTitle) ? $" → {CurrentSectionTitle}" : "";
+        CurrentSectionTitle = CurrentPage?.SectionTitle ?? string.Empty;
+        CurrentSectionDisplay = !string.IsNullOrEmpty(CurrentSectionTitle) ? $" → {CurrentSectionTitle}" : string.Empty;
         ProgressText = $"{CurrentPageIndex + 1} / {TotalPages}";
         CanGoBack = CurrentPageIndex > 0;
         CanGoNext = CurrentPageIndex < TotalPages - 1;
@@ -212,13 +273,14 @@ public partial class LearningViewModel : ViewModelBase
         }
         else
         {
-            CurrentSectionBreadcrumb = "";
+            CurrentSectionBreadcrumb = string.Empty;
         }
-        CurrentPageBreadcrumb = CurrentPage?.Title ?? "";
+
+        CurrentPageBreadcrumb = CurrentPage?.Title ?? string.Empty;
 
         var imagePaths = new List<string>();
         var imageDir = GetCurrentImageDir();
-        RenderedHtml = HtmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, imagePaths);
+        RenderedHtml = _htmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, imagePaths);
         CurrentPageImagePaths = imagePaths;
 
         var isLastPage = CurrentPageIndex >= TotalPages - 1;
@@ -251,7 +313,7 @@ public partial class LearningViewModel : ViewModelBase
         if (CurrentPageIndex >= TotalPages - 1)
         {
             await CompleteDeck();
-            await _mainViewModel.ExitLearning();
+            await _mainViewModel.ExitLearningAsync();
             return;
         }
 
@@ -281,13 +343,14 @@ public partial class LearningViewModel : ViewModelBase
         {
             await _deckService.MarkCompletedAsync(_currentDeck.Id);
         }
+
         IsCompleted = true;
     }
 
     [RelayCommand]
     private async Task Exit()
     {
-        await _mainViewModel.ExitLearning();
+        await _mainViewModel.ExitLearningAsync();
     }
 
     [RelayCommand]
@@ -321,14 +384,17 @@ public partial class LearningViewModel : ViewModelBase
     private void CancelGoToPage()
     {
         GoToPageError = null;
-        GoToPageInput = "";
+        GoToPageInput = string.Empty;
         IsGoToPageOpen = false;
     }
 
     private string? GetCurrentImageDir()
     {
         if (_currentDeck == null || string.IsNullOrEmpty(_currentDeck.FileName))
+        {
             return null;
+        }
+
         return _decksPath;
     }
 }

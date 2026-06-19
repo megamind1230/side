@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NextLearn.Desktop.ViewModels"
+             x:Class="NextLearn.Desktop.Controls.GoToPageDialog"
+             x:DataType="vm:MainWindowViewModel">
+    <Panel IsVisible="{Binding LearningViewModel.IsGoToPageOpen}" ZIndex="999">
+        <Border Background="#80000000" PointerPressed="CloseOnBackdrop">
+            <Border Background="#1E293B" CornerRadius="16" Padding="28" Margin="100"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Go to Page" FontSize="18" FontWeight="Bold" Foreground="#E2E8F0"/>
+                    <TextBox Name="GoToPageTextBox"
+                             Text="{Binding LearningViewModel.GoToPageInput}"
+                             Watermark="Enter page number..."
+                             FontSize="16" Padding="12,8"
+                             Background="#0F172A" Foreground="#E2E8F0"
+                             BorderBrush="#334155" BorderThickness="1"
+                             KeyDown="OnTextBoxKeyDown"/>
+                    <TextBlock Text="{Binding LearningViewModel.GoToPageError}"
+                               Foreground="#EF4444" FontSize="13"
+                               IsVisible="{Binding LearningViewModel.HasGoToPageError}"/>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Button Content="Cancel" Command="{Binding LearningViewModel.CancelGoToPageCommand}"
+                                Padding="12,8" Background="#334155" Foreground="#94A3B8"/>
+                        <Button Grid.Column="1" Content="Go" Command="{Binding LearningViewModel.GoToPageCommand}"
+                                Padding="12,8" Background="#2563EB" Foreground="White"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Panel>
+</UserControl>

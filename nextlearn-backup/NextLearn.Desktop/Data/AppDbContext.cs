@@ -8,13 +8,18 @@ namespace NextLearn.Desktop.Data;
 public class AppDbContext : DbContext
 {
     public DbSet<User> Users => Set<User>();
+
     public DbSet<Deck> Decks => Set<Deck>();
+
     public DbSet<Page> Pages => Set<Page>();
+
     public DbSet<UserProgress> UserProgress => Set<UserProgress>();
+
     public DbSet<ActiveLearning> ActiveLearning => Set<ActiveLearning>();
+
     public DbSet<DailyActivity> DailyActivities => Set<DailyActivity>();
 
-    private readonly string _dbPath;
+    private readonly string? _dbPath;
 
     public AppDbContext()
     {
@@ -24,13 +29,24 @@ public class AppDbContext : DbContext
         _dbPath = Path.Combine(appFolder, "nextlearn.db");
     }
 
+    public AppDbContext(DbContextOptions<AppDbContext> options)
+        : base(options)
+    {
+    }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        optionsBuilder.UseSqlite($"Data Source={_dbPath}");
+#pragma warning disable CA1062 // EF Core guarantees optionsBuilder is non-null
+        if (!optionsBuilder.IsConfigured && _dbPath is not null)
+        {
+            optionsBuilder.UseSqlite($"Data Source={_dbPath}");
+        }
+#pragma warning restore CA1062
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+#pragma warning disable CA1062 // EF Core guarantees modelBuilder is non-null
         modelBuilder.Entity<Deck>()
             .HasIndex(d => d.Title);
 
@@ -49,6 +65,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<DailyActivity>()
             .HasIndex(da => new { da.UserId, da.Date })
             .IsUnique();
-
+#pragma warning restore CA1062
     }
 }

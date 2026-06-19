@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -15,14 +16,18 @@ namespace NextLearn.Desktop.ViewModels;
 
 public partial class LearningViewModel : ViewModelBase
 {
-    private readonly DeckService _deckService;
-    private readonly UserService _userService;
+    private readonly IDeckService _deckService;
+    private readonly IUserService _userService;
+    private readonly IHtmlContentBuilder _htmlContentBuilder;
     private readonly MainWindowViewModel _mainViewModel;
     private readonly string _decksPath;
 
     private Deck? _currentDeck;
     private List<Page> _pages = new();
     private UserProgress? _progress;
+    private Timer? _sessionTimer;
+    private DateTime _sessionStartTime;
+    private int _recordedMinutes;
 
     [ObservableProperty]
     private int _currentPageIndex;
@@ -91,13 +96,15 @@ public partial class LearningViewModel : ViewModelBase
     public bool HasGoToPageError => !string.IsNullOrEmpty(GoToPageError);
 
     public LearningViewModel(
-        DeckService deckService,
-        UserService userService,
+        IDeckService deckService,
+        IUserService userService,
+        IHtmlContentBuilder htmlContentBuilder,
         MainWindowViewModel mainViewModel,
         string? decksPath = null)
     {
         _deckService = deckService;
         _userService = userService;
+        _htmlContentBuilder = htmlContentBuilder;
         _mainViewModel = mainViewModel;
         _decksPath = Constants.GetDecksPath(decksPath);
     }
@@ -130,14 +137,44 @@ public partial class LearningViewModel : ViewModelBase
             CurrentPageIndex = 0;
         }
 
+        StartSessionTimer();
         UpdateCurrentPage();
     }
 
     public async Task SaveProgressAsync()
     {
+        await StopSessionTimerAsync();
         if (_currentDeck != null)
         {
             await _deckService.UpdateProgressAsync(_currentDeck.Id, CurrentPageIndex + 1);
+        }
+    }
+
+    private void StartSessionTimer()
+    {
+        _sessionStartTime = DateTime.UtcNow;
+        _recordedMinutes = 0;
+        _sessionTimer = new Timer(
+            async _ =>
+            {
+                _recordedMinutes++;
+                await _userService.RecordTimeAsync(1);
+            },
+            null,
+            TimeSpan.FromMinutes(1),
+            TimeSpan.FromMinutes(1));
+    }
+
+    private async Task StopSessionTimerAsync()
+    {
+        _sessionTimer?.Dispose();
+        _sessionTimer = null;
+        var totalSeconds = (int)(DateTime.UtcNow - _sessionStartTime).TotalSeconds;
+        var totalMinutes = totalSeconds > 0 ? (totalSeconds + 59) / 60 : 0;
+        var remaining = totalMinutes - _recordedMinutes;
+        if (remaining > 0)
+        {
+            await _userService.RecordTimeAsync(remaining);
         }
     }
 
@@ -243,7 +280,7 @@ public partial class LearningViewModel : ViewModelBase
 
         var imagePaths = new List<string>();
         var imageDir = GetCurrentImageDir();
-        RenderedHtml = HtmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, imagePaths);
+        RenderedHtml = _htmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, imagePaths);
         CurrentPageImagePaths = imagePaths;
 
         var isLastPage = CurrentPageIndex >= TotalPages - 1;

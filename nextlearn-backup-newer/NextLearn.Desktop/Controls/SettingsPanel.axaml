@@ -49,6 +49,18 @@
 
                     <Border Height="1" Background="#334155"/>
 
+                    <TextBlock Text="Key Bindings" FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0"/>
+                    <ComboBox SelectedItem="{Binding KeyBindingsProfile}" FontSize="13"
+                              Foreground="#E2E8F0" Background="#1E293B" BorderBrush="#334155">
+                        <ComboBox.Items>
+                            <sys:String>Vim</sys:String>
+                            <sys:String>Emacs</sys:String>
+                            <sys:String>Custom</sys:String>
+                        </ComboBox.Items>
+                    </ComboBox>
+
+                    <Border Height="1" Background="#334155"/>
+
                     <TextBlock Text="{Binding SettingsStatus}" FontSize="13" Foreground="#10B981"
                                HorizontalAlignment="Center" TextWrapping="Wrap"/>
 

@@ -11,11 +11,15 @@ public class SettingsService : ISettingsService
     private AppSettings _settings;
 
     public SettingsService()
+        : this(
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "nextlearn"))
     {
-        var configDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "nextlearn");
+    }
 
+    public SettingsService(string configDir)
+    {
         Directory.CreateDirectory(configDir);
         _filePath = Path.Combine(configDir, "settings.json");
         _settings = Load();
@@ -39,6 +43,12 @@ public class SettingsService : ISettingsService
     {
         get => _settings.DecksPath;
         set => _settings.DecksPath = value;
+    }
+
+    public string KeyBindingsProfile
+    {
+        get => _settings.KeyBindingsProfile;
+        set => _settings.KeyBindingsProfile = value;
     }
 
     public string ResolvedDecksPath => AppSettings.ResolvePath(DecksPath);

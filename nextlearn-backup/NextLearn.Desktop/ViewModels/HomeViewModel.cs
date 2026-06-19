@@ -6,8 +6,6 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using NextLearn.Desktop;
-using NextLearn.Desktop.Data;
 using NextLearn.Desktop.Models;
 using NextLearn.Desktop.Services;
 
@@ -15,7 +13,8 @@ namespace NextLearn.Desktop.ViewModels;
 
 public partial class HomeViewModel : ViewModelBase
 {
-    private readonly DeckService _deckService;
+    private readonly IDeckService _deckService;
+    private readonly IDeckFileService _deckFileService;
     private readonly MainWindowViewModel _mainViewModel;
     private readonly string _decksPath;
     private FileSystemWatcher? _watcher;
@@ -25,14 +24,15 @@ public partial class HomeViewModel : ViewModelBase
     private ObservableCollection<Deck> _decks = new();
 
     [ObservableProperty]
-    private string _searchText = "";
+    private string _searchText = string.Empty;
 
     [ObservableProperty]
     private bool _useRegex;
 
-    public HomeViewModel(DeckService deckService, MainWindowViewModel mainViewModel, string? decksPath = null)
+    public HomeViewModel(IDeckService deckService, IDeckFileService deckFileService, MainWindowViewModel mainViewModel, string? decksPath = null)
     {
         _deckService = deckService;
+        _deckFileService = deckFileService;
         _mainViewModel = mainViewModel;
         _decksPath = Constants.GetDecksPath(decksPath);
         SetupFileWatcher();
@@ -50,7 +50,7 @@ public partial class HomeViewModel : ViewModelBase
         _watcher = new FileSystemWatcher(decksPath)
         {
             NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime,
-            EnableRaisingEvents = true
+            EnableRaisingEvents = true,
         };
 
         _watcher.Created += (s, e) => Refresh();
@@ -93,7 +93,9 @@ public partial class HomeViewModel : ViewModelBase
 
         Decks.Clear();
         foreach (var deck in _allDecks)
+        {
             Decks.Add(deck);
+        }
 
         ApplySearchFilter();
     }
@@ -101,14 +103,16 @@ public partial class HomeViewModel : ViewModelBase
     private void ApplySearchFilter()
     {
         if (string.IsNullOrWhiteSpace(SearchText))
+        {
             return;
+        }
 
         var tokens = SearchText.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var toRemove = new List<Deck>();
 
         foreach (var deck in _allDecks)
         {
-            var deckTags = (deck.Tags ?? "")
+            var deckTags = (deck.Tags ?? string.Empty)
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(t => t.ToLowerInvariant())
                 .ToHashSet();
@@ -155,11 +159,15 @@ public partial class HomeViewModel : ViewModelBase
             }
 
             if (!matched)
+            {
                 toRemove.Add(deck);
+            }
         }
 
         foreach (var deck in toRemove)
+        {
             Decks.Remove(deck);
+        }
     }
 
     private bool TokenMatches(Deck deck, string token)
@@ -202,21 +210,21 @@ public partial class HomeViewModel : ViewModelBase
     [RelayCommand]
     private void PinDeck(Deck deck)
     {
-        _deckService.PinDeck(deck.Id, _decksPath);
+        _deckFileService.PinDeck(deck.Id, _decksPath);
         Refresh();
     }
 
     [RelayCommand]
     private void UnpinDeck(Deck deck)
     {
-        _deckService.UnpinDeck(deck.Id, _decksPath);
+        _deckFileService.UnpinDeck(deck.Id, _decksPath);
         Refresh();
     }
 
     [RelayCommand]
     private void ArchiveDeck(Deck deck)
     {
-        _deckService.ArchiveDeck(deck.Id, _decksPath);
+        _deckFileService.ArchiveDeck(deck.Id, _decksPath);
         Refresh();
     }
 
@@ -224,14 +232,19 @@ public partial class HomeViewModel : ViewModelBase
     private void TogglePinDeck(Deck deck)
     {
         if (deck.IsPinned)
-            _deckService.UnpinDeck(deck.Id, _decksPath);
+        {
+            _deckFileService.UnpinDeck(deck.Id, _decksPath);
+        }
         else
-            _deckService.PinDeck(deck.Id, _decksPath);
+        {
+            _deckFileService.PinDeck(deck.Id, _decksPath);
+        }
+
         Refresh();
     }
 
     public void FocusSearch()
     {
-        SearchText = "";
+        SearchText = string.Empty;
     }
 }

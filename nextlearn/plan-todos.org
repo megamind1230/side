@@ -3,6 +3,43 @@
 
 Fixed by P38 Phase A: ZIndex changed to 999, LIFO Esc order, mutual exclusion for full-page overlays.
 
+* DONE JavaScript Object Notation → YAML (settings + keybindings config)
+
+** What
+Switched both config files from JSON to YAML for readability, comments, and
+easier manual editing. Replaced ~System.Text.Json~ with ~YamlDotNet~ 18.0.0.
+
+** Files changed
+
+*** Models (attribute swap)
+- ~Models/KeyBinding.cs~ — ~[JsonPropertyName]~ → ~[YamlMember(Alias=...)]~
+- ~Models/KeyBindingsDocument.cs~ — same
+- ~Models/AppSettings.cs~ — same
+
+*** Services (serialization swap)
+- ~Services/SettingsService.cs~ — ~JsonSerializer~ → YamlDotNet
+  ~ISerializer~/~IDeserializer~; file ~settings.json~ → ~settings.yaml~
+- ~Services/KeyBindingService.cs~ — JSON → YAML; template is now a
+  hand-crafted YAML string with real ~#~ comments explaining each cryptic
+  Avalonia key name (~# OemPlus = + key~, ~# Oem2 = / key~, ~# OemComma = , key~)
+- ~NextLearn.Desktop.csproj~ — added ~YamlDotNet~ 18.0.0 package reference
+
+*** Tests
+- ~SettingsServiceTests.cs~ — ~CorruptedJson_*~ renamed to ~CorruptedYaml_*~,
+  assertions check YAML keys (~theme:~ instead of ~"Theme"~)
+
+*** Config
+- ~settings.json~ → ~settings.yaml~ (auto-detects old file if left behind,
+  but user should delete it)
+- ~keybindings.json~ / ~keybindings.json~~ → ~keybindings.yaml~ / ~keybindings.yaml~~
+- Template file ~keybindings.yaml~~ written with inline ~#~ comments
+  explaining every key name and field
+
+** Results
+- 123/123 tests pass
+- Build clean (0 warnings 0 errors)
+- Template file is self-documenting — no more guessing what ~OemPlus~ means
+
 * DONE P38: ZIndex cleanup + Esc LIFO + Archive/Pin support for decks
 
 **Status:** DONE
@@ -859,11 +896,12 @@ All ~catch {}~ blocks are silent, making debugging impossible.
 * DONE Code syntax highlighting via highlight.js
 
 ** What
-- Embedded highlight.js 11.9.0 (highlight.min.js) + atom-one-dark theme
+- Embedded highlight.js 11.11.1 (custom-highlight.js, 52 languages) + atom-one-dark theme
 - Languages auto-detected, matching ~class="language-xxx"~ on ~<code>~ blocks
-- Supports bash, C, JavaScript, Python, and 190+ other languages
+- Aliases registered: ~asm~→~x86asm~, ~php-template~→~php~, ~python-repl~→~python~, ~shell~→~bash~
+- 52 bundled languages (36 common + 16 extra): bash, c, cpp, csharp, css, diff, go, graphql, ini, java, javascript, json, kotlin, less, lua, makefile, markdown, objectivec, perl, php, php-template, plaintext, python, python-repl, r, ruby, rust, scss, shell, sql, swift, typescript, vbnet, wasm, xml, yaml, lisp, scheme, scala, haskell, fsharp, erlang, elixir, prolog, dart, powershell, x86asm, armasm, julia, matlab, fortran, dockerfile
 - Inline ~<script>hljs.highlightAll()</script>~ runs after page load
-- 121KB JS + 856B CSS loaded from ~Assets/~ at build output, inlined into data URI
+- 189KB JS + 856B CSS loaded from ~Assets/~ at build output, inlined into data URI
 
 ** Files changed
 - ~Services/HtmlContentBuilder.cs~ — added ~<!--HIGHLIGHT_CSS-->~ and ~/* HIGHLIGHT_JS */~ placeholders
@@ -1290,4 +1328,35 @@ enables Phase 6 (tests).
 - ~MainWindow.axaml.cs~ keyboard shortcut dispatch — mention key combos — **done**
 - ~DeckFileParser.cs~ heading-level logic — clarify nesting rules — **done**
 - Build: 0 errors, 0 warnings
+
+* DONE Fixed highlight.js alias registrations (B38)
+
+** What
+- Registered 4 missing aliases in custom-highlight.js:
+  - ~asm~ → ~x86asm~
+  - ~php-template~ → ~php~
+  - ~python-repl~ → ~python~
+  - ~shell~ → ~bash~
+
+** Files changed
+- ~NextLearn.Desktop/Assets/custom-highlight.js~
+
+* DONE Expanded code-block fence regex to accept hyphens/dots in language names (B39)
+
+** What
+- Changed ~\w*~ to ~[\w.-]*~ in both ~#+BEGIN_SRC~ and ~~~` fence regexes
+- Allows language names like ~php-template~, ~python-repl~, ~c++~
+
+** Files changed
+- ~NextLearn.Desktop/Services/HtmlContentBuilder.cs~ — lines 135, 169
+
+* DONE Cleaned up duplicate sections in syntax-highlighting-test files (B40)
+
+** What
+- Removed duplicate PHP Template and Python REPL sections from .md test file
+- Changed ~#+BEGIN_SRC bash~ to ~#+BEGIN_SRC shell~ in .org test file
+
+** Files changed
+- ~~/nextlearn/decks/syntax-highlighting-test.md~
+- ~~/nextlearn/decks/syntax-highlighting-test.org~
 
