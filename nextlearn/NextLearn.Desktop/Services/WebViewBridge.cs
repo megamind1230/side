@@ -90,6 +90,20 @@ public class WebViewBridge
         }
     }
 
+    public void SetFontFamily(string fontFamily)
+    {
+        if (fontFamily == null)
+        {
+            throw new ArgumentNullException(nameof(fontFamily));
+        }
+
+        if (_webView != null)
+        {
+            var escaped = fontFamily.Replace("'", "\\'");
+            _ = _webView.ExecuteScriptAsync($"document.body.style.fontFamily = '{escaped}', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif");
+        }
+    }
+
     public static (string? path, string? error)? DecodeImageUri(Uri uri)
     {
         if (uri == null)

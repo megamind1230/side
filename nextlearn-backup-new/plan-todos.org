@@ -3,6 +3,43 @@
 
 Fixed by P38 Phase A: ZIndex changed to 999, LIFO Esc order, mutual exclusion for full-page overlays.
 
+* DONE JavaScript Object Notation → YAML (settings + keybindings config)
+
+** What
+Switched both config files from JSON to YAML for readability, comments, and
+easier manual editing. Replaced ~System.Text.Json~ with ~YamlDotNet~ 18.0.0.
+
+** Files changed
+
+*** Models (attribute swap)
+- ~Models/KeyBinding.cs~ — ~[JsonPropertyName]~ → ~[YamlMember(Alias=...)]~
+- ~Models/KeyBindingsDocument.cs~ — same
+- ~Models/AppSettings.cs~ — same
+
+*** Services (serialization swap)
+- ~Services/SettingsService.cs~ — ~JsonSerializer~ → YamlDotNet
+  ~ISerializer~/~IDeserializer~; file ~settings.json~ → ~settings.yaml~
+- ~Services/KeyBindingService.cs~ — JSON → YAML; template is now a
+  hand-crafted YAML string with real ~#~ comments explaining each cryptic
+  Avalonia key name (~# OemPlus = + key~, ~# Oem2 = / key~, ~# OemComma = , key~)
+- ~NextLearn.Desktop.csproj~ — added ~YamlDotNet~ 18.0.0 package reference
+
+*** Tests
+- ~SettingsServiceTests.cs~ — ~CorruptedJson_*~ renamed to ~CorruptedYaml_*~,
+  assertions check YAML keys (~theme:~ instead of ~"Theme"~)
+
+*** Config
+- ~settings.json~ → ~settings.yaml~ (auto-detects old file if left behind,
+  but user should delete it)
+- ~keybindings.json~ / ~keybindings.json~~ → ~keybindings.yaml~ / ~keybindings.yaml~~
+- Template file ~keybindings.yaml~~ written with inline ~#~ comments
+  explaining every key name and field
+
+** Results
+- 123/123 tests pass
+- Build clean (0 warnings 0 errors)
+- Template file is self-documenting — no more guessing what ~OemPlus~ means
+
 * DONE P38: ZIndex cleanup + Esc LIFO + Archive/Pin support for decks
 
 **Status:** DONE

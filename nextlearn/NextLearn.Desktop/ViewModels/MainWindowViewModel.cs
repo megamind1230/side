@@ -81,10 +81,18 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isMarketplaceOpen;
 
     [ObservableProperty]
+    private bool _isFalconEyeEnabled;
+
+    [ObservableProperty]
     private string _theme = string.Empty;
 
     [ObservableProperty]
     private string _font = string.Empty;
+
+    partial void OnFontChanged(string value)
+    {
+        FontChanged?.Invoke(string.IsNullOrWhiteSpace(value) ? "Inter" : value);
+    }
 
     [ObservableProperty]
     private string _decksPath = string.Empty;
@@ -353,6 +361,7 @@ public partial class MainWindowViewModel : ViewModelBase
         Font = _settingsService.Font;
         DecksPath = _settingsService.DecksPath;
         KeyBindingsProfile = _settingsService.KeyBindingsProfile;
+        IsFalconEyeEnabled = _settingsService.FalconEyeEnabled;
     }
 
     [RelayCommand]
@@ -362,6 +371,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _settingsService.Font = Font;
         _settingsService.DecksPath = DecksPath;
         _settingsService.KeyBindingsProfile = KeyBindingsProfile;
+        _settingsService.FalconEyeEnabled = IsFalconEyeEnabled;
         _keyBindingService.SwitchProfile(KeyBindingsProfile);
         KeyBindingsChanged?.Invoke();
 
@@ -388,6 +398,7 @@ public partial class MainWindowViewModel : ViewModelBase
         Font = defaults.Font;
         DecksPath = defaults.DecksPath;
         KeyBindingsProfile = defaults.KeyBindingsProfile;
+        IsFalconEyeEnabled = defaults.FalconEyeEnabled;
     }
 
     [RelayCommand]
@@ -547,6 +558,16 @@ public partial class MainWindowViewModel : ViewModelBase
     public void ToggleSidebar()
     {
         IsSidebarOpen = !IsSidebarOpen;
+    }
+
+    [RelayCommand]
+    private void ToggleFalconEye()
+    {
+        IsFalconEyeEnabled = !IsFalconEyeEnabled;
+        if (IsLearning)
+        {
+            LearningViewModel.RebuildWithFalconEye(IsFalconEyeEnabled);
+        }
     }
 
     [RelayCommand]
@@ -886,6 +907,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public event Action? KeyBindingsChanged;
 
     public event Action<double, double>? TextScaleChanged;
+
+    public event Action<string>? FontChanged;
 
     [RelayCommand]
     private void ZoomTextIn()

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -26,6 +27,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IDeckService _deckService;
     private readonly IDeckFileService _deckFileService;
     private readonly ISettingsService _settingsService;
+    private readonly IKeyBindingService _keyBindingService;
 
     [ObservableProperty]
     private ViewModelBase? _currentView;
@@ -88,10 +90,16 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _decksPath = string.Empty;
 
     [ObservableProperty]
+    private string _keyBindingsProfile = string.Empty;
+
+    [ObservableProperty]
     private string _settingsStatus = string.Empty;
 
     [ObservableProperty]
     private bool _isShortcutsHandbookOpen;
+
+    [ObservableProperty]
+    private List<ShortcutSection> _handbookSections = new();
 
     [ObservableProperty]
     private bool _isImageOverlayOpen;
@@ -115,6 +123,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isInverted;
 
     public Func<string?, Task<string?>>? PickFolderHandler { get; set; }
+
+    public IKeyBindingService KeyBindingService => _keyBindingService;
 
     public string CurrentImageFileName => Path.GetFileName(CurrentImagePath);
 
@@ -219,9 +229,23 @@ public partial class MainWindowViewModel : ViewModelBase
         _deckService = new DeckService(_context, _userService);
         _deckFileService = new DeckFileService(_context);
         _settingsService = new SettingsService();
+        _keyBindingService = new KeyBindingService();
         var htmlContentBuilder = new HtmlContentService();
 
         LoadSettings();
+
+        if (!string.IsNullOrEmpty(_settingsService.KeyBindingsProfile))
+        {
+            _keyBindingService.SwitchProfile(_settingsService.KeyBindingsProfile);
+        }
+
+        KeyBindingsChanged += () =>
+        {
+            if (IsShortcutsHandbookOpen)
+            {
+                RebuildHandbookSections();
+            }
+        };
 
         var decksPath = _settingsService.ResolvedDecksPath;
         HomeViewModel = new HomeViewModel(_deckService, _deckFileService, this, decksPath);
@@ -328,6 +352,7 @@ public partial class MainWindowViewModel : ViewModelBase
         Theme = _settingsService.Theme;
         Font = _settingsService.Font;
         DecksPath = _settingsService.DecksPath;
+        KeyBindingsProfile = _settingsService.KeyBindingsProfile;
     }
 
     [RelayCommand]
@@ -336,6 +361,9 @@ public partial class MainWindowViewModel : ViewModelBase
         _settingsService.Theme = Theme;
         _settingsService.Font = Font;
         _settingsService.DecksPath = DecksPath;
+        _settingsService.KeyBindingsProfile = KeyBindingsProfile;
+        _keyBindingService.SwitchProfile(KeyBindingsProfile);
+        KeyBindingsChanged?.Invoke();
 
         var resolved = _settingsService.ResolvedDecksPath;
         Directory.CreateDirectory(resolved);
@@ -359,6 +387,7 @@ public partial class MainWindowViewModel : ViewModelBase
         Theme = defaults.Theme;
         Font = defaults.Font;
         DecksPath = defaults.DecksPath;
+        KeyBindingsProfile = defaults.KeyBindingsProfile;
     }
 
     [RelayCommand]
@@ -689,10 +718,116 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    partial void OnIsShortcutsHandbookOpenChanged(bool value)
+    {
+        if (value)
+        {
+            RebuildHandbookSections();
+        }
+    }
+
     [RelayCommand]
     public void CloseShortcutsHandbook()
     {
         IsShortcutsHandbookOpen = false;
+    }
+
+    public void RebuildHandbookSections()
+    {
+        var sections = new Dictionary<string, List<ShortcutEntry>>();
+
+        foreach (var b in _keyBindingService.CurrentBindings)
+        {
+            var section = b.Context ?? "Global";
+            if (section == "ImageOverlay")
+            {
+                section = "Image Overlay";
+            }
+
+            if (!sections.ContainsKey(section))
+            {
+                sections[section] = new List<ShortcutEntry>();
+            }
+
+            var keyText = FormatKeyForDisplay(b.Key, b.Modifiers);
+            var desc = b.Comment ?? b.Action.ToString();
+
+            sections[section].Add(new ShortcutEntry
+            {
+                Section = section,
+                KeyText = keyText,
+                Description = desc,
+            });
+        }
+
+        // Add static Esc entry (not in binding table)
+        sections["Global"].Add(new ShortcutEntry
+        {
+            Section = "Global",
+            KeyText = "Esc",
+            Description = "Close current overlay",
+        });
+
+        // Add chord info
+        sections["Home"].Add(new ShortcutEntry
+        {
+            Section = "Home",
+            KeyText = "g then i",
+            Description = "Focus and clear search bar",
+        });
+
+        HandbookSections = sections
+            .OrderBy(s => s.Key is "Global" ? 0 : s.Key is "Home" ? 1 : s.Key is "Learning" ? 2 : s.Key is "Image Overlay" ? 3 : 4)
+            .Select(s => new ShortcutSection { Name = s.Key, Entries = s.Value })
+            .ToList();
+    }
+
+    private static string FormatKeyForDisplay(string key, string modifiers)
+    {
+        var parts = new List<string>();
+        if (modifiers.Contains("Control"))
+        {
+            parts.Add("Ctrl");
+        }
+
+        if (modifiers.Contains("Shift"))
+        {
+            parts.Add("Shift");
+        }
+
+        if (modifiers.Contains("Alt"))
+        {
+            parts.Add("Alt");
+        }
+
+        parts.Add(key switch
+        {
+            "OemPlus" => "+",
+            "OemMinus" => "-",
+            "OemComma" => ",",
+            "OemPeriod" => ".",
+            "Oem2" => modifiers.Contains("Shift") ? "?" : "/",
+            "D0" => "0",
+            "D1" => "1",
+            "D2" => "2",
+            "D3" => "3",
+            "D4" => "4",
+            "D5" => "5",
+            "D6" => "6",
+            "D7" => "7",
+            "D8" => "8",
+            "D9" => "9",
+            "NumPad0" => "0",
+            "Left" => "←",
+            "Right" => "→",
+            "Up" => "↑",
+            "Down" => "↓",
+            "Space" => "Space",
+            "Escape" => "Esc",
+            _ => key.ToLowerInvariant(),
+        });
+
+        return string.Join(" + ", parts);
     }
 
     public void OpenImageOverlay(string imagePath)
@@ -747,6 +882,8 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         ZoomLevel = 1.0;
     }
+
+    public event Action? KeyBindingsChanged;
 
     public event Action<double, double>? TextScaleChanged;
 

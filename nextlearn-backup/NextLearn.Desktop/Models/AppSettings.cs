@@ -1,15 +1,21 @@
 using System;
+using YamlDotNet.Serialization;
 
 namespace NextLearn.Desktop.Models;
 
-/// <summary>Application settings persisted to settings.json.</summary>
 public class AppSettings
 {
+    [YamlMember(Alias = "theme")]
     public string Theme { get; set; } = "Dark";
 
+    [YamlMember(Alias = "font")]
     public string Font { get; set; } = "Inter";
 
+    [YamlMember(Alias = "decksPath")]
     public string DecksPath { get; set; } = "$HOME/nextlearn/decks";
+
+    [YamlMember(Alias = "keyBindingsProfile")]
+    public string KeyBindingsProfile { get; set; } = "Vim";
 
     public static string ResolvePath(string path)
     {

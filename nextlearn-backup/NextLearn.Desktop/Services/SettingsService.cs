@@ -1,12 +1,22 @@
 ﻿using System;
 using System.IO;
-using System.Text.Json;
 using NextLearn.Desktop.Models;
+using YamlDotNet.Core;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace NextLearn.Desktop.Services;
 
 public class SettingsService : ISettingsService
 {
+    private static readonly IDeserializer YamlDeserializer = new DeserializerBuilder()
+        .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .Build();
+
+    private static readonly ISerializer YamlSerializer = new SerializerBuilder()
+        .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .Build();
+
     private readonly string _filePath;
     private AppSettings _settings;
 
@@ -21,7 +31,7 @@ public class SettingsService : ISettingsService
     public SettingsService(string configDir)
     {
         Directory.CreateDirectory(configDir);
-        _filePath = Path.Combine(configDir, "settings.json");
+        _filePath = Path.Combine(configDir, "settings.yaml");
         _settings = Load();
     }
 
@@ -45,6 +55,12 @@ public class SettingsService : ISettingsService
         set => _settings.DecksPath = value;
     }
 
+    public string KeyBindingsProfile
+    {
+        get => _settings.KeyBindingsProfile;
+        set => _settings.KeyBindingsProfile = value;
+    }
+
     public string ResolvedDecksPath => AppSettings.ResolvePath(DecksPath);
 
     public static AppSettings Defaults() => new();
@@ -55,11 +71,11 @@ public class SettingsService : ISettingsService
         {
             if (File.Exists(_filePath))
             {
-                var json = File.ReadAllText(_filePath);
-                return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                var yaml = File.ReadAllText(_filePath);
+                return YamlDeserializer.Deserialize<AppSettings>(yaml);
             }
         }
-        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException or JsonException or IOException)
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException or IOException or YamlException)
         {
         }
 
@@ -70,12 +86,12 @@ public class SettingsService : ISettingsService
     {
         try
         {
-            var json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_filePath, json);
+            var yaml = YamlSerializer.Serialize(_settings);
+            File.WriteAllText(_filePath, yaml);
             error = null;
             return true;
         }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or JsonException)
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or YamlException)
         {
             error = ex.Message;
             return false;

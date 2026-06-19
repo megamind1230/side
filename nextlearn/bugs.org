@@ -25,6 +25,20 @@ User should manually delete ~~/.config/nextlearn/settings.json~.
 Also check if old ~keybindings.json~ or ~keybindings.json~~ exist —
 delete those too (the app now looks for ~.yaml~ only).
 
+* FIXED FE1: Falcon Eye shortcuts not working on TOC page
+Shortcuts (n/p/j/k/etc.) didn't work because the TOC HTML lacked
+key-forwarding JavaScript. Fixed by copying the same JS from
+HtmlContentBuilder into FalconEyeBuilder's output.
+
+* FIXED FE2: Falcon Eye progress saves wrong page number
+Progress was saved as ~CurrentPageIndex + 1~, which counted the TOC
+page as page 1. Fixed by saving ~CurrentPage.PageNumber~ instead.
+
+* FIXED FE3: Falcon Eye TOC inflates total page count
+~TotalPages~ counted the synthetic TOC page. Fixed by tracking
+~_realPageCount~ and using it instead of ~Items.Count~ for display
+and navigation bounds.
+
 * FIXED B3: Marketplace panel overlaps home panel
 
 ** Status

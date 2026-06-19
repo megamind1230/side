@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Avalonia.Input;
 using NextLearn.Desktop.ViewModels;
 
@@ -6,11 +8,16 @@ namespace NextLearn.Desktop.Services;
 public class KeyboardHandler
 {
     private readonly MainWindowViewModel _vm;
+    private readonly IKeyBindingService _bindingService;
     private bool _chordPending;
+    private Dictionary<(Key, KeyModifiers, string?), KeyboardActionKind> _lookup = [];
+    private HashSet<(Key, KeyModifiers)> _textBoxAllowed = [];
 
-    public KeyboardHandler(MainWindowViewModel vm)
+    public KeyboardHandler(MainWindowViewModel vm, IKeyBindingService bindingService)
     {
         _vm = vm;
+        _bindingService = bindingService;
+        RebuildLookup();
     }
 
     public void CancelChord()
@@ -18,66 +25,32 @@ public class KeyboardHandler
         _chordPending = false;
     }
 
+    public void RebuildLookup()
+    {
+        _lookup = [];
+        _textBoxAllowed = [];
+
+        foreach (var b in _bindingService.CurrentBindings)
+        {
+            if (!Enum.TryParse<Key>(b.Key, true, out var parsedKey))
+            {
+                continue;
+            }
+
+            var mods = ParseModifiers(b.Modifiers);
+            var ctx = string.IsNullOrEmpty(b.Context) ? null : b.Context;
+            _lookup.TryAdd((parsedKey, mods, ctx), b.Action);
+
+            if (b.TextBox)
+            {
+                _textBoxAllowed.Add((parsedKey, mods));
+            }
+        }
+    }
+
     public KeyboardActionKind HandleKey(Key key, KeyModifiers modifiers, bool isTextBox)
     {
-        if (modifiers == (KeyModifiers.Control | KeyModifiers.Shift) && key == Key.OemPlus)
-        {
-            if (_vm.IsHeatmapOpen)
-            {
-                return KeyboardActionKind.ZoomHeatmapIn;
-            }
-
-            return KeyboardActionKind.ZoomTextIn;
-        }
-
-        if (modifiers == (KeyModifiers.Control | KeyModifiers.Shift) && key == Key.OemMinus)
-        {
-            if (_vm.IsHeatmapOpen)
-            {
-                return KeyboardActionKind.ZoomHeatmapOut;
-            }
-
-            return KeyboardActionKind.ZoomTextOut;
-        }
-
-        if (modifiers == (KeyModifiers.Control | KeyModifiers.Shift) && key is Key.D0 or Key.NumPad0)
-        {
-            if (_vm.IsHeatmapOpen)
-            {
-                return KeyboardActionKind.ZoomHeatmapReset;
-            }
-
-            return KeyboardActionKind.ResetTextZoom;
-        }
-
-        if (_vm.IsImageOverlayOpen)
-        {
-            if (modifiers == KeyModifiers.Control && key == Key.OemPlus)
-            {
-                return KeyboardActionKind.ZoomIn;
-            }
-
-            if (modifiers == KeyModifiers.Control && key == Key.OemMinus)
-            {
-                return KeyboardActionKind.ZoomOut;
-            }
-
-            if (modifiers == KeyModifiers.Control && key is Key.D0 or Key.NumPad0)
-            {
-                return KeyboardActionKind.ResetZoom;
-            }
-
-            if (key == Key.N && modifiers.HasFlag(KeyModifiers.Shift))
-            {
-                return KeyboardActionKind.NextImage;
-            }
-
-            if (key == Key.P && modifiers.HasFlag(KeyModifiers.Shift))
-            {
-                return KeyboardActionKind.PreviousImage;
-            }
-        }
-
+        // Escape — overlay close chain (before binding table)
         if (key == Key.Escape)
         {
             if (_vm.LearningViewModel is { IsGoToPageOpen: true })
@@ -119,130 +92,110 @@ public class KeyboardHandler
             {
                 return KeyboardActionKind.CloseSidebar;
             }
+
+            if (isTextBox)
+            {
+                return KeyboardActionKind.ClearFocus;
+            }
+
+            return KeyboardActionKind.None;
         }
 
-        if (key == Key.OemComma && modifiers.HasFlag(KeyModifiers.Control))
+        // Determine context stack (most specific first)
+        var contexts = new List<string?> { null };
+
+        if (_vm.IsImageOverlayOpen)
         {
-            return KeyboardActionKind.OpenSettings;
+            contexts.Insert(0, "ImageOverlay");
         }
 
-        if ((key == Key.D || key == Key.Q) && _vm.IsSettingsOpen)
+        contexts.Insert(0, _vm.IsLearning ? "Learning" : "Home");
+
+        // Look up binding across contexts
+        foreach (var ctx in contexts)
         {
-            return KeyboardActionKind.ExitSettingsHome;
+            if (_lookup.TryGetValue((key, modifiers, ctx), out var action))
+            {
+                // Skip bindings that don't allow textbox when focus is in one
+                if (isTextBox && !_textBoxAllowed.Contains((key, modifiers)))
+                {
+                    continue;
+                }
+
+                // Apply context-sensitive transformations
+                if (_vm.IsHeatmapOpen)
+                {
+                    if (action == KeyboardActionKind.ZoomTextIn)
+                    {
+                        return KeyboardActionKind.ZoomHeatmapIn;
+                    }
+
+                    if (action == KeyboardActionKind.ZoomTextOut)
+                    {
+                        return KeyboardActionKind.ZoomHeatmapOut;
+                    }
+
+                    if (action == KeyboardActionKind.ResetTextZoom)
+                    {
+                        return KeyboardActionKind.ZoomHeatmapReset;
+                    }
+                }
+
+                if (_vm.IsSettingsOpen && action == KeyboardActionKind.NavigateHome)
+                {
+                    return KeyboardActionKind.ExitSettingsHome;
+                }
+
+                return action;
+            }
         }
 
-        if (key == Key.Oem2 && modifiers.HasFlag(KeyModifiers.Shift) && !isTextBox)
+        // Chord detection (home screen only, not in textbox)
+        if (!_vm.IsLearning && !_vm.IsImageOverlayOpen && !isTextBox)
         {
-            return KeyboardActionKind.ToggleShortcutsHandbook;
-        }
-
-        if (_vm.IsLearning)
-        {
-            if (_chordPending)
+            if (_chordPending && key != Key.I && key != Key.G)
             {
                 CancelChord();
             }
 
-            if (key == Key.G && modifiers.HasFlag(KeyModifiers.Control) && !isTextBox)
+            if (key == Key.G)
             {
-                return KeyboardActionKind.OpenGoToPage;
+                _chordPending = true;
+                return KeyboardActionKind.ChordG;
             }
 
-            switch (key)
+            if (key == Key.I && _chordPending)
             {
-                case Key.N:
-                case Key.Right:
-                    if (!isTextBox)
-                    {
-                        return KeyboardActionKind.NextPage;
-                    }
-
-                    break;
-                case Key.P:
-                case Key.Left:
-                    if (!isTextBox)
-                    {
-                        return KeyboardActionKind.PreviousPage;
-                    }
-
-                    break;
-                case Key.J:
-                    if (!isTextBox)
-                    {
-                        return KeyboardActionKind.ScrollDown;
-                    }
-
-                    break;
-                case Key.K:
-                    if (!isTextBox)
-                    {
-                        return KeyboardActionKind.ScrollUp;
-                    }
-
-                    break;
-                case Key.H:
-                    if (!isTextBox)
-                    {
-                        return KeyboardActionKind.ScrollLeft;
-                    }
-
-                    break;
-                case Key.L:
-                    if (!isTextBox)
-                    {
-                        return KeyboardActionKind.ScrollRight;
-                    }
-
-                    break;
-                case Key.Q:
-                case Key.D:
-                    if (!isTextBox)
-                    {
-                        return KeyboardActionKind.NavigateHome;
-                    }
-
-                    break;
-            }
-        }
-        else
-        {
-            if (!isTextBox)
-            {
-                if (_chordPending && key != Key.I && key != Key.G)
-                {
-                    CancelChord();
-                }
-
-                switch (key)
-                {
-                    case Key.G:
-                        _chordPending = true;
-                        return KeyboardActionKind.ChordG;
-                    case Key.I:
-                        if (_chordPending)
-                        {
-                            CancelChord();
-                            return KeyboardActionKind.FocusSearchWithClear;
-                        }
-
-                        break;
-                    case Key.Q:
-                    case Key.D:
-                        return KeyboardActionKind.NavigateHome;
-                    case Key.J:
-                        return KeyboardActionKind.ScrollDeckListDown;
-                    case Key.K:
-                        return KeyboardActionKind.ScrollDeckListUp;
-                    case Key.Oem2:
-                        return KeyboardActionKind.FocusSearchBar;
-                }
-            }
-            else if (key == Key.Escape)
-            {
-                return KeyboardActionKind.ClearFocus;
+                CancelChord();
+                return KeyboardActionKind.FocusSearchWithClear;
             }
         }
 
         return KeyboardActionKind.None;
+    }
+
+    internal static KeyModifiers ParseModifiers(string modifiers)
+    {
+        if (string.IsNullOrWhiteSpace(modifiers))
+        {
+            return KeyModifiers.None;
+        }
+
+        var result = KeyModifiers.None;
+        var parts = modifiers.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var part in parts)
+        {
+            result |= part switch
+            {
+                "Control" => KeyModifiers.Control,
+                "Shift" => KeyModifiers.Shift,
+                "Alt" => KeyModifiers.Alt,
+                "Ctrl" => KeyModifiers.Control,
+                _ => KeyModifiers.None,
+            };
+        }
+
+        return result;
     }
 }

@@ -20,6 +20,9 @@ public interface ISettingsService
     /// <summary>Gets or sets the key bindings profile name.</summary>
     string KeyBindingsProfile { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether Falcon Eye (table of contents) is enabled.</summary>
+    bool FalconEyeEnabled { get; set; }
+
     /// <summary>Gets the resolved decks path with $HOME expanded.</summary>
     string ResolvedDecksPath { get; }
 

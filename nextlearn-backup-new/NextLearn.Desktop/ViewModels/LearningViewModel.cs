@@ -280,7 +280,7 @@ public partial class LearningViewModel : ViewModelBase
 
         var imagePaths = new List<string>();
         var imageDir = GetCurrentImageDir();
-        RenderedHtml = _htmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, imagePaths);
+        RenderedHtml = _htmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, _mainViewModel.Font, imagePaths);
         CurrentPageImagePaths = imagePaths;
 
         var isLastPage = CurrentPageIndex >= TotalPages - 1;

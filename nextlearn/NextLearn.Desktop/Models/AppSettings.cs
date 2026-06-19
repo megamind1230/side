@@ -17,6 +17,9 @@ public class AppSettings
     [YamlMember(Alias = "keyBindingsProfile")]
     public string KeyBindingsProfile { get; set; } = "Vim";
 
+    [YamlMember(Alias = "falconEyeEnabled")]
+    public bool FalconEyeEnabled { get; set; } = false;
+
     public static string ResolvePath(string path)
     {
         if (string.IsNullOrEmpty(path))

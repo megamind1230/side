@@ -1,5 +1,29 @@
 ﻿#+TITLE: Bugs
 
+* OPEN B41: Old settings.json orphaned after YAML migration
+
+** Location
+- ~~/.config/nextlearn/settings.json~
+
+** Status
+- OPEN — one-time manual cleanup needed
+
+** Root Cause
+~SettingsService~ now writes to ~settings.yaml~ instead of ~settings.json~.
+The old ~settings.json~ file is not auto-deleted or migrated, so if a user
+upgrades, their old settings are silently ignored and defaults are used.
+
+Not auto-migrating because:
+- Deleting user files without consent is bad practice
+- JSON→YAML schema conversion is fragile (string based, not much benefit)
+- Settings are simple (theme, font, path, profile) — easy to re-enter
+
+** Fix
+User should manually delete ~~/.config/nextlearn/settings.json~.
+
+** Check
+Also check if old ~keybindings.json~ or ~keybindings.json~~ exist —
+delete those too (the app now looks for ~.yaml~ only).
 
 * FIXED B3: Marketplace panel overlaps home panel
 

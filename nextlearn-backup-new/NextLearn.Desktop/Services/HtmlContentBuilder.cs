@@ -9,11 +9,11 @@ namespace NextLearn.Desktop.Services;
 
 public static class HtmlContentBuilder
 {
-    public static string Build(Page? page, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null)
+    public static string Build(Page? page, bool isOrgFile, string? imageDir = null, string? fontFamily = null, List<string>? accumulatedImagePaths = null)
     {
         if (page == null)
         {
-            return EmptyHtml();
+            return EmptyHtml(fontFamily);
         }
 
         var body = new StringBuilder();
@@ -120,7 +120,7 @@ public static class HtmlContentBuilder
 
         CloseParagraph(body, ref inParagraph);
 
-        return WrapInHtml(body.ToString());
+        return WrapInHtml(body.ToString(), fontFamily);
     }
 
     // Detects ``` fences (md) or #+BEGIN_SRC / #+END_SRC (org), collects inner lines as <pre><code>
@@ -642,13 +642,14 @@ public static class HtmlContentBuilder
         return prefix + text.Substring(i);
     }
 
-    private static string EmptyHtml()
+    private static string EmptyHtml(string? fontFamily = null)
     {
-        return WrapInHtml(string.Empty);
+        return WrapInHtml(string.Empty, fontFamily);
     }
 
-    private static string WrapInHtml(string bodyContent)
+    private static string WrapInHtml(string bodyContent, string? fontFamily = null)
     {
+        fontFamily ??= "Inter";
         return $$"""
 <!DOCTYPE html>
 <html>
@@ -660,7 +661,7 @@ public static class HtmlContentBuilder
     html { overflow-x: auto; }
     ::selection { background: #2563EB; color: #FFFFFF; }
     body {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: '{{fontFamily}}', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 16px; line-height: 1.7;
         color: #E2E8F0; background: #1E293B;
         padding: 24px; max-width: none; min-width: calc(100vw + 200px); overflow-x: auto;
@@ -709,6 +710,7 @@ public static class HtmlContentBuilder
         border-left: 4px solid #60A5FA;
         background: #334155;
         border-radius: 0 4px 4px 0;
+        font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
     }
     blockquote p {
         margin: 0 0 4px 0;

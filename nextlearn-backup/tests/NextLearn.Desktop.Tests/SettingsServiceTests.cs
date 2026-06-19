@@ -82,11 +82,11 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
-    public void CorruptedJson_FallsBackToDefaults()
+    public void CorruptedYaml_FallsBackToDefaults()
     {
         var configDir = CreateConfigDir();
         Directory.CreateDirectory(configDir);
-        File.WriteAllText(Path.Combine(configDir, "settings.json"), "this is not valid json {{{");
+        File.WriteAllText(Path.Combine(configDir, "settings.yaml"), "this is not valid yaml {{{");
 
         var svc = new SettingsService(configDir);
 
@@ -96,19 +96,19 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
-    public void CorruptedJson_OverwritesOnSave()
+    public void CorruptedYaml_OverwritesOnSave()
     {
         var configDir = CreateConfigDir();
         Directory.CreateDirectory(configDir);
-        File.WriteAllText(Path.Combine(configDir, "settings.json"), "{{{garbage}}}");
+        File.WriteAllText(Path.Combine(configDir, "settings.yaml"), "{{{garbage}}}");
 
         var svc = new SettingsService(configDir);
         svc.Theme = "Custom";
         svc.TrySave(out _);
 
-        var json = File.ReadAllText(Path.Combine(configDir, "settings.json"));
-        json.Should().Contain("Custom");
-        json.Should().Contain("\"Theme\"");
+        var yaml = File.ReadAllText(Path.Combine(configDir, "settings.yaml"));
+        yaml.Should().Contain("Custom");
+        yaml.Should().Contain("theme:");
     }
 
     [Fact]

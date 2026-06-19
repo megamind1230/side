@@ -68,6 +68,7 @@ is a separate project.
 | Org [[...]] placeholder protect     | ✅ Done    | Prevents italic regex from corrupting file paths                                   |
 | Quote blocks (> syntax)         | ✅ Done    | Renders `>` lines as <blockquote> in md and org                                    |
 | Org block rendering (#+BEGIN_*) | ✅ Done    | #+BEGIN_QUOTE etc → monospace pre with dark bg                                     |
+| Falcon Eye (built-in TOC)       | ✅ Done    | 🦅 Sidebar toggle → TOC page at start of each deck, persisted in settings.yaml     |
 
 * Tech Stack
 
@@ -126,6 +127,7 @@ Phase 5 of the clean code initiative is complete:
 | UserService         | Current user, daily activity, streak (computed from study minutes) |
 | SettingsService     | Persists theme/font/paths to ~.yaml~        |
 | HtmlContentBuilder  | Static HTML builder from Page model         |
+| FalconEyeBuilder    | Generates table-of-contents HTML from Deck   |
 | MarkdownInlineRenderer | Strategy for .md inline rendering        |
 | OrgInlineRenderer   | Strategy for .org inline rendering          |
 

@@ -50,6 +50,14 @@
                                 <TextBlock Text="  Archived" FontSize="14" VerticalAlignment="Center"/>
                             </DockPanel>
                         </Button>
+                        <Button Command="{Binding ToggleFalconEyeCommand}"
+                                Background="#334155" Foreground="#E2E8F0" Padding="12,8"
+                                HorizontalAlignment="Stretch">
+                            <DockPanel>
+                                <TextBlock Text="🦅" FontSize="16" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                <TextBlock Text="  Falcon Eye" FontSize="14" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Button>
                         <Button Command="{Binding ShowHeatmapCommand}"
                                 Background="#334155" Foreground="#E2E8F0" Padding="12,8"
                                 HorizontalAlignment="Stretch">

@@ -132,7 +132,7 @@ public static class HtmlContentBuilder
 
         if (isOrgFile)
         {
-            var orgMatch = Regex.Match(line, @"^#\+BEGIN_SRC\s*(\w*)$", RegexOptions.IgnoreCase);
+            var orgMatch = Regex.Match(line, @"^#\+BEGIN_SRC\s*([\w.-]*)$", RegexOptions.IgnoreCase);
             if (!orgMatch.Success)
             {
                 return false;
@@ -166,7 +166,7 @@ public static class HtmlContentBuilder
             return true;
         }
 
-        var match = Regex.Match(line, @"^```(\w*)$");
+        var match = Regex.Match(line, @"^```([\w.-]*)$");
         if (!match.Success)
         {
             return false;

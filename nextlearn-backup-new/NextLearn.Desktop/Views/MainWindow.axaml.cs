@@ -60,8 +60,10 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainWindowViewModel vm)
         {
-            _keyboardHandler = new KeyboardHandler(vm);
+            _keyboardHandler = new KeyboardHandler(vm, vm.KeyBindingService);
             _webViewBridge = new WebViewBridge(ContentWebView);
+
+            vm.KeyBindingsChanged += OnKeyBindingsChanged;
 
             vm.PickFolderHandler = async (currentPath) =>
             {
@@ -86,6 +88,8 @@ public partial class MainWindow : Window
             vm.PropertyChanged += OnMainViewModelPropertyChanged;
             vm.LearningViewModel.PropertyChanged += OnLearningViewModelPropertyChanged;
             vm.TextScaleChanged += OnTextScaleChanged;
+            vm.FontChanged += OnFontChanged;
+            OnFontChanged(string.IsNullOrWhiteSpace(vm.Font) ? "Inter" : vm.Font);
 
             if (!string.IsNullOrEmpty(vm.LearningViewModel.RenderedHtml))
             {
@@ -118,6 +122,11 @@ public partial class MainWindow : Window
                 || vm.IsShortcutsHandbookOpen || vm.IsPinnedViewOpen || vm.IsArchivedViewOpen
                 || vm.IsHeatmapOpen));
         }
+    }
+
+    private void OnKeyBindingsChanged()
+    {
+        _keyboardHandler?.RebuildLookup();
     }
 
     private void OnLearningViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -520,6 +529,12 @@ public partial class MainWindow : Window
             default:
                 return false;
         }
+    }
+
+    private void OnFontChanged(string fontFamily)
+    {
+        FontFamily = new Avalonia.Media.FontFamily(fontFamily);
+        _webViewBridge?.SetFontFamily(fontFamily);
     }
 
     private async void OnTextScaleChanged(double oldScale, double newScale)

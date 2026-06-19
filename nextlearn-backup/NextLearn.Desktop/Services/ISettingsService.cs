@@ -17,6 +17,9 @@ public interface ISettingsService
     /// <summary>Gets or sets the decks directory path (may contain $HOME).</summary>
     string DecksPath { get; set; }
 
+    /// <summary>Gets or sets the key bindings profile name.</summary>
+    string KeyBindingsProfile { get; set; }
+
     /// <summary>Gets the resolved decks path with $HOME expanded.</summary>
     string ResolvedDecksPath { get; }
 

@@ -1,14 +1,13 @@
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
+using YamlDotNet.Serialization;
 
 namespace NextLearn.Desktop.Models;
 
 public class KeyBindingsDocument
 {
-    [JsonPropertyName("_help")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [YamlMember(Alias = "_help")]
     public string? Help { get; set; }
 
-    [JsonPropertyName("bindings")]
+    [YamlMember(Alias = "bindings")]
     public List<KeyBinding> Bindings { get; set; } = new();
 }

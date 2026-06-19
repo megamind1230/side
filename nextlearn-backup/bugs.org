@@ -1,5 +1,29 @@
 ﻿#+TITLE: Bugs
 
+* OPEN B41: Old settings.json orphaned after YAML migration
+
+** Location
+- ~~/.config/nextlearn/settings.json~
+
+** Status
+- OPEN — one-time manual cleanup needed
+
+** Root Cause
+~SettingsService~ now writes to ~settings.yaml~ instead of ~settings.json~.
+The old ~settings.json~ file is not auto-deleted or migrated, so if a user
+upgrades, their old settings are silently ignored and defaults are used.
+
+Not auto-migrating because:
+- Deleting user files without consent is bad practice
+- JSON→YAML schema conversion is fragile (string based, not much benefit)
+- Settings are simple (theme, font, path, profile) — easy to re-enter
+
+** Fix
+User should manually delete ~~/.config/nextlearn/settings.json~.
+
+** Check
+Also check if old ~keybindings.json~ or ~keybindings.json~~ exist —
+delete those too (the app now looks for ~.yaml~ only).
 
 * FIXED B3: Marketplace panel overlaps home panel
 
@@ -373,3 +397,61 @@ when the UI or the window is shrinked
 (aka the user just resized the window to be smaller (i don't mean zoom in/out the whole app))
 
 the ◀ ▶ buttons get out of the image layout
+
+* FIXED B38: highlight.js missing aliases for php-template, python-repl, shell, asm
+
+** Location
+- ~NextLearn.Desktop/Assets/custom-highlight.js~ — alias registrations
+
+** Status
+- ✅ FIXED — 4 aliases registered at end of custom-highlight.js
+
+** Root Cause
+highlight.js 11.11.1 ships with languages for php, python, bash, and x86asm, but does not automatically register shorter or alternative names (php-template, python-repl, shell, asm) as aliases. When a code block uses any of these names (e.g. ~#+BEGIN_SRC shell~ or ~~~`asm`), highlight.js does not match them and falls through to auto-detect — which often fails or produces incorrect highlighting.
+
+** Fix
+Added four alias registrations:
+- ~hljs.registerAliases("asm",{languageName:"x86asm"})~
+- ~hljs.registerAliases("php-template",{languageName:"php"})~
+- ~hljs.registerAliases("python-repl",{languageName:"python"})~
+- ~hljs.registerAliases("shell",{languageName:"bash"})~
+
+** Files changed
+- ~NextLearn.Desktop/Assets/custom-highlight.js~ — added aliases at lines 1537, 1608
+
+* FIXED B39: HtmlContentBuilder regex rejects hyphens and dots in language names
+
+** Location
+- ~NextLearn.Desktop/Services/HtmlContentBuilder.cs~ — fence language parsing
+
+** Status
+- ✅ FIXED — regex character class expanded
+
+** Root Cause
+The code-block fence regexes used ~\w*~ to match language names:
+- ~^#+BEGIN_SRC\s*(\w*)$~ (line 135)
+- ~^```(\w*)$~ (line 169)
+
+Language names containing hyphens (~php-template~, ~python-repl~) or dots were truncated to the first word-character segment, producing empty or partial language classes (~language-php~ instead of ~language-php-template~).
+
+** Fix
+Changed ~\w*~ to ~([\w.-]*)~ in both regexes to accept word characters, hyphens, and dots.
+
+** Files changed
+- ~NextLearn.Desktop/Services/HtmlContentBuilder.cs~ — line 135: ~\w*~ → ~[\w.-]*~; line 169: ~\w*~ → ~[\w.-]*~
+
+* FIXED B40: Duplicate code-block sections in syntax-highlighting-test files
+
+** Location
+- ~~/nextlearn/decks/syntax-highlighting-test.md~
+- ~~/nextlearn/decks/syntax-highlighting-test.org~
+
+** Status
+- ✅ FIXED — duplicates removed, Shell section language corrected
+
+** Root Cause
+When expanding test files from 39 to 52 languages, the php-template and python-repl sections were duplicated (appeared twice in the .md file). The Shell section in the .org file used ~#+BEGIN_SRC bash~ instead of ~#+BEGIN_SRC shell~, which bypassed the alias test.
+
+** Fix
+- Removed duplicate PHP Template and Python REPL sections from the .md file
+- Changed ~#+BEGIN_SRC bash~ to ~#+BEGIN_SRC shell~ in the .org Shell section

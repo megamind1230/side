@@ -1,3 +1,52 @@
+* DONE Falcon Eye: Table of Contents (built-in plugin)
+
+** What
+Falcon Eye is a built-in table of contents feature for decks. When enabled
+via the sidebar toggle, each deck opens with a TOC page (page 0) listing
+all headings with page numbers.
+
+** Features
+- Toggle 🦅 Falcon Eye in sidebar — persists across sessions via ~settings.yaml~
+- TOC page rendered at start of each deck (page 0, not counted as real page)
+- Lists all H1/H2 headings as a clean nested <ol> with page numbers
+- No clickable links — user reads the TOC then uses Ctrl+G to jump
+- Toggle works live — toggling while in a deck inserts/removes the TOC page immediately
+- TOC page does not count toward heatmap timer (lingering on TOC adds no minutes)
+- Keyboard shortcuts (n/p/j/k/h/l/q/d) work on the TOC page via key-forwarding JS
+- Progress saved using real ~Page.PageNumber~ (TOC has page number 0, never recorded)
+
+** Files changed
+
+*** New file
+- ~Services/FalconEyeBuilder.cs~ — generates standalone TOC HTML with nested
+  heading list + page numbers, reuses key-forwarding JS from HtmlContentBuilder
+
+*** Modified files
+- ~Models/AppSettings.cs~ — added ~FalconEyeEnabled~ (default false, persisted to YAML)
+- ~Models/Page.cs~ — added ~IsTocPage~ non-mapped flag for the synthetic TOC page
+- ~Services/ISettingsService.cs~ — added ~FalconEyeEnabled~ property
+- ~Services/SettingsService.cs~ — wired get/set to ~_settings.FalconEyeEnabled~
+
+- ~ViewModels/MainWindowViewModel.cs~ — added ~IsFalconEyeEnabled~ +
+  ~ToggleFalconEyeCommand~; wired into ~LoadSettings~/~SaveSettings~/~ResetSettings~;
+  toggle notifies LearningViewModel when in learning view
+
+- ~ViewModels/LearningViewModel.cs~ — ~SetCurrentDeckAsync~/~StartLearning~:
+  insert TOC page if enabled; ~UpdateCurrentPage~: render TOC HTML via
+  ~FalconEyeBuilder~ when on TOC page; ~RebuildWithFalconEye~ for live toggle;
+  ~InsertTocPage~ helper; ~OnCurrentPageIndexChanged~ handler for TOC display;
+  timer guards (skip recording on TOC); progress saved via ~Page.PageNumber~
+
+- ~Controls/Sidebar.axaml~ — added 🦅 Falcon Eye toggle button between
+  Archived and Streak
+
+** Post-implementation fixes
+- Progress saving uses ~CurrentPage.PageNumber~ instead of ~CurrentPageIndex + 1~
+  (handles TOC offset and works correctly without Falcon Eye too)
+- TOC page excluded from total page count; displays as "TOC / N"
+- Key-forwarding JavaScript added to FalconEyeBuilder HTML so keyboard
+  shortcuts work on the TOC page
+
 * DONE P33: shortcuts page must be the top/upmost layer
 > feature: the`?` menu must be layered as the top most layer at every senario
 
