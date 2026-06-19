@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NextLearn.Desktop.ViewModels"
+             x:Class="NextLearn.Desktop.Controls.ImageOverlay"
+             x:DataType="vm:MainWindowViewModel">
+    <Panel IsVisible="{Binding IsImageOverlayOpen}" ZIndex="400">
+        <Border Background="#80000000" PointerPressed="CloseOnBackdrop">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="10*"/>
+                    <RowDefinition Height="80*"/>
+                    <RowDefinition Height="10*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="10*"/>
+                    <ColumnDefinition Width="80*"/>
+                    <ColumnDefinition Width="10*"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Row="1" Grid.Column="1" Background="#1E293B" CornerRadius="16">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Padding="16,12" Background="#1E293B">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="✕"
+                                        Command="{Binding CloseImageOverlayCommand}"
+                                        Padding="8,4" Background="#334155" Foreground="#94A3B8" FontSize="14"/>
+                                <TextBlock Text="{Binding CurrentImageFileName}" FontSize="16"
+                                           FontWeight="SemiBold" Foreground="#E2E8F0" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Border>
+                        <Border DockPanel.Dock="Bottom" Padding="16,10" Background="#1E293B">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                                <Button Content="1:1" Command="{Binding ResetZoomCommand}"
+                                        Padding="8,4" Background="#334155" Foreground="#E2E8F0" FontSize="12"/>
+                                <Border Height="24" Width="1" Background="#334155"/>
+                                <Button Content="−" Command="{Binding ZoomOutCommand}"
+                                        Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
+                                <Slider Value="{Binding ZoomLevel}" Minimum="0.5" Maximum="3.0"
+                                        Width="120" VerticalAlignment="Center"/>
+                                <Button Content="+" Command="{Binding ZoomInCommand}"
+                                        Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
+                                <TextBlock Text="{Binding ZoomLevel, StringFormat=' {0:P0}'}"
+                                           Foreground="#E2E8F0" FontSize="13" VerticalAlignment="Center"/>
+                                <Border Height="24" Width="1" Background="#334155"/>
+                                <Button Content="Invert" Command="{Binding ToggleInvertCommand}"
+                                        Padding="8,4" Background="#334155" Foreground="#E2E8F0" FontSize="12"/>
+                                <Border Height="24" Width="1" Background="#334155"/>
+                                <Button Content="Open" Command="{Binding OpenImageInViewerCommand}"
+                                        Padding="12,4" Background="#2563EB" Foreground="White" FontSize="14"/>
+                                <Border Height="24" Width="1" Background="#334155"/>
+                                <Button Content="◀" Command="{Binding PreviousImageCommand}"
+                                        Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
+                                <Button Content="▶" Command="{Binding NextImageCommand}"
+                                        Padding="10,4" Background="#334155" Foreground="#E2E8F0" FontSize="16"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="#0F172A" ClipToBounds="True"
+                                PointerPressed="OnImageAreaPressed"
+                                PointerMoved="OnImageAreaMoved"
+                                PointerReleased="OnImageAreaReleased">
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                                          x:Name="ImageOverlayScrollViewer">
+                                <Image x:Name="OverlayImage"
+                                       Source="{Binding CurrentImageBitmap}" Stretch="Uniform"
+                                       HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            </ScrollViewer>
+                        </Border>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Panel>
+</UserControl>

@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NextLearn.Desktop.ViewModels"
+             x:Class="NextLearn.Desktop.Controls.HeatmapPanel"
+             x:DataType="vm:MainWindowViewModel">
+  <Panel IsVisible="{Binding IsHeatmapOpen}" ZIndex="310">
+    <DockPanel Background="#0F172A">
+      <Border DockPanel.Dock="Top" Padding="16,12" Background="#0F172A">
+        <DockPanel>
+          <Button Command="{Binding CloseHeatmapCommand}"
+                  Background="Transparent" Padding="12,8">
+            <TextBlock Text="← Back" FontSize="16" Foreground="#94A3B8"/>
+          </Button>
+          <TextBlock Text="🔥 Study Streak" FontSize="20" FontWeight="Bold"
+                     Foreground="#E2E8F0" VerticalAlignment="Center" Margin="16,0,0,0"/>
+        </DockPanel>
+      </Border>
+
+      <Grid RowDefinitions="20*,80*" Margin="24,0,24,24">
+        <StackPanel Orientation="Horizontal" Spacing="24"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
+            <StackPanel>
+              <TextBlock Text="{Binding TodayMinutes}" FontSize="28" FontWeight="Bold"
+                         Foreground="#FDBA74"/>
+              <TextBlock Text="minutes today" FontSize="12" Foreground="#94A3B8"/>
+            </StackPanel>
+          </Border>
+          <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
+            <StackPanel>
+              <TextBlock Text="{Binding TodayPages}" FontSize="28" FontWeight="Bold"
+                         Foreground="#60A5FA"/>
+              <TextBlock Text="pages today" FontSize="12" Foreground="#94A3B8"/>
+            </StackPanel>
+          </Border>
+          <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
+            <StackPanel>
+              <TextBlock Text="{Binding TodayDecks}" FontSize="28" FontWeight="Bold"
+                         Foreground="#34D399"/>
+              <TextBlock Text="decks today" FontSize="12" Foreground="#94A3B8"/>
+            </StackPanel>
+          </Border>
+          <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
+            <StackPanel>
+              <TextBlock Text="{Binding TodayStreak}" FontSize="28" FontWeight="Bold"
+                         Foreground="#F472B6"/>
+              <TextBlock Text="day streak" FontSize="12" Foreground="#94A3B8"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <Grid RowDefinitions="*" ColumnDefinitions="*,10*,*" Grid.Row="1">
+          <Canvas Grid.Column="1" x:Name="HeatmapCanvas" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+      </Grid>
+    </DockPanel>
+  </Panel>
+</UserControl>

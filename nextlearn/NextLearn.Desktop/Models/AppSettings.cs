@@ -2,6 +2,7 @@ using System;
 
 namespace NextLearn.Desktop.Models;
 
+/// <summary>Application settings persisted to settings.json.</summary>
 public class AppSettings
 {
     public string Theme { get; set; } = "Dark";

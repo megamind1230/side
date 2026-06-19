@@ -1,0 +1,375 @@
+﻿#+TITLE: Bugs
+
+
+* FIXED B3: Marketplace panel overlaps home panel
+
+** Status
+- ✅ FIXED — Marketplace panel and ~IsMarketplace~ property removed
+- Marketplace button now opens ~https://google.com~ in browser (no in-app page)
+
+* FIXED B13: Hamburger ☰ button opens editor, not a sidebar
+
+** Status
+- ✅ FIXED — Learning view ☰ now opens global sidebar (~ToggleSidebarCommand~)
+- "Edit" button (text label) remains for opening editor
+- ☰ in home nav bar also opens sidebar
+
+* FIXED B14: Duplicate nav bars across panels
+
+** Status
+- ✅ FIXED — Marketplace panel removed, single nav bar in home panel
+
+* FIXED B19: DownloadedDecksViewModel creates its own AppDbContext
+
+** Status
+- ✅ FIXED — ~MarketplaceViewModel.cs~ deleted (both ~MarketplaceViewModel~ and ~DownloadedDecksViewModel~)
+
+* B20: Home search Enter handler closed popup (now irrelevant)
+
+** Location
+- Views/MainWindow.axaml.cs (removed)
+
+** Status
+- IRRELEVANT — home search popup was removed (inline search now)
+- / focuses search bar, Esc unfocuses, no Enter action needed
+
+* FIXED B2/B11: File-based decks get new GUID on every load
+
+** Status
+- ✅ FIXED by ~Services/DeckFileIdentity.cs~
+- SHA256 of full file path → deterministic GUID
+- Progress survives restarts
+
+* FIXED B20: Teal box shows no content on first load (AvaloniaEdit)
+
+** Location
+- ~Views/MainWindow.axaml.cs~ (~OnLoaded~)
+
+** Root Cause
+- ~OnLoaded~ subscribed to ~PropertyChanged~ event for ~RenderedContent~
+  *after* the initial value was already set. ~UpdateEditor()~ was never
+  called for the first page, leaving the ~TextEditor~ empty.
+
+** Fix
+- Added ~UpdateEditor();~ call at the end of ~OnLoaded~ to pull the
+  current ~RenderedContent~ value right after subscribing to future
+  changes. Subsequent page navigations continue to update via the
+  ~PropertyChanged~ handler.
+
+* FIXED B15: ExtractCategory keyword matching
+
+** Status
+- ✅ REPLACED by frontmatter tag system
+- ~ExtractCategory()~ removed entirely
+- Tags come from ~tags:~ in YAML frontmatter
+- ~#tag~ search with incremental prefix matching
+
+* FIXED B22: DatabaseService.cs is dead code
+
+** Location
+- ~Services/DatabaseService.cs~
+
+** Status
+- ✅ FIXED — file deleted along with other dead code (see P7)
+- ~MigrateSchema()~ moved to ~MainWindowViewModel.cs~
+
+** Fix
+1. ✅ Verified no references to ~DatabaseService~ anywhere in the project
+2. ✅ Deleted ~Services/DatabaseService.cs~
+
+* REMOVED B23: Image overlay rotation (code deleted entirely)
+
+** Status
+- REMOVED — rotation buttons were removed from UI earlier; ~RotateCw~ / ~RotateCcw~ commands, ~RotationAngle~ property, ~RotateTransform~ XAML, and ~PropertyChanged~ handler now all deleted (Phase 5e)
+
+* FIXED B24: press `q` while opening an img floating window
+this would send me to the seach page(the decks page)
+but it now forgets where i was inside of the deck .. ( reopening the deck would send me to page #1 again )
+
+** Status
+- FIXED — Overlay now captures keyboard events (`HandleKey` checks overlay visibility first), with `e.Handled = true` from `OnKeyDown` to prevent propagation to WebView key relay. Added focused Border for visual indication.
+
+* FIXED B25: Image centering clips bottom/right edges / can't pan to edge
+
+** Location
+- ~Views/MainWindow.axaml~ — ~Image~ element alignment attributes inside ~ScrollViewer~
+
+** Status
+- FIXED — set ~HorizontalAlignment="Left"~ and ~VerticalAlignment="Top"~ on Image
+
+** Root Cause
+~HorizontalAlignment="Center"~ / ~VerticalAlignment="Center"~ (or default ~Stretch~ with explicit Width/Height) causes the Image to be centered within the ScrollViewer's content area. The scroll range assumes content origin at (0,0), but centering shifts the image so that right/bottom edges extend past the scrollable range. Purely removing both attributes reverts to default ~Stretch~, which ALSO centers explicit-sized elements — same clipping.
+
+** Fix
+Set ~HorizontalAlignment="Left"~ and ~VerticalAlignment="Top"~ so the Image sits at (0,0) in the ScrollViewer content area. The scroll range [0, extent − viewport] correctly covers the full image. Visual centering is handled by scroll offset calculation in ~RecenterScrollViewerAfterLayout()~.
+
+** Files changed
+- ~Views/MainWindow.axaml~ — set ~HorizontalAlignment="Left"~ and ~VerticalAlignment="Top"~ on ~OverlayImage~
+
+* FIXED B26: Zoom centering jumps when panned + two-sub-bug: initial center override
+
+** Location
+- ~Views/MainWindow.axaml.cs~ — ~OnScrollViewerScrollChanged()~, ~OnMainViewModelPropertyChanged()~
+
+** Status
+- FIXED
+
+** Sub-bug A: preserve-center formula is viewport-agnostic
+*** Root Cause
+The preserve-center formula ~newOffset = oldOffset + (newExtent − oldExtent)/2~ only gives correct results when ~oldOffset = (extent − viewport)/2~ (image perfectly centered). For a panned image the formula fails because it ignores viewport size. Example: scrolled to Y offset 50 in a 1000×1000 extent with 600px viewport — old formula yields Y=300 on 1.5× zoom instead of correct Y=225 (75px jump).
+
+*** Fix
+Replaced with ~newOffset = (oldOffset + vp/2) * zoomRatio − vp/2~ which properly factors in viewport: the viewport-center point in content coords is ~oldOffset + vp/2~, scaled by zoom ratio, then back to offset.
+
+** Sub-bug B: initial centering overridden to preserve on async bitmap load
+*** Root Cause
+When overlay opens, ~IsImageOverlayOpen~ handler calls ~RecenterScrollViewerAfterLayout(true)~, but ~UpdateOverlayImageSize()~ bails because ~Source~ is null (bitmap not loaded yet). When the async load completes, ~CurrentImageBitmap~ fires the shared zoom/rotation/bitmap handler with ~centerInViewport: false~ — overriding the intended center mode to preserve mode.
+
+*** Fix
+Separated ~CurrentImageBitmap~ from the ~ZoomLevel~/~RotationAngle~ handler. ~CurrentImageBitmap~ now uses ~centerInViewport: true~ so initial loads, next/previous images, and invert toggles all center correctly. ~ZoomLevel~ and ~RotationAngle~ continue to use preserve mode.
+
+** Files changed
+- ~Views/MainWindow.axaml.cs~ — fixed preserve formula in ~OnScrollViewerScrollChanged()~, split ~CurrentImageBitmap~ into its own handler with ~centerInViewport: true~
+
+* FIXED B28: Org [[...]] file paths corrupted by italic regex
+
+** Location
+- ~Services/HtmlContentBuilder.cs~ — ~RenderOrgInline()~
+
+** Status
+- FIXED — placeholder protection added
+
+** Root Cause
+The italic regex ~/([^/]+)/~ (org-mode syntax) runs before org ~[[url]]~
+patterns. File paths containing `/` (e.g. ~./comprehensive-org/inside.png~)
+were matched as italic: ~/<comprehensive-org>/~, corrupting the path
+before the image handler could process it.
+
+** Fix
+Extract all org ~[[...]]~ and ~![[...]]~ constructs to ~%%%ORGLINK_N%%%~
+placeholders BEFORE inline formatting passes (code, bold, italic). Restore
+placeholders AFTER formatting, before org link/image regexes run.
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — ~RenderOrgInline()~: added placeholder
+  extraction at line 334, restoration at line 353
+
+* FIXED B29: Non-http URLs in [text](url) rendered as clickable broken links
+
+** Location
+- ~Services/HtmlContentBuilder.cs~ — ~RenderMarkdownInline()~,
+  ~RenderOrgInline()~
+
+** Status
+- FIXED — http/https guard added to all link regexes
+
+** Root Cause
+All ~[text](url)~ patterns were rendered as ~<a data-href="url">~ regardless
+of URL scheme. Local file paths and relative paths became broken clickable
+links instead of being shown as raw markdown text.
+
+** Fix
+Every link regex now uses a match evaluator that returns ~m.Value~ (raw
+text) unless the URL starts with ~http://~ or ~https://~. Affected
+patterns: ~[text](url)~, ~[[url]]~, ~[[url][text]]~, ~[[text]]~.
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — link regexes in both
+  ~RenderMarkdownInline()~ and ~RenderOrgInline()~
+
+* FIXED B30: openurl.local timestamp suffix corrupts URL decoding
+
+** Location
+- ~Views/MainWindow.axaml.cs~ — ~OnWebViewNavigationStarted()
+
+** Status
+- FIXED — trailing /<digits> stripped before UrlDecode
+
+** Root Cause
+The JS click handler appends ~/Date.now()~ to avoid iframe dedup. No
+code stripped this timestamp before ~Uri.UnescapeDataString()~. For URLs
+ending in digits (e.g., ~https://example.com/123~), the timestamp merged
+with the URL and decoding produced a malformed URL.
+
+** Fix
+Strip the trailing ~/<digits>~ segment from the encoded path before
+decoding.
+
+** Files changed
+- ~Views/MainWindow.axaml.cs~ — path cleanup in navigation handler
+
+* FIXED B31: Linux browser launch crashes on Wayland (Brave segfault)
+
+** Location
+- ~Views/MainWindow.axaml.cs~ — ~OpenInBrowser()
+
+** Status
+- FIXED — TryStartBrowser helper with --ozone-platform-hint=x11
+
+** Root Cause
+
+#+BEGIN_QUOTE
+Brave (the default browser) crashes with "Failed to connect to Wayland
+display" when launched via ~xdg-open~ or directly. The original
+~Process.Start~ with simple binary+args didn't skip missing binaries
+reliably, and ~xdg-open~ always delegates to Brave's .desktop file.
+#+END_QUOTE
+
+** Fix
+- ~TryStartBrowser()~ helper: ~UseShellExecute=false~ + ~ArgumentList~ +
+  ~catch(Win32Exception)~ → reliably skips missing binaries
+- Firefox tried first (no Wayland flag needed)
+- Chromium browsers tried with ~--ozone-platform-hint=x11~
+- ~xdg-open~ as last resort
+
+** Files changed
+- ~Views/MainWindow.axaml.cs~ — ~OpenInBrowser()~ rewritten with
+  ~TryStartBrowser()~
+
+* FIXED B27: Deck progress not saved/restored when entering via SetCurrentDeck path
+
+** Location
+- ~ViewModels/LearningViewModel.cs~ — ~SetCurrentDeck()~
+- ~ViewModels/MainWindowViewModel.cs~ — ~NavigateToHome()~, ~NavigateToLearning()~
+- ~Services/DeckService.cs~ — ~UpdateProgressAsync()~
+
+** Status
+- FIXED
+
+** Root Cause
+Two bugs compounded:
+1. ~SetCurrentDeck()~ (used when deck is found in ~HomeViewModel.Decks~) called ~GetUserProgressAsync()~ to read progress but never called ~StartLearningAsync()~ to CREATE the ~UserProgress~ record if none existed. Since ~NextPage()~ / ~SaveProgressAsync()~ only *update* existing progress (via ~UpdateProgressAsync()~ which silently no-oped on null), no data was ever persisted for decks entered via ~SetCurrentDeck()~.
+2. ~NavigateToHome()~ did not save progress before navigating away — pressing ~q~/~d~ discarded the user's position.
+
+** Fix
+1. ~LearningViewModel.SetCurrentDeck()~: calls ~StartLearningAsync()~ to create progress if ~GetUserProgressAsync()~ returns null
+2. ~MainWindowViewModel.NavigateToHome()~: calls ~LearningViewModel.SaveProgressAsync()~ before clearing ~IsLearning~ flag
+3. ~DeckService.UpdateProgressAsync()~: creates the ~UserProgress~ record if missing (belt-and-suspenders)
+4. ~NavigateToLearning()~ / ~NavigateToLearningByDeck()~: ~await~ the async ~SetCurrentDeck()~ so progress is restored before the view renders
+
+* FIXED B32: Markdown-style ![]() images in .org files have paths corrupted by italic regex
+
+** Location
+- ~Services/HtmlContentBuilder.cs~ — ~RenderOrgInline()~
+
+** Status
+- ✅ FIXED — placeholder protection extended to cover ~![](...)~ patterns
+
+** Root Cause
+The italic regex ~/([^/]+)/~ (org-mode syntax) runs before the image
+handler. File paths containing slashes (e.g. ~./temp/what-i-wrote.png~)
+triggered a match on ~/temp/~, corrupting the path to
+~.&lt;em&gt;temp&lt;/em&gt;what-i-wrote.png~ before ~RenderImageTag~ could resolve it.
+
+** Fix
+Added a second placeholder protection pass (alongside the existing
+~[[...]]~ / ~![[...]]~ protection) that extracts ~![](...)~ and
+~[](...)~ constructs into ~%%%ORGLINK_N%%%~ placeholders before
+inline formatting (italic, bold, code) runs. Placeholders are restored
+after formatting, preserving paths intact.
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — ~RenderOrgInline()~: added protection
+  at line 341, restoration at line 360 handles all placeholders
+
+* FIXED B33: ![[file:path]] emacs-style images in .md files don't strip file: prefix
+
+** Location
+- ~Services/HtmlContentBuilder.cs~ — ~RenderMarkdownInline()~
+
+** Status
+- ✅ FIXED — ~file:~ prefix stripped before passing to ~RenderImageTag~
+
+** Root Cause
+The ~![[path]]~ handler in ~RenderMarkdownInline()~ passed the raw content
+directly to ~RenderImageTag~ without stripping the ~file:~ prefix. The
+org renderer had the stripping logic (~content[5..]~ at line 413) but the
+markdown renderer did not, so ~![[file:thunar-side-bar.png]]~ tried to
+load a file literally named ~file:thunar-side-bar.png~.
+
+** Fix
+Added ~content.StartsWith("file:") ? content[5..] : content~ to the
+markdown renderer's ~![[path]]~ handler, matching the org renderer's
+behavior.
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — ~RenderMarkdownInline()~: updated
+  ~![[path]]~ handler at line 461
+
+* B34: ZIndex layering & Esc close order is wrong for multiple overlays
+
+** Location
+- ~Views/MainWindow.axaml~ — ZIndex values for all overlay panels
+- ~Views/MainWindow.axaml.cs~ — ~HandleKey()~ Esc close chain
+
+** Status
+- ✅ FIXED in P38
+
+** Symptoms
+1. Shortcuts Handbook (ZIndex 150) appears behind Sidebar (ZIndex 200)
+2. `?` + Sidebar → handbook hidden behind sidebar
+3. Esc doesn't close in LIFO order — hardcoded chain: handbook → settings → sidebar
+4. Full-page overlays (settings/sidebar) don't close each other when a new one opens
+
+** Fix (P38 Phase A)
+1. Handbook ZIndex → 999 (always top)
+2. Esc chain reordered by ZIndex descending: 999 → 400 → 310 → 300 → 200
+3. Show commands for full-page overlays close all other full-page overlays first
+
+* B36: `o` key doesn't fire from WebView (tunneling vs bubbling)
+
+** Location
+- ~Views/MainWindow.axaml.cs~ — ~OnKeyDown()~, ~HandleKey()~, tunneling handler
+
+** Status
+- OPEN — needs a clean solution
+
+** Root Cause
+~KeyDown~ is a bubbling routed event. When the NativeWebView has focus and a
+plain letter key (~o~) is pressed, the WebView consumes the event for text
+input and never bubbles it to the MainWindow. ~?~ (Shift+Oem2) and ~Ctrl+,~
+(Ctrl+OemComma) work because the WebView doesn't treat modifier-combination
+keys as text input.
+
+The tunneling workaround (~AddHandler(KeyDownEvent, handler, RoutingStrategies.Tunnel)~)
+catches ~o~ before the WebView gets it, but requires an ~e.Source is TextBox~
+guard to not steal input from real text boxes. This is fragile.
+
+** Proper fix needed
+NativeWebView should either:
+1. Not consume plain letter keys in read-only mode (it's a display-only WebView)
+2. Forward unhandled key events to the parent window
+
+** Workaround applied
+Tunneling handler in ~MainWindow()~ constructor, guarded by ~e.Source is TextBox~.
+
+* FIXED B35: GLFW Wayland initialization failure on Hyprland
+
+** Location
+- ~Program.cs~ — ~BuildAvaloniaApp()~
+
+** Status
+- ✅ FIXED
+
+** Root Cause
+~Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", "")~ calls
+~setenv("WAYLAND_DISPLAY", "")~. GLFW's ~getenv("WAYLAND_DISPLAY")~ returns
+a non-NULL pointer (empty string), so GLFW thinks Wayland IS configured
+and tries to ~wl_display_connect("")~, which fails because the display
+name is empty. This emitted ~10+~ "[glfw error 65544]: Wayland: Failed to
+connect to display" messages on every startup.
+
+** Fix
+~Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", null)~ calls
+~unsetenv("WAYLAND_DISPLAY")~ → ~getenv("WAYLAND_DISPLAY")~ returns NULL →
+GLFW skips the Wayland backend entirely and falls through to X11.
+Combined with ~builder.UseSkia().UseX11()~ when ~XDG_SESSION_TYPE=wayland~.
+
+** Files changed
+- ~Program.cs~ — ~null~ instead of ~""~ for WAYLAND_DISPLAY env var
+* B37: a tiny bug with the controllers in image layout
+
+when the UI or the window is shrinked
+(aka the user just resized the window to be smaller (i don't mean zoom in/out the whole app))
+
+the ◀ ▶ buttons get out of the image layout

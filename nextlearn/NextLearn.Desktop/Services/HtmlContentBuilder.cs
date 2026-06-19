@@ -123,6 +123,7 @@ public static class HtmlContentBuilder
         return WrapInHtml(body.ToString());
     }
 
+    // Detects ``` fences (md) or #+BEGIN_SRC / #+END_SRC (org), collects inner lines as <pre><code>
     private static bool TryStartCodeBlock(string[] lines, ref int index, bool isOrgFile, out string html)
     {
         html = string.Empty;
@@ -192,6 +193,7 @@ public static class HtmlContentBuilder
         return false;
     }
 
+    // Gathers | -delimited rows, separates header from body via ---+--- separator, renders <table>
     private static bool TryRenderTable(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
         html = string.Empty;
@@ -289,6 +291,7 @@ public static class HtmlContentBuilder
         }
     }
 
+    // Matches # / ## (md) or * / ** (org) heading markers, renders <h1>–<h6> with visible marker span
     private static bool TryRenderHeading(string line, out string html, bool isOrgFile = false, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
         html = string.Empty;
@@ -428,7 +431,7 @@ public static class HtmlContentBuilder
         var sb = new StringBuilder();
         var i = index;
 
-        // Stack of (listTag, indent)
+        // Stack of (listTag, indent) — tracks nesting depth for sub-lists
         var levels = new List<(string tag, int indent)>();
         levels.Add((listTag, firstLine.Length - firstLine.TrimStart().Length));
         sb.Append($"<{listTag}>");
@@ -491,7 +494,7 @@ public static class HtmlContentBuilder
             var contentStart = isUl ? 2 : Regex.Match(lineTrimmed, @"^\d+[.)]\s").Length;
             var content = lineTrimmed.Substring(contentStart);
 
-            // Handle checkbox
+            // Render [ ], [x], or [-] as styled todo-checkbox spans
             var checkboxHtml = string.Empty;
             var cbMatch = Regex.Match(content, @"^\[( |x|X|-)\]\s*");
             if (cbMatch.Success)
@@ -523,6 +526,7 @@ public static class HtmlContentBuilder
         return true;
     }
 
+    // Lines starting with > are grouped into <blockquote><p>…</p></blockquote>
     private static bool TryRenderBlockquote(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null)
     {
         html = string.Empty;

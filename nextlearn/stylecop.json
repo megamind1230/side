@@ -4,7 +4,7 @@
     "documentationRules": {
       "documentExportedElements": false,
       "documentInternalElements": false,
-      "documentInterfaces": false,
+      "documentInterfaces": true,
       "xmlHeader": false
     },
     "orderingRules": {

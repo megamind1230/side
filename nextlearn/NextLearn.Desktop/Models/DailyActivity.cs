@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NextLearn.Desktop.Models;
 
+/// <summary>Daily study activity record for a user.</summary>
 public class DailyActivity
 {
     [Key]

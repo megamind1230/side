@@ -331,6 +331,7 @@ public partial class MainWindow : Window
             _chordTimer = null;
         }
 
+        // Ctrl+Shift+= / Ctrl+Shift+- / Ctrl+Shift+0 — font-only zoom for entire app
         switch (action)
         {
             case KeyboardActionKind.None:
@@ -348,6 +349,7 @@ public partial class MainWindow : Window
                 vm.ResetTextZoomCommand.Execute(null);
                 return true;
 
+            // Ctrl+= / Ctrl+- / Ctrl+0 — image overlay zoom
             case KeyboardActionKind.ZoomIn:
                 vm.ZoomInCommand.Execute(null);
                 return true;
@@ -360,6 +362,7 @@ public partial class MainWindow : Window
                 vm.ResetZoomCommand.Execute(null);
                 return true;
 
+            // Shift+N / Shift+P — cycle images in overlay
             case KeyboardActionKind.NextImage:
                 vm.NextImageCommand.Execute(null);
                 return true;
@@ -368,6 +371,7 @@ public partial class MainWindow : Window
                 vm.PreviousImageCommand.Execute(null);
                 return true;
 
+            // Esc context chain: GoToPage → Handbook → ImageOverlay → Archived → Pinned → Heatmap → Settings → Sidebar
             case KeyboardActionKind.CloseGoToPage:
                 vm.LearningViewModel.CancelGoToPageCommand.Execute(null);
                 return true;
@@ -393,6 +397,7 @@ public partial class MainWindow : Window
                 vm.CloseHeatmapCommand.Execute(null);
                 return true;
 
+            // Ctrl+Shift+= / Ctrl+Shift+- / Ctrl+Shift+0 — heatmap zoom
             case KeyboardActionKind.ZoomHeatmapIn:
                 vm.ZoomHeatmapInCommand.Execute(null);
                 return true;
@@ -405,6 +410,7 @@ public partial class MainWindow : Window
                 vm.ZoomHeatmapResetCommand.Execute(null);
                 return true;
 
+            // Esc or ←/Q/D from settings
             case KeyboardActionKind.CloseSettings:
                 vm.IsSettingsOpen = false;
                 return true;
@@ -413,24 +419,29 @@ public partial class MainWindow : Window
                 vm.IsSidebarOpen = false;
                 return true;
 
+            // Ctrl+, — open settings from anywhere
             case KeyboardActionKind.OpenSettings:
                 vm.OpenSettingsCommand.Execute(null);
                 return true;
 
+            // Q/D — exit settings and go home
             case KeyboardActionKind.ExitSettingsHome:
                 vm.IsSettingsOpen = false;
                 vm.NavigateToHomeCommand.Execute(null);
                 return true;
 
+            // ? — toggle shortcuts handbook
             case KeyboardActionKind.ToggleShortcutsHandbook:
                 vm.IsShortcutsHandbookOpen = !vm.IsShortcutsHandbookOpen;
                 _webViewBridge?.SetVisible(!vm.IsShortcutsHandbookOpen);
                 return true;
 
+            // Ctrl+G — go to page number in study view
             case KeyboardActionKind.OpenGoToPage:
                 vm.LearningViewModel.IsGoToPageOpen = true;
                 return true;
 
+            // N / Right arrow — next page; P / Left arrow — previous page
             case KeyboardActionKind.NextPage:
                 vm.LearningViewModel.NextPageCommand.Execute(null);
                 return true;
@@ -439,6 +450,7 @@ public partial class MainWindow : Window
                 vm.LearningViewModel.PreviousPageCommand.Execute(null);
                 return true;
 
+            // J / K / H / L — scroll WebView content in study view
             case KeyboardActionKind.ScrollDown:
                 _webViewBridge?.ScrollBy(0, 40);
                 return true;
@@ -455,24 +467,29 @@ public partial class MainWindow : Window
                 _webViewBridge?.ScrollBy(40, 0);
                 return true;
 
+            // Q / D — exit study view to home
             case KeyboardActionKind.NavigateHome:
                 vm.NavigateToHomeCommand.Execute(null);
                 return true;
 
+            // g — first key of g+i chord to focus+clear search
             case KeyboardActionKind.ChordG:
                 _chordTimer?.Dispose();
                 _chordTimer = DispatcherTimer.RunOnce(() => _keyboardHandler.CancelChord(), TimeSpan.FromMilliseconds(500));
                 return true;
 
+            // g then i — focus search bar and clear current text
             case KeyboardActionKind.FocusSearchWithClear:
                 vm.HomeViewModel.FocusSearch();
                 DispatcherTimer.RunOnce(() => this.FindControl<TextBox>("HomeSearchBox")?.Focus(), TimeSpan.FromMilliseconds(50));
                 return true;
 
+            // / — focus search bar without clearing
             case KeyboardActionKind.FocusSearchBar:
                 DispatcherTimer.RunOnce(() => this.FindControl<TextBox>("HomeSearchBox")?.Focus(), TimeSpan.FromMilliseconds(50));
                 return true;
 
+            // J / K — scroll deck list on home view
             case KeyboardActionKind.ScrollDeckListDown:
             {
                 var sv = this.FindControl<ScrollViewer>("HomeScrollViewer");
@@ -495,6 +512,7 @@ public partial class MainWindow : Window
                 return true;
             }
 
+            // Esc — clear keyboard focus
             case KeyboardActionKind.ClearFocus:
                 FocusManager?.ClearFocus();
                 return true;

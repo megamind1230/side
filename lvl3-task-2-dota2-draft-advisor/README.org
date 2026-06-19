@@ -1,0 +1,219 @@
+* DotaDraftAdvisor
+:PROPERTIES:
+:UPDATED: 2026-06-17 (Phases 4-6 complete)
+:END:
+
+Pick your draft. See the score. Counter-pick like a pro.
+
+A console-based Dota 2 draft advisor that analyzes real hero matchup
+data from the OpenDota API and recommends the best 5th pick. Built to
+demonstrate async/await, Task Parallel Library, ThreadPool, BackgroundWorker,
+race conditions, and deadlocks — all with live data.
+
+** Features
+- Manual draft analysis: input 4 ally + 5 enemy picks, get ranked 5th pick recommendations
+- Hero aliases: type "pa", "lc", "sf" — resolves to full hero names
+- Real data: uses OpenDota API win/loss matchup stats (not synthetic)
+- Role analysis: identifies what your team lacks (initiation, magic damage, wave clear, etc.)
+- Race condition demo: see what happens when Parallel.ForEach writes to a plain Dictionary — then watch ConcurrentDictionary fix it
+- Deadlock demo: two threads acquire locks in opposite order and freeze — then fixed with consistent lock ordering
+- Live draft watcher: BackgroundWorker polls OpenDota /api/live every 30s, detects matches in picking phase, and recommends counter picks in real time
+- Rich console UI with tables, colors, and progress bars (Spectre.Console)
+- Full Serilog logging to ~/magnus/DotaDraftAdvisor/logs/
+
+** Tech Stack
+
+| Layer      | Technology                            |
+|------------+---------------------------------------|
+| Runtime    | .NET 8 (C# 12)                        |
+| Console UI | Spectre.Console                       |
+| HTTP       | IHttpClientFactory                    |
+| Logging    | Serilog (console + rolling file)      |
+| API        | OpenDota API (free, no auth required) |
+| Testing    | xUnit + FluentAssertions              |
+
+** NuGet Packages
+
+| Package                      | Version | Purpose                     |
+|------------------------------+---------+-----------------------------|
+| Spectre.Console              |   0.49+ | Rich console output         |
+| Microsoft.Extensions.Http    |    8.0+ | IHttpClientFactory          |
+| Microsoft.Extensions.Hosting |    8.0+ | BackgroundService lifecycle |
+| Serilog                      |    3.1+ | Logging                     |
+| Serilog.Sinks.Console        |    5.0+ | Console logging             |
+| Serilog.Sinks.File           |    5.0+ | File logging                |
+
+** Project Structure
+
+#+begin_src text
+DotaDraftAdvisor.slnx
+└── DotaDraftAdvisor/
+    ├── Models/
+    │   ├── Hero.cs                 # id, localizedName, primaryAttr, roles
+    │   ├── HeroMatchup.cs          # heroId, gamesPlayed, wins, winRate
+    │   ├── DraftInput.cs           # allyTeam int[], enemyTeam int[]
+    │   ├── DraftScore.cs           # heroId, score, avgWinRate, reasoning[]
+    │   └── LiveMatch.cs            # matchId, gameTime, players[]
+    │
+    ├── Services/
+    │   ├── OpenDotaService.cs      # async HttpClient → OpenDota API
+    │   ├── AliasService.cs         # "lc" → "Legion Commander" mappings
+    │   ├── DraftScorer.cs          # Parallel.ForEach scoring engine
+    │   └── LiveDraftWatcher.cs     # BackgroundService polling /api/live
+    │
+    ├── Demo/
+    │   └── RaceConditionSection.cs # parallel dictionary corruption demo
+    │
+    ├── Program.cs                  # Entry point + Spectre.Console menu
+    └── DotaDraftAdvisor.csproj
+#+end_src
+
+** Async Concepts Demonstrated
+
+| Concept              | Location                      | What happens                                                        |
+|----------------------+-------------------------------+---------------------------------------------------------------------|
+| async/await          | OpenDotaService               | 9 concurrent API calls via Task.WhenAll — no threads blocked on I/O |
+| Task.WhenAll         | Program.cs / DraftScorer      | Fetch all matchups in parallel, wait for all to complete            |
+| Parallel.ForEach     | DraftScorer                   | Score 115 heroes across CPU cores simultaneously                    |
+| PLINQ                | DraftScorer                   | .AsParallel().OrderByDescending() for sorting results               |
+| ConcurrentDictionary | DraftScorer (fixed)           | Thread-safe scoring dictionary — no torn reads/writes               |
+| Interlocked          | DraftScorer (fixed)           | Lock-free increment for aggregate counters                          |
+| ThreadPool           | DraftScorer deep-dive         | QueueUserWorkItem for top-5 hero analysis tasks                     |
+| BackgroundWorker     | LiveDraftWatcher              | Polling loop + progress reporting + cancellation via CancellationToken |
+| lock                 | DeadlockSection               | Mutual exclusion on AllyPool / EnemyPool resources                   |
+| Monitor.TryEnter     | DeadlockSection (broken)      | Deadlock detection with 3s timeout                                  |
+| Lock ordering        | DeadlockSection (fixed)       | Consistent acquisition order eliminates circular wait                |
+| Barrier              | DeadlockSection (broken)      | Sync threads to guaranteed deadlock interleave point                 |
+
+** How to Use
+
+*** Setup
+#+begin_src sh
+cd lvl3-task-2/DotaDraftAdvisor
+dotnet restore
+dotnet build
+#+end_src
+
+*** Run manual draft analysis
+#+begin_src sh
+dotnet run
+#+end_src
+Select option 1 from the menu.
+
+Enter your 4 ally heroes and 5 enemy heroes (comma-separated):
+#+begin_src text
+Your team (4): cm, rubick, lc, slark
+Enemy team (5): pa, pudge, invoker, wk, es
+#+end_src
+
+The app resolves aliases, fetches real matchup data from OpenDota,
+scores all 115 available heroes, and prints a ranked top-10 table:
+
+#+begin_src text
+═══ RECOMMENDED 5TH PICK ═══
+Your team lacks: magic damage, wave clear
+
+  #  Hero          Score  WinRate  Reasoning
+  1  Zeus           89.1   51.2%   Magic burst, counters PA (blur reveal)
+  2  Skywrath Mage  86.4   50.8%   Synergy with Rubick, silence vs Invoker
+  3  Tinker         84.7   49.5%   Wave clear, split push vs slow lineup
+#+end_src
+
+*** Run live draft watcher
+#+begin_src sh
+dotnet run
+#+end_src
+Select option 3 from the menu. The watcher polls OpenDota every 30s
+for matches in picking phase and buffers them for interactive analysis.
+
+A numbered list of available matches is displayed. Enter a match number
+to see a full team edge analysis:
+
+#+begin_src text
+═══ MATCH #1 — TEAM EDGE ANALYSIS ═══
+Team Secret (3/5) vs Team Liquid (4/5) Game Mode 22
+
+┌─────────────────────────┬─────────────────────┬──────────────────────┬─────────┐
+│ Criteria                │ Radiant (3/5)       │ Dire (4/5)           │ Edge    │
+├─────────────────────────┼─────────────────────┼──────────────────────┼─────────┤
+│ Avg Win Rate vs Opp     │ 52.3%               │ 48.1%                │ Radiant │
+│ Role Coverage           │ Carry,Support,Init  │ Carry,Nuker,Durable  │ Radiant │
+│ Missing Roles           │ Nuker,Durable,...   │ Support,Init,Escape  │         │
+│ Recommended #1          │ Zeus (89.1)         │ Clockwerk (82.3)     │         │
+│ Recommended #2          │ Skywrath Mage (86.4)│ Earthshaker (80.1)   │         │
+│ Recommended #3          │ Tinker (84.7)       │ Lion (78.5)          │         │
+└─────────────────────────┴─────────────────────┴──────────────────────┴─────────┘
+
+Team Secret has the edge (+4% avg win rate, +1 roles)
+#+end_src
+
+Select 0 at the prompt to wait for the next poll cycle, or q to quit.
+
+*** Run race condition demo
+#+begin_src sh
+dotnet run
+#+end_src
+Select option 2 from the menu. Enter your teams and watch the
+broken pass corrupt shared state, then the fixed pass use
+ConcurrentDictionary + Interlocked to get correct results.
+
+*** Run deadlock demo
+#+begin_src sh
+dotnet run
+#+end_src
+Select option 4 from the menu. Two threads acquire resources in
+opposite order, creating a circular wait. Monitor.TryEnter detects
+the deadlock after 3 seconds. Then the fixed pass uses consistent
+lock ordering — both threads complete successfully.
+
+Or directly:
+#+begin_src sh
+dotnet run -- --demo deadlock
+#+end_src
+
+*** Logs
+All logs written to ~/magnus/DotaDraftAdvisor/logs/:
+- app-{Date}.log — general application logs
+- watcher-{Date}.log — live watcher activity
+- deepdive-{HeroName}.txt — individual hero analysis
+
+** Scoring Algorithm
+
+Final score = (winRateScore × 0.55) + (roleCoverage × 0.25) + (laneFit × 0.20)
+
+- *Win rate score*: Average win rate across all 5 enemy matchups.
+  Bayesian shrinkage pulls low-sample heroes toward 50%.
+- *Role coverage*: +15 pts per missing role filled (initiator, magic
+  damage, physical damage, tank, wave clear, roamer).
+- *Lane fit*: +10 pts if hero fits an open lane based on their
+  most common role.
+
+** API Rate Limits
+
+OpenDota API allows ~60 req/min for anonymous users. The app fetches
+9 matchup sets (5 enemy + 4 ally) per analysis, well within limits.
+Matchup data is cached in memory for the session — re-analyzing with
+the same heroes uses cached data.
+
+** Entity Relationships
+
+#+begin_src text
+Hero ──┬── HeroMatchup.HeroId       (from API)
+       └── HeroMatchup.OpponentId   (from API)
+
+DraftInput ──┬── AllyTeam (4 Hero IDs)
+             └── EnemyTeam (5 Hero IDs)
+
+DraftScore ──┬── HeroId      (candidate hero)
+             ├── AvgWinRate  (vs all 5 enemies)
+             └── Reasoning[] (human-readable bullets)
+#+end_src
+
+** Implementation Notes
+- All API calls are async — no thread blocking during HTTP requests
+- Race condition demo deliberately introduces a bug for educational purposes
+- Live draft watcher uses CancellationToken for clean shutdown
+- Hero alias list covers ~70 common shorthands — does not include all heroes
+- OpenDota API returns 124+ heroes; the app excludes the 9 already picked
+- Spectre.Console AnsiConsole is thread-safe for live display updates
+- Deadlock demo uses Barrier for guaranteed deadlock interleave (not sleep-dependent)

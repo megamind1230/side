@@ -241,6 +241,8 @@ public static class DeckFileParser
         bool inPage = false;
         bool hasSectionContent = false;
         int pageNum = 1;
+
+        // Scan once to determine two-level (H1→H2 section/page) or flat (H1-only) heading structure
         bool hasH2 = false;
         var h2Marker = isOrg ? "**" : "##";
 
@@ -352,7 +354,7 @@ public static class DeckFileParser
                 continue;
             }
 
-            // Before the first heading, accumulate content as pre-content
+            // Content before the first heading becomes an IsPreHeadingPage (e.g. YAML frontmatter text)
             if (!seenFirstHeading)
             {
                 var isH1 = Regex.IsMatch(line, isOrg ? @"^\*\s+" : @"^[#*]\s+");
@@ -384,6 +386,7 @@ public static class DeckFileParser
             var h1Match = Regex.Match(line, isOrg ? @"^\*\s+(.+)$" : @"^[#*]\s+(.+)$");
             var h2Match = Regex.Match(line, isOrg ? @"^\*\*\s+(.+)$" : @"^(?:##|\*\*)\s+(.+)$");
 
+            // H2 heading: flush previous page, start a new page under the current H1 section
             if (h2Match.Success)
             {
                 string? orphanContent = null;
@@ -427,6 +430,8 @@ public static class DeckFileParser
 
                 currentContent.AppendLine(line);
             }
+
+            // H1 heading: flush pending pages, set new section context. With H2→H1 sections act as heading groups; without H2→H1 is the page title directly
             else if (h1Match.Success)
             {
                 // Flush any pending section-level page first

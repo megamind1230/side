@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NextLearn.Desktop.Models;
 
+/// <summary>Tracks a user's learning progress through a deck.</summary>
 public class UserProgress
 {
     [Key]

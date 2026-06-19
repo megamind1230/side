@@ -1,0 +1,274 @@
+* DONE DotaDraftAdvisor — Implementation Plan
+:PROPERTIES:
+:UPDATED: 2026-06-17 (Phases 4-6 complete, Phase 8 pending)
+:END:
+
+** Legend
+- [ ] not started
+- [x] done
+- [~] in progress
+
+* DONE Phase 1: Project Scaffolding
+
+** 1.1 Create project
+[x] Create DotaDraftAdvisor/ directory with:
+     - DotaDraftAdvisor.csproj (.NET 8.0, console app)
+     - DotaDraftAdvisor.slnx
+[x] Add NuGet packages:
+     - Spectre.Console (rich console output)
+     - Microsoft.Extensions.Http (IHttpClientFactory for API calls)
+     - Microsoft.Extensions.Hosting (for BackgroundWorker lifecycle)
+     - Serilog + Serilog.Sinks.Console + Serilog.Sinks.File (logging)
+[x] Verify solution builds (dotnet build)
+
+** 1.2 Directory structure
+[x] Create folders:
+     - Models/
+     - Services/
+     - Demo/
+[x] Create ~/magnus/DotaDraftAdvisor/logs/ directory
+
+** 1.3 Logging setup
+[x] Configure Serilog in Program.cs to write to:
+     - Console (during development)
+     - File: ~/magnus/DotaDraftAdvisor/logs/app-{Date}.log
+[x] Add Serilog auto-flush on shutdown
+
+* DONE Phase 2: Data Layer — Models & API Client
+
+** 2.1 Models
+[x] Create Models/Hero.cs:
+     - int Id
+     - string Name (internal name, e.g. "npc_dota_hero_antimage")
+     - string LocalizedName (display name, e.g. "Anti-Mage")
+     - string PrimaryAttr ("str" / "agi" / "int" / "all")
+     - string AttackType ("Melee" / "Ranged")
+     - List<string> Roles
+
+[x] Create Models/HeroMatchup.cs:
+     - int HeroId (opponent hero)
+     - int GamesPlayed
+     - int Wins
+     - double WinRate (computed: Wins / GamesPlayed)
+
+[x] Create Models/DraftInput.cs:
+     - int[] AllyTeam (4 hero IDs)
+     - int[] EnemyTeam (5 hero IDs)
+
+[x] Create Models/DraftScore.cs:
+     - int HeroId
+     - double Score (composite 0-100)
+     - double AvgWinRate (vs all 5 enemies)
+     - int TotalGamesAnalyzed
+     - string[] Reasoning bullets
+
+[x] Create Models/LiveMatch.cs:
+     - long MatchId
+     - int GameTime
+     - string TeamNameRadiant
+     - string TeamNameDire
+     - List<LivePlayer> Players (account_id, hero_id, team)
+
+** 2.2 AliasService
+[x] Create Services/AliasService.cs with:
+     - Static dictionary: ~70 common aliases
+       "am"→"Anti-Mage", "pa"→"Phantom Assassin", "sf"→"Shadow Fiend",
+       "lc"→"Legion Commander", "wk"→"Wraith King", "cm"→"Crystal Maiden",
+       "inv"→"Invoker", "voker"→"Invoker", "pudge"→"Pudge",
+       "es"→"Earthshaker", "sk"→"Sand King", "mk"→"Monkey King",
+       "tb"→"Terrorblade", "od"→"Outworld Destroyer",
+       "np"→"Nature's Prophet", "furion"→"Nature's Prophet",
+       "void"→"Faceless Void", "sven"→"Sven",
+       "dk"→"Dragon Knight", "dp"→"Death Prophet", "qop"→"Queen of Pain",
+       "bm"→"Beastmaster", "bb"→"Bristleback", "ck"→"Chaos Knight",
+       "tinker"→"Tinker", "shaker"→"Earthshaker", "naix"→"Lifestealer"
+     - Prefix + substring matching: user types "inv" → matches "Invoker"
+     - Method: Resolve(string input, List<Hero> heroes) → List<int> possible hero IDs
+
+** 2.3 OpenDotaService
+[x] Create Services/OpenDotaService.cs:
+     - Uses IHttpClientFactory (injected via DI)
+     - GET /api/heroes → List<Hero> (full hero list, cached)
+     - GET /api/heroes/{heroId}/matchups → List<HeroMatchup>
+     - Cache heroes list in memory (heroes rarely change)
+     - Add Serilog logging at entry/exit of each method
+     - Handle HTTP errors gracefully (retry 1x, then fall back)
+
+** 2.4 Verify Phase 2
+[x] dotnet build — no errors
+[x] Quick manual test: resolve "pa" → Phantom Assassin ID
+[x] Quick manual test: fetch hero list from OpenDota
+
+* DONE Phase 3: Scoring Engine — TPL & Race Condition
+
+** 3.1 DraftScorer
+[x] Create Services/DraftScorer.cs:
+     - Method: ScoreAsync(DraftInput input) → List<DraftScore>
+     - Filter out already-picked heroes (enemy + ally)
+     - For each candidate hero ~(124 - 9 = 115):
+         * Fetch matchups (already loaded in Phase 2)
+         * Compute avg win rate vs 5 enemies
+         * Apply Bayesian shrinkage: (wins + 50) / (games + 100) → pulls low-sample toward 50%
+         * Role coverage score:
+             - Check which roles are missing in ally team
+             - Bonus if candidate fills a missing role
+         * Lane fit score:
+             - Check which lanes are open
+             - Bonus if candidate's primary role fits an open lane
+     - Weighted final: winRate*0.55 + roleCoverage*0.25 + laneFit*0.20
+     - Normalize to 0-100 scale
+     - Sort descending by score
+
+** 3.2 Race condition demo
+[x] Add RaceConditionSection.cs to Demo/:
+     - First pass (BROKEN):
+         * Use plain Dictionary<int, DraftScore>
+         * Parallel.ForEach adds entries in parallel
+         * No lock on counter → corrupted game count
+         * Detect corruption by counting entries vs expected
+     - Print corrupted results (red/yellow output)
+     - Second pass (FIXED):
+         * Use ConcurrentDictionary<int, DraftScore>
+         * Use Interlocked for aggregate counters
+         * Print correct results (green output)
+     - Explain what happened: "ConcurrentDictionary uses fine-grained
+       locking to allow safe parallel writes."
+
+** 3.3 TPL demonstration
+[x] Use Parallel.ForEach for scoring all candidates
+[x] Use PLINQ for sorting: scores.AsParallel().OrderByDescending(s => s.Score)
+[x] Log: "Scored {count} heroes on {Environment.ProcessorCount} cores in {elapsed}ms"
+[x] Use ThreadPool.QueueUserWorkItem for deep-dive tasks:
+     - For top-5 recommended heroes, queue a task that:
+         * Writes individual analysis to ~/magnus/DotaDraftAdvisor/logs/deepdive-{hero}.txt
+
+* DONE Phase 4: Interactive Console (Spectre.Console)
+
+** 4.1 Main menu
+[x] Create Program.cs entry point with:
+     - Spectre.Console.AnsiConsole.Write(new FigletText("DotaDraftAdvisor"))
+     - Menu options:
+         1. Analyze a draft (manual input)
+         2. Race condition demo
+         3. Live draft watcher
+         4. Deadlock demo
+         5. Exit
+
+** 4.2 Manual draft input
+[x] Interactive prompts for entering teams:
+     - "Enter your team (4 heroes, comma-separated):"
+         * AliasService resolves each name with disambiguation
+         * Shows resolved names for confirmation
+     - "Enter enemy team (5 heroes, comma-separated):"
+         * Same resolution + confirmation
+[x] Validate:
+     - No duplicate heroes within a team
+     - No hero in both teams
+     - Exactly 4 allies, 5 enemies
+
+** 4.3 Candidate table
+[x] Display top-10 results with Spectre.Console Table:
+     - Columns: #, Hero, Score, WinRate, Games, Reasoning
+     - Color rows: green (score≥80), yellow (≥60), red (<60)
+     - Show role coverage analysis with suggestions
+
+** 4.4 Deep-dive detail
+[x] When user selects a hero from the table (enter number):
+     - Show expanded view:
+         * Hero info, role synergy, attack type, primary attr
+         * Top 10 matchups vs all enemies with win rate colored
+         * Full reasoning list
+
+* DONE Phase 5: BackgroundWorker — Live Draft Watcher
+
+** 5.1 LiveDraftWatcher service
+[x] Create Services/LiveDraftWatcher.cs:
+     - RunAsync method with polling loop (30s interval)
+     - Filters matches where game_time < 60 (picking phase)
+     - Also filter for game_mode == 2 (Captain's Mode) or 22 (All Pick)
+     - Read players[].hero_id → treat as partial picks
+     - For each live match in draft phase:
+         * Identify which heroes are picked per team (Radiant=0, Dire=1)
+         * Run DraftScorer on visible picks
+         * Print analysis to console
+
+** 5.2 Display
+[x] Live watcher console output:
+     - Status line: "[Watcher HH:mm:ss] Polling... | Drafts found: {n}"
+     - Match details and recommendations per team
+     - Use CancellationToken for graceful shutdown via ESC key
+
+** 5.3 Integration
+[x] Wire LiveDraftWatcher into Program.cs:
+     - When user selects "Live draft watcher":
+         * Starts the watcher in a background task
+         * Displays live updates via MarkupLine
+         * Waits for Escape key to stop and return to menu
+[x] Log all watcher activity to ~/magnus/DotaDraftAdvisor/logs/watcher-{Date}.log
+     - Added Serilog file sink for watcher-{Date}.log in Program.cs
+
+* DONE Phase 6: Deadlock Demo
+
+** 6.1 DeadlockSection
+[x] Create Demo/DeadlockSection.cs:
+     - Separate run, triggered by menu option or --demo deadlock flag
+     - Scenario:
+         * Thread 1: locks AllyPool → Barrier sync → Sleep(200) → tries EnemyPool
+         * Thread 2: locks EnemyPool → Barrier sync → Sleep(200) → tries AllyPool
+     - Barrier guarantees both threads acquire first lock before either tries second
+     - Use Monitor.TryEnter with 3-second timeout to detect deadlock
+     - Prints deadlock state: "Thread A holds AllyPool, waiting for EnemyPool"
+     - Second pass (FIXED):
+         * Always acquire locks in the same order (AllyPool → EnemyPool)
+         * Both threads complete successfully via Parallel.Invoke
+     - Explain lock ordering principle with console output
+
+* DONE Phase 7: Polish & Logging
+
+** 7.1 Comprehensive logging
+[x] Add Serilog logging to every service:
+     - OpenDotaService: API call start/end, errors, cache hits [x]
+     - DraftScorer: scoring start, candidate count, top-5 results [x]
+     - LiveDraftWatcher: poll cycle, drafts found, analysis results [x]
+     - RaceConditionDemo: before/after state [x]
+     - DeadlockDemo: thread state before/during/after [x]
+
+** 7.2 README.org
+[x] Write app features, structure, tech stack, how-to-use (see README.org)
+
+** 7.3 Bugs.org
+[x] Document known bugs and fixes (see bugs.org)
+
+** 7.4 Plan-todos.org
+[x] Mark all completed items
+[x] Update UPDATED property
+
+* Phase 8: Testing
+
+** 8.1 Unit tests
+- [X] Create test project DotaDraftAdvisor.Tests
+- [X] Add xUnit + FluentAssertions NuGet packages
+- [X] Tests for AliasService:
+  - Resolve("pa") → [44]
+  - Resolve("invoker") → [74]
+  - Resolve("lina") → [25]
+  - Resolve("voker") → [74] (prefix match)
+  - Resolve("unknownhero") → []
+- [X] Tests for DraftScorer (with mock OpenDotaService):
+  - Scoring produces correct ordering
+  - Bayesian shrinkage works for low-sample heroes
+  - Already-picked heroes are excluded
+- [X] Tests for race condition demo:
+  - Broken pass produces wrong count
+  - Fixed pass produces correct count
+- [X] Tests for deadlock demo:
+  - Broken pass times out
+  - Fixed pass completes
+
+** 8.2 Integration tests
+- [X] Test full pipeline: input → API fetch → scoring → output
+- [X] Test with real OpenDota API (1-2 calls, verify hero count)
+- [X] Test live watcher: verify it parses /api/live response correctly
+
+** 8.3 Run tests
+- [X] dotnet test — all pass

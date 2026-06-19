@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="DotaDraftAdvisor.csproj" />
+  <Project Path="..\DotaDraftAdvisor.Tests\DotaDraftAdvisor.Tests.csproj" />
+</Solution>

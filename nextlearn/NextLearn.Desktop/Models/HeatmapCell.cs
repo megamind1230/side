@@ -3,6 +3,7 @@ using System.ComponentModel;
 
 namespace NextLearn.Desktop.Models;
 
+/// <summary>A single cell in the study activity heatmap.</summary>
 public class HeatmapCell : INotifyPropertyChanged
 {
     private int _count;

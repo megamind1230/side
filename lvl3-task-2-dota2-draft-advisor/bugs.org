@@ -1,0 +1,97 @@
+* DotaDraftAdvisor — Bug Tracker
+:PROPERTIES:
+:UPDATED: 2026-06-17 (BUG-002 moved to fixed)
+:END:
+
+** Format
+
+- [ ] #BUG-XXX Description
+  - *Severity*: high / medium / low
+  - *Status*: open / fixed / wontfix
+  - *Found in*: service/component
+  - *Root cause*:
+  - *Fix*:
+
+** Open
+
+- [ ] #BUG-001 Hero alias ambiguity
+  - *Severity*: low
+  - *Status*: open
+  - *Found in*: AliasService
+  - *Root cause*: Some aliases could match multiple heroes.
+    Example: "mk" is commonly used for both Monkey King (id=114)
+    and Mirana (id=9, older players). "void" = Faceless Void (id=41)
+    or Void Spirit (id=126).
+  - *Fix*: When alias resolves to multiple heroes, prompt user to
+    pick from a numbered list. Store the disambiguation choice for
+    the session.
+
+- [x] #BUG-002 Live watcher finds few draft-phase matches
+  - *Severity*: low
+  - *Status*: fixed
+  - *Found in*: LiveDraftWatcher
+  - *Root cause*: OpenDota /api/live returns ~100 live matches but
+    only ~3-5% have game_time == 0 (still in picking phase). Most
+    returned matches are already in-game. Additionally, the endpoint
+    primarily returns public matchmaking, not pro matches.
+  - *Fix*: Widened filter from game_time == 0 to game_time < 60
+    (some matches report small game_time even during draft).
+    Polling kept at 30s to stay within API rate limits.
+
+- [ ] #BUG-003 ConcurrentDictionary enumeration race
+  - *Severity*: low
+  - *Status*: open
+  - *Found in*: DraftScorer
+  - *Root cause*: While ConcurrentDictionary is safe for individual
+    add/update operations, enumerating it while another thread writes
+    may return a snapshot that doesn't include recent writes. This
+    could cause the top-10 list to briefly show stale data.
+  - *Fix*: Only enumerate the dictionary after all parallel work
+    completes (not during). Use Parallel.ForEach with a separate
+    ConcurrentBag<DraftScore> for collection, then merge into
+    dictionary after the parallel loop exits.
+
+- [ ] #BUG-004 Deadlock demo timing-dependent
+  - *Severity*: low
+  - *Status*: open
+  - *Found in*: DeadlockSection
+  - *Root cause*: The deadlock demo uses Thread.Sleep(200) to
+    force a specific thread interleaving. On faster/slower machines,
+    or under CPU load, the timing may not produce the deadlock
+    every time.
+  - *Fix*: Use ManualResetEvent or Barrier to synchronize threads
+    to a known interleave point, guaranteeing deadlock on every run.
+    Example: Thread 1 signals "locked pool A" then waits for
+    Thread 2 to acknowledge "locked pool B" before trying pool B.
+
+** Fixed
+
+- [x] #BUG-005 OpenDotaService missing error handling on network failure
+  - *Severity*: high
+  - *Status*: fixed
+  - *Found in*: OpenDotaService
+  - *Root cause*: Initial implementation had no try/catch around
+    HttpClient calls. Network failure or API downtime would crash
+    the entire app with an unhandled HttpRequestException.
+  - *Fix*: Added try/catch with retry (1 retry after 2s delay).
+    On persistent failure, return empty list and log error.
+    User sees "OpenDota API unavailable — using cached data" instead
+    of a crash.
+
+- [x] #BUG-006 Parallel.ForEach modifies shared variable
+  - *Severity*: high
+  - *Status*: fixed
+  - *Found in*: DraftScorer
+  - *Root cause*: The first scoring pass used a shared int counter
+    (`totalHeroesScored++`) inside Parallel.ForEach without locking
+    or Interlocked. Result: counter was off by 3-7 on each run.
+  - *Fix*: Changed to Interlocked.Increment. Also demonstrated this
+    as the race condition demo (intentionally broken, then fixed).
+
+- [x] #BUG-007 AliasService case sensitivity
+  - *Severity*: low
+  - *Status*: fixed
+  - *Found in*: AliasService
+  - *Root cause*: Dictionary keys were lowercase but user input
+    like "PA" or "Pudge" wasn't normalized to lowercase before lookup.
+  - *Fix*: Added .ToLowerInvariant() on user input before lookup.
