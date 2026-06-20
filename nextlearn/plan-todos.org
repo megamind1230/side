@@ -602,6 +602,7 @@ cycle (missing/corrupt images are skipped).
 `- [ ]`
 `- [-]`
 `- [x]`
+`- [~]`
 Also renders ~TODO~ / ~DONE~ keywords as colored inline spans (green/grey).
 * DONE Breadcrumb styling: bigger font, white, cropped on overflow
 ** What
@@ -1408,4 +1409,46 @@ enables Phase 6 (tests).
 ** Files changed
 - ~~/nextlearn/decks/syntax-highlighting-test.md~
 - ~~/nextlearn/decks/syntax-highlighting-test.org~
+
+* DONE [~] checkbox support
+- ~- [~]~ renders as ~todo-inprogress~ span (amber border, minus sign), same as ~- [-]~
+- Regex expanded: ~^\[( |x|X|-|~)\]\s*~
+- Works in both .md and .org files (shared list renderer)
+
+* DONE Documentation ? icon + F1 shortcut
+- ~?~ Documentation button added to sidebar (between Streak and Settings)
+- ~F1~ key opens documentation in system browser (both Vim and Emacs profiles)
+- Opens ~https://github.com/megamind1230/side/blob/master/nextlearn/README.org~
+- ~OpenDocumentation~ action added to ~KeyboardActionKind~ enum
+
+** Files changed
+- ~Services/KeyboardActionKind.cs~ — added ~OpenDocumentation~ enum value
+- ~Services/KeyBindingService.cs~ — added ~F1~ → ~OpenDocumentation~ binding (Vim + Emacs)
+- ~Views/MainWindow.axaml.cs~ — ~OpenDocumentation~ case in ~HandleKey~
+- ~ViewModels/MainWindowViewModel.cs~ — ~NavigateToDocumentationCommand~ relay command
+- ~Controls/Sidebar.axaml~ — ~?~ Documentation button after Streak
+
+* DONE Copy button on code/quote blocks
+- ~Copy~ button appears on hover over ~<pre>~ and ~<blockquote>~ elements
+- Uses ~document.execCommand('copy')~ for cross-platform WebView compatibility
+- Shows ~Copied!~ feedback for 2 seconds
+- CSS: positioned top-right, hidden by default, revealed on parent hover
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — added ~.copy-btn~ CSS + JS script in ~WrapInHtml~
+
+* DONE Smart code block width
+- ~<pre>~ now uses ~width: max-content; max-width: calc(100vw - 48px)~
+- Short code blocks shrink to content width (no horizontal scrollbar)
+- Long code blocks cap at viewport width and scroll normally
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — ~pre~ CSS rule updated (~width~/~max-width~)
+
+* DONE Study box layout height increased
+- Center grid row proportions changed from ~0.4*,3.5*,0.2*~ to ~0.1*,3.9*,0.1*~
+- Teal content box now uses ~95%~ of available vertical space (was ~85%~)
+
+** Files changed
+- ~Views/MainWindow.axaml~ — ~RowDefinitions~ updated
 

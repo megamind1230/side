@@ -66,6 +66,14 @@
                                 <TextBlock Text="  Streak" FontSize="14" VerticalAlignment="Center"/>
                             </DockPanel>
                         </Button>
+                        <Button Command="{Binding NavigateToDocumentationCommand}"
+                                Background="#334155" Foreground="#E2E8F0" Padding="12,8"
+                                HorizontalAlignment="Stretch">
+                            <DockPanel>
+                                <TextBlock Text="?" FontSize="18" Foreground="#94A3B8" VerticalAlignment="Center" FontWeight="Bold"/>
+                                <TextBlock Text="  Documentation" FontSize="14" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Button>
                     </StackPanel>
                 </DockPanel>
             </Border>

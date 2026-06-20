@@ -496,14 +496,14 @@ public static class HtmlContentBuilder
 
             // Render [ ], [x], or [-] as styled todo-checkbox spans
             var checkboxHtml = string.Empty;
-            var cbMatch = Regex.Match(content, @"^\[( |x|X|-)\]\s*");
+            var cbMatch = Regex.Match(content, @"^\[( |x|X|-|~)\]\s*");
             if (cbMatch.Success)
             {
                 checkboxHtml = cbMatch.Groups[1].Value switch
                 {
                     " " => "<span class=\"todo-unchecked\"></span>",
                     "x" or "X" => "<span class=\"todo-checked\"></span>",
-                    "-" => "<span class=\"todo-inprogress\"></span>",
+                    "-" or "~" => "<span class=\"todo-inprogress\"></span>",
                     _ => string.Empty,
                 };
                 content = content.Substring(cbMatch.Length);
@@ -650,7 +650,7 @@ public static class HtmlContentBuilder
     private static string WrapInHtml(string bodyContent, string? fontFamily = null)
     {
         fontFamily ??= "Inter";
-        return $$"""
+        return $$$"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -661,7 +661,7 @@ public static class HtmlContentBuilder
     html { overflow-x: auto; }
     ::selection { background: #2563EB; color: #FFFFFF; }
     body {
-        font-family: '{{fontFamily}}', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: '{{{fontFamily}}}', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 16px; line-height: 1.7;
         color: #E2E8F0; background: #1E293B;
         padding: 24px; max-width: none; min-width: calc(100vw + 200px); overflow-x: auto;
@@ -683,7 +683,7 @@ public static class HtmlContentBuilder
     em { font-style: italic; color: #CBD5E1; }
     ul, ol { margin: 0 0 12px 0; padding-left: 24px; }
     li { margin: 4px 0; }
-    pre { background: #282C34; border-radius: 8px; padding: 16px; overflow-x: auto; margin: 0 0 12px 0; white-space: pre; }
+    pre { background: #282C34; border-radius: 8px; padding: 16px; overflow-x: auto; margin: 0 0 12px 0; white-space: pre; position: relative; width: max-content; max-width: calc(100vw - 48px); }
     pre code { background: none; color: #ABB2BF; padding: 0; border-radius: 0; }
     table { border-collapse: collapse; width: 100%; margin: 0 0 12px 0; }
     th, td { border: 1px solid #475569; padding: 8px 12px; text-align: left; }
@@ -711,19 +711,33 @@ public static class HtmlContentBuilder
         background: #334155;
         border-radius: 0 4px 4px 0;
         font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+        position: relative;
     }
     blockquote p {
         margin: 0 0 4px 0;
     }
+    .copy-btn {
+        position: absolute; top: 8px; right: 8px;
+        background: #475569; color: #E2E8F0; border: none;
+        border-radius: 4px; padding: 4px 8px; font-size: 12px;
+        cursor: pointer; opacity: 0; line-height: 1;
+        transition: opacity 0.2s; z-index: 10;
+    }
+    blockquote .copy-btn { top: 4px; right: 4px; }
+    pre:hover .copy-btn, blockquote:hover .copy-btn,
+    pre.org-block:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: #64748B; }
+    .copy-btn.copied { background: #10B981; }
     <!--HIGHLIGHT_CSS-->
 </style>
 </head>
 <body>
-{{bodyContent}}
+{{{bodyContent}}}
 <script>/* HIGHLIGHT_JS */</script>
 <script>hljs.highlightAll();</script>
 <script>(function(){var kr=document.createElement('iframe');kr.style.cssText='display:none!important;width:0!important;height:0!important;border:none!important;position:fixed!important';document.body.appendChild(kr);document.addEventListener('keydown',function(e){var k=e.key,m='',h=false;if(e.ctrlKey)m+='C';if(e.shiftKey)m+='S';if(e.altKey)m+='A';switch(k){case'n':case'N':case'p':case'P':case'j':case'J':case'k':case'K':case'h':case'H':case'l':case'L':case'q':case'Q':case'd':case'D':case'e':case'E':case'i':case'I':case'g':case'G':case'Escape':case'?':case'/':case'Enter':h=true;break;case',':case'=':case'-':case'+':case'_':case'0':case')':if(e.ctrlKey)h=true;break;}if(!h)return;e.preventDefault();e.stopPropagation();kr.src='http://key.local/'+encodeURIComponent(k)+'/'+m+'/'+Date.now();},true);})();</script>
 <script>(function(){var lr=document.createElement('iframe');lr.style.cssText='display:none!important;width:0!important;height:0!important;border:none!important;position:fixed!important';document.body.appendChild(lr);document.addEventListener('click',function(e){var t=e.target.closest('a');if(!t)return;var h=t.getAttribute('data-href');if(!h)return;e.preventDefault();e.stopPropagation();lr.src='http://openurl.local/'+encodeURIComponent(h)+'/'+Date.now();},true);})();</script>
+<script>(function(){var e=document.querySelectorAll('pre,blockquote');for(var i=0;i<e.length;i++){var p=e[i];var c=document.createElement('button');c.className='copy-btn';c.textContent='Copy';c.addEventListener('click',function(el,btn){return function(){var t='';if(el.tagName==='PRE'){t=el.textContent}else{var ps=el.querySelectorAll('p');for(var j=0;j<ps.length;j++){t+=ps[j].textContent+'\n'}}var ta=document.createElement('textarea');ta.value=t.trim();ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.textContent='Copied!';btn.classList.add('copied');setTimeout(function(){btn.textContent='Copy';btn.classList.remove('copied')},2000)}}(p,c));p.appendChild(c)}})();</script>
 </body>
 </html>
 """;

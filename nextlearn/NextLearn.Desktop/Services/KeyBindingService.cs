@@ -420,6 +420,7 @@ bindings:
             G(null, KeyboardActionKind.ResetTextZoom, "NumPad0", "Control+Shift", "Reset text zoom (also heatmap reset)", true),
             G(null, KeyboardActionKind.OpenSettings, "OemComma", "Control", "Open settings (Ctrl+,)", true),
             G(null, KeyboardActionKind.ToggleShortcutsHandbook, "Oem2", "Shift", "Toggle shortcuts handbook (? or Shift+/)"),
+            G(null, KeyboardActionKind.OpenDocumentation, "F1", string.Empty, "Open documentation"),
         };
     }
 
@@ -462,6 +463,7 @@ bindings:
             G(null, KeyboardActionKind.ResetTextZoom, "NumPad0", "Control+Shift", "Reset text zoom (also heatmap reset)", true),
             G(null, KeyboardActionKind.OpenSettings, "C", "Control", "Open settings (C-c)", true),
             G(null, KeyboardActionKind.ToggleShortcutsHandbook, "H", "Control", "Toggle shortcuts handbook", true),
+            G(null, KeyboardActionKind.OpenDocumentation, "F1", string.Empty, "Open documentation"),
         };
     }
 }

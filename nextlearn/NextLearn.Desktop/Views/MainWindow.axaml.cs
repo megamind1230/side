@@ -526,6 +526,11 @@ public partial class MainWindow : Window
                 FocusManager?.ClearFocus();
                 return true;
 
+            // F1 — open documentation
+            case KeyboardActionKind.OpenDocumentation:
+                OpenInBrowser("https://github.com/megamind1230/side/blob/master/nextlearn/README.org");
+                return true;
+
             default:
                 return false;
         }

@@ -69,6 +69,10 @@ is a separate project.
 | Quote blocks (> syntax)         | ✅ Done    | Renders `>` lines as <blockquote> in md and org                                    |
 | Org block rendering (#+BEGIN_*) | ✅ Done    | #+BEGIN_QUOTE etc → monospace pre with dark bg                                     |
 | Falcon Eye (built-in TOC)       | ✅ Done    | 🦅 Sidebar toggle → TOC page at start of each deck, persisted in settings.yaml     |
+| Todo checkboxes ([ ], [x], [-], [~]) | ✅ Done | Colored spans: unchecked (empty box), checked (green ✓), in-progress (amber −) |
+| Documentation ? icon            | ✅ Done    | Sidebar button + F1 shortcut → opens GitHub README in browser                       |
+| Copy button on code/quote blocks | ✅ Done    | Hover to copy code/quote content to clipboard, cross-platform                        |
+| Smart code block width          | ✅ Done    | Short code shrink-wraps; long code scrolls at viewport cap                           |
 
 * Tech Stack
 
@@ -222,6 +226,8 @@ Content
 | Ctrl+Shift+= | Heatmap open   | Heatmap zoom in                        |
 | Ctrl+Shift+- | Heatmap open   | Heatmap zoom out                       |
 | 🔥 Streak    | Home / Sidebar | Open heatmap overlay                   |
+| F1           | Global         | Open documentation in browser           |
+| ? (Sidebar)  | Home           | Open documentation in browser           |
 
 * How to Use
 
@@ -266,6 +272,7 @@ Every link and image syntax variant and how the app handles each:
 | ~https://bare.url~                  | Link    | ~<a data-href="url">url</a>~        | Auto-linked in both md & org      |
 | ~\`[text](url)\`~                  | Code    | ~<code>[text](url)</code>~          | Protected by code span extraction |
 | ~- [x] Done~ / ~TODO~ / ~DONE~    | Meta    | Colored spans                       | Checkboxes + inline keywords      |
+| ~- [~] In progress~ / ~- [-] Doing~ | Meta | Amber in-progress span           | Amber border + minus sign          |
 
 ** Org (.org) syntax
 
@@ -587,6 +594,7 @@ Available ~action~ values:
 - ~ScrollDeckListDown~ / ~ScrollDeckListUp~ — scroll the deck list
 - ~ToggleShortcutsHandbook~ — show/hide this handbook
 - ~OpenGoToPage~ — jump to a page number during study
+- ~OpenDocumentation~ — open GitHub README in browser
 - ~ZoomHeatmapIn~ / ~ZoomHeatmapOut~ / ~ZoomHeatmapReset~ — heatmap zoom
 
 The following are handled internally and are not configurable:

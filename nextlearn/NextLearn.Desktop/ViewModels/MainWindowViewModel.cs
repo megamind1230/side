@@ -89,11 +89,6 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string _font = string.Empty;
 
-    partial void OnFontChanged(string value)
-    {
-        FontChanged?.Invoke(string.IsNullOrWhiteSpace(value) ? "Inter" : value);
-    }
-
     [ObservableProperty]
     private string _decksPath = string.Empty;
 
@@ -388,6 +383,9 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         ClearStatusAfterDelay();
+
+        var resolvedFont = string.IsNullOrWhiteSpace(Font) ? "Inter" : Font;
+        FontChanged?.Invoke(resolvedFont);
     }
 
     [RelayCommand]
@@ -544,6 +542,14 @@ public partial class MainWindowViewModel : ViewModelBase
     public async Task ExitLearningAsync()
     {
         await NavigateToHomeAsync();
+    }
+
+    [RelayCommand]
+#pragma warning disable CA1822
+    public void NavigateToDocumentation()
+#pragma warning restore CA1822
+    {
+        Views.MainWindow.OpenInBrowser("https://github.com/megamind1230/side/blob/master/nextlearn/README.org");
     }
 
     [RelayCommand]
