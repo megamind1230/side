@@ -16,63 +16,63 @@ is a separate project.
 
 * Features
 
-| Feature                         | Status     | Note                                                                               |
-|---------------------------------+------------+------------------------------------------------------------------------------------|
-| Fully offline                   | ✅ Done    | No network calls ever                                                              |
-| File-based decks (.md / .org)   | ✅ Done    | YAML frontmatter + `#` / `##` headings                                             |
-| Frontmatter metadata            | ✅ Done    | ~title:~, ~description:~, ~tags:~ in --- block                                     |
-| Org #+TITLE:/#+DESCRIPTION:     | ✅ Done    | ~#+TITLE:~ / ~#+DESCRIPTION:~ / ~#+TAGS:~ in .org                                  |
-| Tag system from frontmatter     | ✅ Done    | ~tags: health, morning, sleep~                                                     |
-| #tag search (incremental)       | ✅ Done    | ~#st~ matches ~study~ (prefix match)                                               |
-| Regex search toggle             | ✅ Done    | ☐ Regex checkbox switches title/desc/name + tags to regex                         |
-| Search by title/desc/filename   | ✅ Done    | Plain text tokens search all three                                                 |
-| Page-by-page learning           | ✅ Done    | Prev/Next with keyboard shortcuts                                                  |
-| Section breadcrumb              | ✅ Done    | Shows ~# Section → ## Page~ with heading markers                                   |
-| Rendered markdown content       | ✅ Done    | NativeWebView (HTML rendering via data URI)                                        |
-| Code syntax highlighting        | ✅ Done    | highlight.js embedded, 52 langs w/ alias support                                   |
-| Table rendering (pipe tables)   | ✅ Done    | Markdown + Org table syntax → HTML <table>                                         |
-| .org file headings (~~** ~~)    | ✅ Done    | Parser regex matches ~*~/~~~** ~~ and ~#~/~~~## ~~                                 |
-| .org code blocks (#+BEGIN_SRC)  | ✅ Done    | ~#+BEGIN_SRC lang~ / ~#+END_SRC~ → <pre><code>                                     |
-| Inline code protection          | ✅ Done    | ~[text](url)~ inside backticks renders literally                                   |
-| Code-block-aware page splits    | ✅ Done    | ~#~ inside code blocks don't trigger page breaks                                   |
-| Deterministic deck identity     | ✅ Done    | SHA256 of file path → stable GUID                                                  |
-| Dark mode theming               | ✅ Done    | #1E293B cards, amber Name: line                                                    |
-| Selection color                 | ✅ Done    | Blue bg (#2563EB) + white text in WebView                                          |
-| vim-style j/k scroll            | ✅ Done    | J/K scrolls home deck list, study box content                                      |
-| h/l horizontal scroll           | ✅ Done    | H/L scrolls study box content left/right                                           |
-| Inline search (no popup)        | ✅ Done    | `/` focuses bar, Esc unfocuses                                                     |
-| Sidebar (☰ → settings, info)    | ✅ Done    | Backdrop click + Esc to close                                                      |
-| Settings overlay page           | ✅ Done    | ⚙ in sidebar, placeholder content                                                 |
-| Marketplace                     | ✅ Done    | Opens ~https://google.com~ in browser                                              |
-| Get Plugins                     | ✅ Done    | Opens ~https://github.com/megamind1230~ in browser                                 |
-| Stable progress across restarts | ✅ Done    | DeckFileIdentity + DeckService save                                                |
-| Auto-refresh on file change     | ✅ Done    | FileSystemWatcher watches decks dir                                                |
-| Streak tracking & daily log     | ✅ Done    | Wall-clock minutes, daily activity                                                 |
-| Heatmap overlay (full-page)     | ✅ Done    | Snake layout 90° CCW, 6-level orange, green today                                  |
-| Keyboard shortcuts              | ✅ Done    | N/P/J/K/H/L/Q/D/E//Esc (see table below)                                           |
-| Settings (sidebar → ⚙)         | ✅ Done    | Theme, font, decks path, save/reset                                                |
-| Theme switching                 | 🚧 Plugin  | Will be extracted (Dark/Light)                                                     |
-| Tag cloud / tag filter          | ❌ Not yet | Planned (P27)                                                                      |
-| Image/video content types       | ❌ Not yet | Models exist, UI missing                                                           |
-| Spaced repetition algorithm     | ❌ Not yet | Basic 24h review only                                                              |
-| Image rendering (markdown)      | ✅ Done    | ~![]()~ and ~![[path]]~ → inline image in WebView                                  |
-| Go to page (Ctrl+G)             | ✅ Done    | Jump to any page by number during study                                            |
-| Text zoom (Ctrl+Shift++/_)      | ✅ Done    | Font-only zoom, keeps component layout                                             |
-| Image rendering (org)           | ✅ Done    | ~![[file:path]]~ / ~![[file:path][alt]]~                                           |
-| Image overlay toolbar           | ✅ Done    | ◀▶ nav, zoom slider, invert, open in viewer                                        |
-| Archive / Pin decks             | ✅ Done    | Rename-based: ~.md~~ / ~+.md~, stable progress IDs; "Learn" button on pinned cards |
-| Open decks folder               | ✅ Done    | File manager fallback (17 binaries) → xdg-open                                     |
-| Clickable links (http/https)    | ✅ Done    | ~[text](url)~ / ~[[url]]~ / ~[[url][text]]~ → <a>                                  |
-| Bare URL auto-linking           | ✅ Done    | ~https://...~ auto-linked in both .md and .org                                     |
-| Non-http URLs shown as-is       | ✅ Done    | ~[text](local/path)~ → raw text, not broken link                                   |
-| Org [[...]] placeholder protect     | ✅ Done    | Prevents italic regex from corrupting file paths                                   |
-| Quote blocks (> syntax)         | ✅ Done    | Renders `>` lines as <blockquote> in md and org                                    |
-| Org block rendering (#+BEGIN_*) | ✅ Done    | #+BEGIN_QUOTE etc → monospace pre with dark bg                                     |
-| Falcon Eye (built-in TOC)       | ✅ Done    | 🦅 Sidebar toggle → TOC page at start of each deck, persisted in settings.yaml     |
-| Todo checkboxes ([ ], [x], [-], [~]) | ✅ Done | Colored spans: unchecked (empty box), checked (green ✓), in-progress (amber −) |
-| Documentation ? icon            | ✅ Done    | Sidebar button + F1 shortcut → opens GitHub README in browser                       |
-| Copy button on code/quote blocks | ✅ Done    | Hover to copy code/quote content to clipboard, cross-platform                        |
-| Smart code block width          | ✅ Done    | Short code shrink-wraps; long code scrolls at viewport cap                           |
+| Feature                              | Status     | Note                                                                               |
+|--------------------------------------+------------+------------------------------------------------------------------------------------|
+| Fully offline                        | ✅ Done    | No network calls ever                                                              |
+| File-based decks (.md / .org)        | ✅ Done    | YAML frontmatter + `#` / `##` headings                                             |
+| Frontmatter metadata                 | ✅ Done    | ~title:~, ~description:~, ~tags:~ in --- block                                     |
+| Org #+TITLE:/#+DESCRIPTION:          | ✅ Done    | ~#+TITLE:~ / ~#+DESCRIPTION:~ / ~#+TAGS:~ in .org                                  |
+| Tag system from frontmatter          | ✅ Done    | ~tags: health, morning, sleep~                                                     |
+| #tag search (incremental)            | ✅ Done    | ~#st~ matches ~study~ (prefix match)                                               |
+| Regex search toggle                  | ✅ Done    | ☐ Regex checkbox switches title/desc/name + tags to regex                         |
+| Search by title/desc/filename        | ✅ Done    | Plain text tokens search all three                                                 |
+| Page-by-page learning                | ✅ Done    | Prev/Next with keyboard shortcuts                                                  |
+| Section breadcrumb                   | ✅ Done    | Shows ~# Section → ## Page~ with heading markers                                   |
+| Rendered markdown content            | ✅ Done    | NativeWebView (HTML rendering via data URI)                                        |
+| Code syntax highlighting             | ✅ Done    | highlight.js embedded, 52 langs w/ alias support                                   |
+| Table rendering (pipe tables)        | ✅ Done    | Markdown + Org table syntax → HTML <table>                                         |
+| .org file headings (~~** ~~)         | ✅ Done    | Parser regex matches ~*~/~~~** ~~ and ~#~/~~~## ~~                                 |
+| .org code blocks (#+BEGIN_SRC)       | ✅ Done    | ~#+BEGIN_SRC lang~ / ~#+END_SRC~ → <pre><code>                                     |
+| Inline code protection               | ✅ Done    | ~[text](url)~ inside backticks renders literally                                   |
+| Code-block-aware page splits         | ✅ Done    | ~#~ inside code blocks don't trigger page breaks                                   |
+| Deterministic deck identity          | ✅ Done    | SHA256 of file path → stable GUID                                                  |
+| Dark mode theming                    | ✅ Done    | #1E293B cards, amber Name: line                                                    |
+| Selection color                      | ✅ Done    | Blue bg (#2563EB) + white text in WebView                                          |
+| vim-style j/k scroll                 | ✅ Done    | J/K scrolls home deck list, study box content                                      |
+| h/l horizontal scroll                | ✅ Done    | H/L scrolls study box content left/right                                           |
+| Inline search (no popup)             | ✅ Done    | `/` focuses bar, Esc unfocuses                                                     |
+| Sidebar (☰ → settings, info)         | ✅ Done    | Backdrop click + Esc to close                                                      |
+| Settings overlay page                | ✅ Done    | ⚙ in sidebar, placeholder content                                                 |
+| Marketplace                          | ✅ Done    | Opens ~https://google.com~ in browser                                              |
+| Get Plugins                          | ✅ Done    | Opens ~https://github.com/megamind1230~ in browser                                 |
+| Stable progress across restarts      | ✅ Done    | DeckFileIdentity + DeckService save                                                |
+| Auto-refresh on file change          | ✅ Done    | FileSystemWatcher watches decks dir                                                |
+| Streak tracking & daily log          | ✅ Done    | Wall-clock minutes, daily activity                                                 |
+| Heatmap overlay (full-page)          | ✅ Done    | Snake layout 90° CCW, 6-level orange, green today                                  |
+| Keyboard shortcuts                   | ✅ Done    | N/P/J/K/H/L/Q/D/E//Esc (see table below)                                           |
+| Settings (sidebar → ⚙)              | ✅ Done    | Theme, font, decks path, save/reset                                                |
+| Theme switching                      | 🚧 Plugin  | Will be extracted (Dark/Light)                                                     |
+| Tag cloud / tag filter               | ❌ Not yet | Planned (P27)                                                                      |
+| Image/video content types            | ❌ Not yet | Models exist, UI missing                                                           |
+| Spaced repetition algorithm          | ❌ Not yet | Basic 24h review only                                                              |
+| Image rendering (markdown)           | ✅ Done    | ~![]()~ and ~![[path]]~ → inline image in WebView                                  |
+| Go to page (Ctrl+G)                  | ✅ Done    | Jump to any page by number during study                                            |
+| Text zoom (Ctrl+Shift++/_)           | ✅ Done    | Font-only zoom, keeps component layout                                             |
+| Image rendering (org)                | ✅ Done    | ~![[file:path]]~ / ~![[file:path][alt]]~                                           |
+| Image overlay toolbar                | ✅ Done    | ◀▶ nav, zoom slider, invert, open in viewer                                        |
+| Archive / Pin decks                  | ✅ Done    | Rename-based: ~.md~~ / ~+.md~, stable progress IDs; "Learn" button on pinned cards |
+| Open decks folder                    | ✅ Done    | File manager fallback (17 binaries) → xdg-open                                     |
+| Clickable links (http/https)         | ✅ Done    | ~[text](url)~ / ~[[url]]~ / ~[[url][text]]~ → <a>                                  |
+| Bare URL auto-linking                | ✅ Done    | ~https://...~ auto-linked in both .md and .org                                     |
+| Non-http URLs shown as-is            | ✅ Done    | ~[text](local/path)~ → raw text, not broken link                                   |
+| Org [[...]] placeholder protect          | ✅ Done    | Prevents italic regex from corrupting file paths                                   |
+| Quote blocks (> syntax)              | ✅ Done    | Renders `>` lines as <blockquote> in md and org                                    |
+| Org block rendering (#+BEGIN_*)      | ✅ Done    | #+BEGIN_QUOTE etc → monospace pre with dark bg                                     |
+| Falcon Eye (built-in TOC)            | ✅ Done    | 🦅 Sidebar toggle → TOC page at start of each deck, persisted in settings.yaml     |
+| Todo checkboxes ([ ], [x], [-], [~]) | ✅ Done    | Colored spans: unchecked (empty box), checked (green ✓), in-progress (amber −)    |
+| Documentation ? icon                 | ✅ Done    | Sidebar button + F1 shortcut → opens GitHub README in browser                      |
+| Copy button on code/quote blocks     | ✅ Done    | Hover to copy code/quote content to clipboard, cross-platform                      |
+| Smart code block width               | ✅ Done    | Short code shrink-wraps; long code scrolls at viewport cap                         |
 
 * Tech Stack
 
@@ -122,18 +122,18 @@ Phase 5 of the clean code initiative is complete:
 
 ** Key Services
 
-| Service             | Role                                        |
-|---------------------+---------------------------------------------|
-| DeckFileParser      | Static parser: frontmatter + heading → Deck |
-| DeckFileIdentity    | SHA256 of path → deterministic GUID         |
-| DeckService         | DB layer: decks, pages, progress tracking   |
-| DeckFileService     | File ops: archive/pin/rename decks          |
-| UserService         | Current user, daily activity, streak (computed from study minutes) |
-| SettingsService     | Persists theme/font/paths to ~.yaml~        |
-| HtmlContentBuilder  | Static HTML builder from Page model         |
-| FalconEyeBuilder    | Generates table-of-contents HTML from Deck   |
-| MarkdownInlineRenderer | Strategy for .md inline rendering        |
-| OrgInlineRenderer   | Strategy for .org inline rendering          |
+| Service                | Role                                                               |
+|------------------------+--------------------------------------------------------------------|
+| DeckFileParser         | Static parser: frontmatter + heading → Deck                        |
+| DeckFileIdentity       | SHA256 of path → deterministic GUID                                |
+| DeckService            | DB layer: decks, pages, progress tracking                          |
+| DeckFileService        | File ops: archive/pin/rename decks                                 |
+| UserService            | Current user, daily activity, streak (computed from study minutes) |
+| SettingsService        | Persists theme/font/paths to ~.yaml~                               |
+| HtmlContentBuilder     | Static HTML builder from Page model                                |
+| FalconEyeBuilder       | Generates table-of-contents HTML from Deck                         |
+| MarkdownInlineRenderer | Strategy for .md inline rendering                                  |
+| OrgInlineRenderer      | Strategy for .org inline rendering                                 |
 
 * Deck File Format
 
@@ -142,33 +142,33 @@ The parser reads YAML frontmatter and section headings:
 
 ** With frontmatter (recommended)
 
-#+BEGIN_SRC markdown
----
-title: Wake Up Properly
-description: Fix morning face puffiness with these simple changes.
-tags: health, morning, sleep, face, self-care
----
+#+BEGIN_SRC text
+    ---
+    title: Wake Up Properly
+    description: Fix morning face puffiness with these simple changes.
+    tags: health, morning, sleep, face, self-care
+    ---
 
-# Section Title
-Content here...
+    # Section Title
+    Content here...
 
-## Page Title
-Page content here...
+    ## Page Title
+    Page content here...
 
-## Another Page
-More content...
+    ## Another Page
+    More content...
 #+END_SRC
 
 ** .org file metadata
 
-#+BEGIN_SRC org
-#+TITLE: My Deck
-#+DESCRIPTION: Description text here.
-#+TAGS: tag1, tag2
+#+BEGIN_SRC text
+    #+TITLE: My Deck
+    #+DESCRIPTION: Description text here.
+    #+TAGS: tag1, tag2
 
-* Section
-** Page One
-Content
+    * Section
+    ** Page One
+    Content
 #+END_SRC
 
 When metadata is absent, the study page header falls back to the
@@ -192,7 +192,7 @@ Content
 - `# Section` → sets section context (shown in breadcrumb: ~DeckTitle → Section~)
 - `## Page` → creates a page with ~SectionTitle~ from nearest parent `#`
 - No `##` headings → `#` headings become pages directly (legacy)
-
+    
 * Keyboard Shortcuts
 
 | Key          | Context        | Action                                 |
@@ -226,25 +226,25 @@ Content
 | Ctrl+Shift+= | Heatmap open   | Heatmap zoom in                        |
 | Ctrl+Shift+- | Heatmap open   | Heatmap zoom out                       |
 | 🔥 Streak    | Home / Sidebar | Open heatmap overlay                   |
-| F1           | Global         | Open documentation in browser           |
-| ? (Sidebar)  | Home           | Open documentation in browser           |
+| F1           | Global         | Open documentation in browser          |
+| ? (Sidebar)  | Home           | Open documentation in browser          |
 
 * How to Use
 
 1. Create a ~.md~ file in ~~/nextlearn/decks/~ with YAML frontmatter:
    #+BEGIN_SRC markdown
-   ---
-   title: My Deck
-   description: What this deck is about
-   tags: topic1, topic2, keyword
-   ---
+     ---
+     title: My Deck
+     description: What this deck is about
+     tags: topic1, topic2, keyword
+     ---
    #+END_SRC
 
 2. Add sections and pages:
    #+BEGIN_SRC markdown
-   # Section Name
-   ## Page One
-   Content for this page...
+     # Section Name
+     ## Page One
+     Content for this page...
    #+END_SRC
 
 3. Run the app — decks appear on the home view
@@ -259,80 +259,81 @@ Every link and image syntax variant and how the app handles each:
 
 ** Markdown (.md) syntax
 
-| Syntax                              | Type    | Renders as                          | Rule                              |
-|-------------------------------------+---------+-------------------------------------+-----------------------------------|
-| ~[text](http://url)~                | Link    | ~<a data-href="url">text</a>~       | http/https only                   |
-| ~[text](local/path)~               | Link    | ~[text](local/path)~ (raw text)     | Non-http → as-is                  |
-| ~[[http://url]]~                    | Link    | ~<a data-href="url">url</a>~        | Wiki-style, http/https only       |
-| ~[[local/text]]~                   | Link    | ~[[local/text]]~ (raw text)         | Non-http → as-is                  |
-| ~![alt](img.png)~                   | Image   | ~<img class="inline-image">~        | Always renders image              |
-| ~![alt](img.png "title")~          | Image   | ~<img>~ (title stripped)            | Title via ~""~ or ~&quot;~        |
-| ~![[path]]~                         | Image   | ~<img class="inline-image">~        | Obsidian-style image              |
-| ~[![alt](img.png)](url)~           | Mixed   | ~<img>~ inner, outer raw            | Link regex skips ~[...](~         |
-| ~https://bare.url~                  | Link    | ~<a data-href="url">url</a>~        | Auto-linked in both md & org      |
-| ~\`[text](url)\`~                  | Code    | ~<code>[text](url)</code>~          | Protected by code span extraction |
-| ~- [x] Done~ / ~TODO~ / ~DONE~    | Meta    | Colored spans                       | Checkboxes + inline keywords      |
-| ~- [~] In progress~ / ~- [-] Doing~ | Meta | Amber in-progress span           | Amber border + minus sign          |
+| Syntax                              | Type  | Renders as                      | Rule                              |
+|-------------------------------------+-------+---------------------------------+-----------------------------------|
+| ~[text](http://url)~                | Link  | ~<a data-href="url">text</a>~   | http/https only                   |
+| ~[text](local/path)~                | Link  | ~[text](local/path)~ (raw text) | Non-http → as-is                  |
+| ~[[http://url]]~                    | Link  | ~<a data-href="url">url</a>~    | Wiki-style, http/https only       |
+| ~[[local/text]]~                    | Link  | ~[[local/text]]~ (raw text)     | Non-http → as-is                  |
+| ~![alt](img.png)~                   | Image | ~<img class="inline-image">~    | Always renders image              |
+| ~![alt](img.png "title")~           | Image | ~<img>~ (title stripped)        | Title via ~""~ or ~&quot;~        |
+| ~![[path]]~                         | Image | ~<img class="inline-image">~    | Obsidian-style image              |
+| ~[![alt](img.png)](url)~            | Mixed | ~<img>~ inner, outer raw        | Link regex skips ~[...](~         |
+| ~https://bare.url~                  | Link  | ~<a data-href="url">url</a>~    | Auto-linked in both md & org      |
+| ~\`[text](url)\`~                   | Code  | ~<code>[text](url)</code>~      | Protected by code span extraction |
+| ~- [x] Done~ / ~TODO~ / ~DONE~      | Meta  | Colored spans                   | Checkboxes + inline keywords      |
+| ~- [~] In progress~ / ~- [-] Doing~ | Meta  | Amber in-progress span          | Amber border + minus sign         |
 
 ** Org (.org) syntax
 
-| Syntax                                | Type    | Renders as                          | Rule                              |
-|---------------------------------------+---------+-------------------------------------+-----------------------------------|
-| ~[[http://url][text]]~                | Link    | ~<a data-href="url">text</a>~       | http/https only                   |
-| ~[[http://url]]~                      | Link    | ~<a data-href="url">url</a>~        | http/https only                   |
-| ~[[file:path][alt]]~                  | Text    | ~[[file:path][alt]]~ (raw text)     | No ~!~ → as-is                    |
-| ~[[file:path]]~                       | Text    | ~[[file:path]]~ (raw text)          | No ~!~ → as-is                    |
-| ~[[local/target][text]]~             | Text    | ~[[local/target][text]]~ (raw)      | Non-http → as-is with brackets    |
-| ~[[local/target]]~                    | Text    | ~[[local/target]]~ (raw)            | Non-http → as-is with brackets    |
-| ~![[http://url][text]]~              | Link    | ~<a data-href="url">text</a>~       | http overrides ~!~                |
-| ~![[http://url]]~                     | Link    | ~<a data-href="url">url</a>~        | http overrides ~!~                |
-| ~![[file:path][alt]]~                | Image   | ~<img class="inline-image">~        | Strip ~file:~, alt preserved      |
-| ~![[file:path]]~                      | Image   | ~<img class="inline-image">~        | Strip ~file:~, no alt             |
-| ~![[path][alt]]~                      | Image   | ~<img class="inline-image">~        | No ~file:~, path used directly    |
-| ~![[path]]~                           | Image   | ~<img class="inline-image">~        | No ~file:~, path used directly    |
-| ~[](img.png)~                         | Image   | ~<img>~                             | Markdown-style image (same as md) |
-| ~[text](http://url)~                  | Link    | ~<a>~                               | Markdown-style link (same as md)  |
-| ~[text](local/path)~                 | Link    | ~[text](local/path)~ (raw text)     | Non-http → as-is                  |
-| ~/italic/~ / ~*bold*~ / ~~code~~    | Format  | ~<em>~ / ~<strong>~ / ~<code>~     | Inline formatting                 |
-| ~[[...]]~ / ~![[...]]~ in path       | Protect | Placeholder before formatting       | Prevents / italic path corruption |
-| ~https://bare.url~                    | Link    | ~<a data-href="url">url</a>~        | Auto-linked                       |
+| Syntax                           | Type    | Renders as                      | Rule                              |
+|----------------------------------+---------+---------------------------------+-----------------------------------|
+| ~[[http://url][text]]~           | Link    | ~<a data-href="url">text</a>~   | http/https only                   |
+| ~[[http://url]]~                 | Link    | ~<a data-href="url">url</a>~    | http/https only                   |
+| ~[[file:path][alt]]~             | Text    | ~[[file:path][alt]]~ (raw text) | No ~!~ → as-is                    |
+| ~[[file:path]]~                  | Text    | ~[[file:path]]~ (raw text)      | No ~!~ → as-is                    |
+| ~[[local/target][text]]~         | Text    | ~[[local/target][text]]~ (raw)  | Non-http → as-is with brackets    |
+| ~[[local/target]]~               | Text    | ~[[local/target]]~ (raw)        | Non-http → as-is with brackets    |
+| ~![[http://url][text]]~          | Link    | ~<a data-href="url">text</a>~   | http overrides ~!~                |
+| ~![[http://url]]~                | Link    | ~<a data-href="url">url</a>~    | http overrides ~!~                |
+| ~![[file:path][alt]]~            | Image   | ~<img class="inline-image">~    | Strip ~file:~, alt preserved      |
+| ~![[file:path]]~                 | Image   | ~<img class="inline-image">~    | Strip ~file:~, no alt             |
+| ~![[path][alt]]~                 | Image   | ~<img class="inline-image">~    | No ~file:~, path used directly    |
+| ~![[path]]~                      | Image   | ~<img class="inline-image">~    | No ~file:~, path used directly    |
+| ~[](img.png)~                    | Image   | ~<img>~                         | Markdown-style image (same as md) |
+| ~[text](http://url)~             | Link    | ~<a>~                           | Markdown-style link (same as md)  |
+| ~[text](local/path)~             | Link    | ~[text](local/path)~ (raw text) | Non-http → as-is                  |
+| ~/italic/~ / ~*bold*~ / ~~code~~ | Format  | ~<em>~ / ~<strong>~ / ~<code>~  | Inline formatting                 |
+| ~[[...]]~ / ~![[...]]~ in path   | Protect | Placeholder before formatting   | Prevents / italic path corruption |
+| ~https://bare.url~               | Link    | ~<a data-href="url">url</a>~    | Auto-linked                       |
 
 ** Image resolution rules
 
 All image paths resolve relative to ~$DECKS_DIR~ (~~/nextlearn/decks/~):
 
-| Syntax                      | Resolved path                                      |
-|-----------------------------+----------------------------------------------------|
-| ~![alt](img.png)~           | ~$DECKS_DIR/img.png~                               |
-| ~![alt](subdir/img.png)~    | ~$DECKS_DIR/subdir/img.png~                        |
-| ~![[file:./sub/img.png]]~   | ~$DECKS_DIR/sub/img.png~ (strips ~file:~)          |
-| ~http://example.com/cat.png~ | ~<a>~ link (not an image)                          |
+| Syntax                       | Resolved path                             |
+|------------------------------+-------------------------------------------|
+| ~![alt](img.png)~            | ~$DECKS_DIR/img.png~                      |
+| ~![alt](subdir/img.png)~     | ~$DECKS_DIR/subdir/img.png~               |
+| ~![[file:./sub/img.png]]~    | ~$DECKS_DIR/sub/img.png~ (strips ~file:~) |
+| ~http://example.com/cat.png~ | ~<a>~ link (not an image)                 |
+|                              |                                           |
 
 Path traversal (e.g. ~../../etc/passwd~) is blocked by the path-traversal
 guard in ~RenderImageTag()~ — renders as ~image path mis-referenced~ error.
 
 ** Image error messages
 
-| Condition                      | Display                               |
-|--------------------------------+---------------------------------------|
-| ~imageDir~ not configured     | ~image folder not configured: path~   |
-| Path escapes ~$DECKS_DIR~     | ~image path mis-referenced: path~     |
-| File does not exist            | ~image not found: path~               |
-| File read/embed failure        | ~image not found: path~ (catch block) |
-| URL passed to image syntax     | ~<a data-href="url">alt</a>~          |
+| Condition                  | Display                               |
+|----------------------------+---------------------------------------|
+| ~imageDir~ not configured  | ~image folder not configured: path~   |
+| Path escapes ~$DECKS_DIR~  | ~image path mis-referenced: path~     |
+| File does not exist        | ~image not found: path~               |
+| File read/embed failure    | ~image not found: path~ (catch block) |
+| URL passed to image syntax | ~<a data-href="url">alt</a>~          |
 
 ** Supported image types
 
 Only the following formats are guaranteed to render inline and preview
 in the floating image window:
 
-| Format     | Inline render | Overlay preview | Inversion |
-|------------|:-------------:|:---------------:|:---------:|
-| `.png`     | ✅             | ✅               | ✅         |
-| `.jpg` / `.jpeg` | ✅        | ✅               | ✅         |
-| `.gif`     | ✅             | ✅               | ✅         |
-| `.webp`    | ✅             | ✅               | ✅         |
-| `.bmp`     | ✅             | ✅               | ✅         |
+| Format           | Inline render | Overlay preview | Inversion |
+|------------------+---------------+-----------------+-----------|
+| `.png`           | ✅            | ✅              | ✅        |
+| `.jpg` / `.jpeg` | ✅            | ✅              | ✅        |
+| `.gif`           | ✅            | ✅              | ✅        |
+| `.webp`          | ✅            | ✅              | ✅        |
+| `.bmp`           | ✅            | ✅              | ✅        |
 
 Other formats (`.ico`, `.tiff`, `.svg`, `.avif`, `.heic`, etc.) are not
 guaranteed to render correctly. ~.svg~ works inline (browser renders it)
@@ -351,10 +352,10 @@ images appear in the cycle.
 Lines starting with `>` render as a styled blockquote with a blue left border:
 
 #+BEGIN_SRC markdown
-> This is a quote.
-> It can span multiple lines.
->
-> Empty lines separate quote blocks.
+  > This is a quote.
+  > It can span multiple lines.
+  >
+  > Empty lines separate quote blocks.
 #+END_SRC
 
 ** Org general blocks (`#+BEGIN_*` / `#+END_*`) — .org only
@@ -363,10 +364,10 @@ Any `#+BEGIN_*` / `#+END_*` block (except `#+BEGIN_SRC`) renders as monospace
 text with a dark background. Content is shown as-is (no inline formatting).
 
 #+BEGIN_SRC org
-#+BEGIN_QUOTE
-This is an org-mode quote block.
-It renders as monospace with a dark background.
-#+END_QUOTE
+    \#+BEGIN_QUOTE
+    This is an org-mode quote block.
+    It renders as monospace with a dark background.
+    \#+END_QUOTE
 #+END_SRC
 
 Supported block types: ~QUOTE~, ~EXAMPLE~, ~VERSE~, ~CENTER~, and any other
@@ -564,22 +565,22 @@ bindings:
 To use a custom config, unhide the template file written to the app's config directory:
 
 #+BEGIN_SRC sh
-mv ~/.config/nextlearn/keybindings.yaml~ ~/.config/nextlearn/keybindings.yaml
-$EDITOR ~/.config/nextlearn/keybindings.yaml
+  mv ~/.config/nextlearn/keybindings.yaml~ ~/.config/nextlearn/keybindings.yaml
+  $EDITOR ~/.config/nextlearn/keybindings.yaml
 #+END_SRC
 
 Then select ~Custom~ in Settings → Key Bindings and click Save.
 
 ** Binding format reference
 
-| Field       | Required | Description                                                  |
-|-------------+----------+--------------------------------------------------------------|
-| ~action~    | yes      | One of the ~KeyboardActionKind~ enum values (see below)      |
+| Field       | Required | Description                                                      |
+|-------------+----------+------------------------------------------------------------------|
+| ~action~    | yes      | One of the ~KeyboardActionKind~ enum values (see below)          |
 | ~key~       | yes      | Avalonia Key enum name; inline ~#~ comments explain the real key |
-| ~modifiers~ | yes      | ~Control~, ~Shift~, ~Alt~, ~Control+Shift~, or empty ~""~   |
-| ~context~   | no       | ~Learning~, ~Home~, ~ImageOverlay~, or omit for global       |
-| ~textBox~   | no       | Set ~true~ to allow in text input fields (default false)     |
-| ~_comment~  | no       | Description shown in the Shortcuts Handbook                   |
+| ~modifiers~ | yes      | ~Control~, ~Shift~, ~Alt~, ~Control+Shift~, or empty ~""~        |
+| ~context~   | no       | ~Learning~, ~Home~, ~ImageOverlay~, or omit for global           |
+| ~textBox~   | no       | Set ~true~ to allow in text input fields (default false)         |
+| ~_comment~  | no       | Description shown in the Shortcuts Handbook                      |
 
 Available ~action~ values:
 
@@ -609,12 +610,12 @@ The following are handled internally and are not configurable:
 - ~GetDeckMarkdownPath()~ creates a ~.md~ fallback, potentially
   creating duplicate files when the original is ~.org~
 - Heading parsing and code blocks work correctly (~*~/~~~** ~~, ~#+BEGIN_SRC~)
-- Inline code in org files uses ~=code=~ / ~~code~~ syntax (not backticks)
+- Inline code in org files uses ~=code=~ / ~~code~~ syntax (not backticks)(corret)
 
 ** File-based decks bypass the database
-- Deck content lives in ~.md~ files, DB stores progress/activity only
+- Deck content lives in ~.md~ files, (DB stores progress/activity only)
 - Deck IDs are deterministic (SHA256 of path), so progress is stable
-- But deck content is never persisted to DB — files are the source of truth
+- But deck content is never persisted to DB — (files are the source of truth)
 
 ** Single-window architecture
 - All views stack in one ~Panel~ — visibility managed by boolean flags

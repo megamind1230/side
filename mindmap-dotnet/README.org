@@ -1,0 +1,82 @@
+﻿#+TITLE: MindmapDotnet
+#+DESCRIPTION: Keyboard-friendly mindmap application — built with Avalonia + .NET
+
+* Features
+  - Keyboard-first: ~i~ (edit), ~Tab~ (child), ~Enter~ (sibling), ~Esc~ (done)
+  - Arrow key navigation across tree nodes
+  - Two view modes: Mindmap canvas + raw Markdown
+  - Two layouts: Left-to-Right (horizontal tree) & Radial (center-out)
+  - Save/load as plain Markdown files (GFM nested bullets)
+  - Full Undo/Redo (Ctrl+Z / Ctrl+Y)
+  - Node colors, collapse/expand subtrees
+  - Search nodes (Ctrl+F)
+  - Zoom (Ctrl+Scroll) + Pan (drag canvas)
+  - Export to PNG
+  - Light/Dark theme
+
+* Tech Stack
+  | Component     | Choice                        |
+  |---------------+-------------------------------|
+  | Runtime       | .NET 10.0                     |
+  | UI Framework  | Avalonia 11                   |
+  | Pattern       | MVVM (CommunityToolkit.Mvvm)  |
+  | Logging       | Serilog (file + console)      |
+  | Serialization | Custom GFM Markdown parser     |
+  | Testing       | xUnit                          |
+
+* Project Structure
+  ├── MindmapDotnet.sln
+  ├── src/
+  │   ├── MindmapDotnet.Core/      # Models, serialization, commands, services
+  │   └── MindmapDotnet.App/       # Avalonia views, viewmodels, controls
+  ├── tests/ │   └── MindmapDotnet.Core.Tests/ # Unit tests
+  ├── plan-todos.org               # Development roadmap
+  ├── bugs.org                     # Known bugs
+  └── README.org                   # This file
+
+* Save Format
+  Mindmaps are saved as plain Markdown files with GFM nested bullet lists:
+
+  ,* Root idea
+  ,  * Child idea 1
+  ,    * Grandchild idea
+  ,  * Child idea 2
+
+  Indentation depth maps to tree depth. The file is human-readable in any text editor.
+
+* Keyboard Reference
+  | Key              | Action                    |
+  |------------------+---------------------------|
+  | ~i~              | Edit selected node text   |
+  | ~Tab~            | Create child node         |
+  | ~Enter~          | Create sibling node       |
+  | ~Esc~            | Exit edit mode            |
+  | ~Delete~         | Delete selected node      |
+  | ~←~ / ~→~        | Move to parent / first child |
+  | ~↑~ / ~↓~        | Previous / next sibling   |
+  | ~Ctrl+Z~         | Undo                      |
+  | ~Ctrl+Y~         | Redo                      |
+  | ~Ctrl+F~         | Search nodes              |
+  | ~Ctrl+1-5~       | Assign color preset       |
+  | ~Ctrl+L~         | Toggle layout (LTR/Radial)|
+  | ~Ctrl+Scroll~    | Zoom in/out               |
+  | ~Space+D~        | Toggle dark/light theme   |
+
+* Development Commands
+  | Command                                        | Action         |
+  |------------------------------------------------+----------------|
+  | ~dotnet build~                                 | Build          |
+  | ~dotnet run --project src/MindmapDotnet.App~   | Run            |
+  | ~dotnet test~                                  | Run tests      |
+  | ~mkdir -p ~/magnus/mindmap-dotnet/logs~        | Log directory  |
+  | ~tail -f ~/magnus/mindmap-dotnet/logs/app.log~ | Watch logs     |
+
+* Layouts
+  - **Left-to-Right**: Compact horizontal tree, root on left, children extend right
+  - **Radial**: Classic mindmap style, root at center, children in concentric rings
+  - Switch via toolbar button or ~Ctrl+L~
+
+* Roadmap
+  - [ ] v0.1: Core data model, keyboard CRUD, mindmap canvas (LTR layout), markdown save/load
+  - [ ] v0.2: Radial layout, undo/redo, node colors, collapse/expand, search
+  - [ ] v0.3: Drag-drop reparent, PNG export, theme toggle, auto-save

@@ -1,0 +1,88 @@
+#+TITLE: MindmapDotnet — Implementation Plan
+#+DESCRIPTION: Step-by-step plan for building the app
+#+TODO: TODO | IN_PROGRESS | DONE
+
+* Phase 0: Project Scaffolding
+** DONE Create solution: dotnet new sln -n MindmapDotnet
+** DONE Create Core lib: dotnet new classlib -n MindmapDotnet.Core
+** DONE Create App: dotnet new avonia -n MindmapDotnet.App
+** DONE Add project references: App -> Core
+** DONE Add NuGet deps: Serilog, Serilog.Sinks.File, Serilog.Sinks.Console, CommunityToolkit.Mvvm
+** DONE Create log dir ~/magnus/mindmap-dotnet/logs/
+** DONE Configure Serilog in Program.cs
+** DONE Verify build
+
+* Phase 1: Data Layer (MindmapDotnet.Core)
+** DONE Models/
+     - MindmapNode: Id, Text, Children, ParentId, Color
+     - MindmapDocument: RootNode, FilePath, Metadata
+** DONE Serialization/
+     - MarkdownSerializer: parse nested "* " bullets -> tree
+     - MarkdownSerializer: tree -> markdown string
+     (Round-trip tests pending)
+** DONE Commands/
+     - IUndoableCommand interface (Do, Undo)
+     - InsertNodeCommand, DeleteNodeCommand, EditTextCommand, MoveNodeCommand
+     - UndoRedoStack with max depth (50)
+** DONE Services/
+     - MindmapService: CRUD, load, save, undo/redo orchestration
+     - ITreeLayoutAlgorithm interface
+     - LeftToRightLayout : compact horizontal tree
+     - RadialLayout : root at center, polar rings
+** DONE Logging/AppLogger wrapper via Serilog
+
+* Phase 2: Avalonia App Shell (MindmapDotnet.App)
+** DONE MainWindow.axaml: Dock layout (MenuBar | Toolbar | Content | StatusBar)
+** DONE Menu: File (New, Open, Save, SaveAs, ExportPNG stub), Edit (Undo, Redo, Delete)
+** DONE View toggle button (Mindmap / Markdown) + Layout toggle (LTR / Radial)
+** DONE StatusBar: node count, layout mode
+** DONE ViewModels/
+     - MainWindowViewModel (menu commands, toggle states)
+     - NodeViewModel (wraps MindmapNode: IsSelected, IsEditing, Position, Color)
+** DONE App wired with ViewModel in App.axaml.cs
+
+* Phase 3: Mindmap Canvas View
+** DONE Custom control: MindmapCanvas : Control
+** DONE Layout engine adapter via ITreeLayoutAlgorithm (LTR + Radial)
+** DONE Render nodes: rounded rects + text via FormattedText
+** DONE Connector lines: bezier curves parent→child
+** DONE Click node → select; Ctrl+Scroll → zoom; drag → pan
+** DONE Collapse/expand +/- indicator rendering
+
+* Phase 4: Keyboard & Input
+** DONE Key bindings in MainWindow.OnKeyDown:
+     - i → begin edit
+     - Tab → create child
+     - Enter → create sibling
+     - Esc → end edit
+     - Delete → delete node
+     - Left/Right/Up/Down → navigate tree
+     - Ctrl+Z / Ctrl+Y → undo / redo
+     - Ctrl+M → toggle view
+     - Ctrl+L → toggle layout
+** DONE Inline editing: TextBox overlay on selected node (captures keys)
+** TODO Search: Ctrl+F overlay (low priority)
+
+* Phase 5: Markdown View
+** DONE TextBox bound to MarkdownText, monospace font
+** DONE Toggle: serialize tree→markdown / parse markdown→tree
+** FIXME Parse errors on toggle back stay in markdown view (basic handling)
+** TODO Format button to re-indent markdown
+
+* Phase 6: Polish & Extras
+** TODO Export to PNG via RenderTargetBitmap + file dialog
+** TODO Auto-save timer (30s debounce after last mutation)
+** TODO Collapse/expand animations
+** TODO Light/Dark theme toggle
+** TODO Drag & drop node reordering (v0.2)
+** TODO Recent files in File menu
+** TODO Smooth animated transitions when layout changes
+** TODO File dialogs (Open/SaveAs) wired via StorageProvider
+** DONE SelectedNode sync on canvas click → ViewModel
+
+* Phase 7: Testing
+** TODO xUnit project: MindmapDotnet.Core.Tests
+** TODO Markdown round-trip tests (parse → serialize → assert equal)
+** TODO Tree operation unit tests (insert, delete, move)
+** TODO Undo/Redo unit tests
+** TODO Layout algorithm tests (node positions non-overlapping)

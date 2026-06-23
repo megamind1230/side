@@ -1,7 +1,0 @@
-<Project>
-  <PropertyGroup>
-    <IsPackable>false</IsPackable>
-    <IsTestProject>true</IsTestProject>
-    <NoWarn>$(NoWarn);CA2000</NoWarn>
-  </PropertyGroup>
-</Project>

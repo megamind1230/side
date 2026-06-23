@@ -39,4 +39,5 @@ public enum KeyboardActionKind
     ZoomHeatmapIn,
     ZoomHeatmapOut,
     ZoomHeatmapReset,
+    OpenDocumentation,
 }

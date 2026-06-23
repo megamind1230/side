@@ -1,0 +1,37 @@
+#+TITLE: Known Bugs
+#+DESCRIPTION: Current bugs in MindmapDotnet and their fixes
+#+TODO: OPEN | FIXING | FIXED
+
+* OPEN File dialogs not wired (Open/Save/SaveAs)
+  The menu items exist but OpenFile, SaveFileAs actions are stubs.
+  Need to use Avalonia StorageProvider API.
+
+  Priority: Medium
+
+* FIXED Inline editing TextBox overlay not implemented
+  Pressing `i` set IsEditing=true but there was no visual TextBox
+  to type into.
+  Fixed by: adding EditBox overlay in MainWindow.axaml, wiring
+  show/hide/position logic in MainWindow.axaml.cs with Enter→commit,
+  Esc→cancel, Tab→commit+child.
+
+* FIXED Tab key moves focus to menu bar instead of creating child
+  Canvas had Focusable=false and didn't grab keyboard focus.
+  Fixed by: Focusable=True on canvas XAML, Focus() call in
+  OnPointerPressed, and FocusCanvasOrEditor on startup.
+
+* FIXED Toolbar white bg + white text (light theme bleed)
+  App.axaml had RequestedThemeVariant="Default" which followed
+  system light theme.
+  Fixed by: setting RequestedThemeVariant="Dark" in App.axaml,
+  removing explicit Background from toolbar and status borders.
+
+* FIXED `i` key doesn't trigger edit in mindmap mode
+  Same root cause as Tab issue — canvas lacked keyboard focus.
+  Additionally, canvas click didn't sync selected node to ViewModel.
+  Fixed by: Focus() on pointer press + NodeSelected callback.
+
+* FIXED CommunityToolkit.Mvvm version mismatch (8.4.1 vs 8.4.2)
+* FIXED Avalonia 12 Panel.Render sealed
+* FIXED FormattedText API mismatch in Avalonia 12
+* FIXED InputGesture "Del" not recognized

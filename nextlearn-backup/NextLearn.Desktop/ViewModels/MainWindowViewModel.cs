@@ -81,6 +81,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isMarketplaceOpen;
 
     [ObservableProperty]
+    private bool _isFalconEyeEnabled;
+
+    [ObservableProperty]
     private string _theme = string.Empty;
 
     [ObservableProperty]
@@ -353,6 +356,7 @@ public partial class MainWindowViewModel : ViewModelBase
         Font = _settingsService.Font;
         DecksPath = _settingsService.DecksPath;
         KeyBindingsProfile = _settingsService.KeyBindingsProfile;
+        IsFalconEyeEnabled = _settingsService.FalconEyeEnabled;
     }
 
     [RelayCommand]
@@ -362,6 +366,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _settingsService.Font = Font;
         _settingsService.DecksPath = DecksPath;
         _settingsService.KeyBindingsProfile = KeyBindingsProfile;
+        _settingsService.FalconEyeEnabled = IsFalconEyeEnabled;
         _keyBindingService.SwitchProfile(KeyBindingsProfile);
         KeyBindingsChanged?.Invoke();
 
@@ -378,6 +383,9 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         ClearStatusAfterDelay();
+
+        var resolvedFont = string.IsNullOrWhiteSpace(Font) ? "Inter" : Font;
+        FontChanged?.Invoke(resolvedFont);
     }
 
     [RelayCommand]
@@ -388,6 +396,7 @@ public partial class MainWindowViewModel : ViewModelBase
         Font = defaults.Font;
         DecksPath = defaults.DecksPath;
         KeyBindingsProfile = defaults.KeyBindingsProfile;
+        IsFalconEyeEnabled = defaults.FalconEyeEnabled;
     }
 
     [RelayCommand]
@@ -537,6 +546,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [RelayCommand]
 #pragma warning disable CA1822
+    public void NavigateToDocumentation()
+#pragma warning restore CA1822
+    {
+        Views.MainWindow.OpenInBrowser("https://github.com/megamind1230/side/blob/master/nextlearn/README.org");
+    }
+
+    [RelayCommand]
+#pragma warning disable CA1822
     public void NavigateToPlugins()
 #pragma warning restore CA1822
     {
@@ -547,6 +564,16 @@ public partial class MainWindowViewModel : ViewModelBase
     public void ToggleSidebar()
     {
         IsSidebarOpen = !IsSidebarOpen;
+    }
+
+    [RelayCommand]
+    private void ToggleFalconEye()
+    {
+        IsFalconEyeEnabled = !IsFalconEyeEnabled;
+        if (IsLearning)
+        {
+            LearningViewModel.RebuildWithFalconEye(IsFalconEyeEnabled);
+        }
     }
 
     [RelayCommand]
@@ -886,6 +913,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public event Action? KeyBindingsChanged;
 
     public event Action<double, double>? TextScaleChanged;
+
+    public event Action<string>? FontChanged;
 
     [RelayCommand]
     private void ZoomTextIn()

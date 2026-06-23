@@ -114,9 +114,14 @@ public partial class LearningViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(deck);
         _currentDeck = deck;
         _pages = deck.Pages.OrderBy(p => p.PageNumber).ToList();
-        TotalPages = _pages.Count;
         DeckTitle = deck.HasExplicitTitle ? deck.Title : deck.FileName;
         IsOrgFile = deck.FileName?.EndsWith(".org", StringComparison.OrdinalIgnoreCase) ?? false;
+        TotalPages = _pages.Count;
+
+        if (_mainViewModel.IsFalconEyeEnabled)
+        {
+            InsertTocPage();
+        }
 
         _progress = await _deckService.GetUserProgressAsync(deck.Id);
         if (_progress == null)
@@ -126,7 +131,17 @@ public partial class LearningViewModel : ViewModelBase
 
         if (_progress.CurrentPage > 0)
         {
-            CurrentPageIndex = _progress.CurrentPage - 1;
+            var pageIndex = _progress.CurrentPage - 1;
+            if (_pages.Count > 0 && _pages[0].IsTocPage)
+            {
+                pageIndex++;
+                if (pageIndex >= _pages.Count)
+                {
+                    pageIndex = _pages.Count - 1;
+                }
+            }
+
+            CurrentPageIndex = pageIndex;
             if (CurrentPageIndex >= _pages.Count)
             {
                 CurrentPageIndex = _pages.Count - 1;
@@ -146,7 +161,8 @@ public partial class LearningViewModel : ViewModelBase
         await StopSessionTimerAsync();
         if (_currentDeck != null)
         {
-            await _deckService.UpdateProgressAsync(_currentDeck.Id, CurrentPageIndex + 1);
+            var pageNum = CurrentPage?.PageNumber ?? (CurrentPageIndex + 1);
+            await _deckService.UpdateProgressAsync(_currentDeck.Id, pageNum);
         }
     }
 
@@ -157,6 +173,11 @@ public partial class LearningViewModel : ViewModelBase
         _sessionTimer = new Timer(
             async _ =>
             {
+                if (CurrentPage?.IsTocPage == true)
+                {
+                    return;
+                }
+
                 _recordedMinutes++;
                 await _userService.RecordTimeAsync(1);
             },
@@ -223,9 +244,14 @@ public partial class LearningViewModel : ViewModelBase
 
         _currentDeck = deck;
         _pages = deck.Pages.OrderBy(p => p.PageNumber).ToList();
-        TotalPages = _pages.Count;
         DeckTitle = deck.HasExplicitTitle ? deck.Title : deck.FileName;
         IsOrgFile = deck.FileName?.EndsWith(".org", StringComparison.OrdinalIgnoreCase) ?? false;
+        TotalPages = _pages.Count;
+
+        if (_mainViewModel.IsFalconEyeEnabled)
+        {
+            InsertTocPage();
+        }
 
         _progress = await _deckService.GetUserProgressAsync(deckId);
         if (_progress == null)
@@ -233,12 +259,17 @@ public partial class LearningViewModel : ViewModelBase
             _progress = await _deckService.StartLearningAsync(deckId);
         }
 
-        CurrentPageIndex = _progress.CurrentPage - 1;
-        if (CurrentPageIndex < 0)
+        var pageIndex = _progress.CurrentPage - 1;
+        if (_pages.Count > 0 && _pages[0].IsTocPage)
         {
-            CurrentPageIndex = 0;
+            pageIndex++;
+            if (pageIndex >= _pages.Count)
+            {
+                pageIndex = _pages.Count - 1;
+            }
         }
 
+        CurrentPageIndex = pageIndex < 0 ? 0 : pageIndex;
         if (CurrentPageIndex >= _pages.Count)
         {
             CurrentPageIndex = _pages.Count - 1;
@@ -255,9 +286,31 @@ public partial class LearningViewModel : ViewModelBase
         }
 
         CurrentPage = _pages[CurrentPageIndex];
+
+        if (CurrentPage?.IsTocPage == true)
+        {
+            CurrentSectionTitle = string.Empty;
+            CurrentSectionDisplay = string.Empty;
+            CurrentSectionBreadcrumb = string.Empty;
+            CurrentPageBreadcrumb = "Falcon Eye";
+            ProgressText = $"TOC / {TotalPages}";
+            CanGoBack = false;
+            CanGoNext = _pages.Count > 1;
+            IsCompleted = false;
+            RenderedHtml = FalconEyeBuilder.BuildTocHtml(
+                _pages.Where(p => !p.IsTocPage).ToList(),
+                _currentDeck?.Title ?? DeckTitle,
+                _mainViewModel.Font);
+            CurrentPageImagePaths = new List<string>();
+            NextButtonText = "Next →";
+            NextButtonColor = "#2563EB";
+            return;
+        }
+
         CurrentSectionTitle = CurrentPage?.SectionTitle ?? string.Empty;
         CurrentSectionDisplay = !string.IsNullOrEmpty(CurrentSectionTitle) ? $" → {CurrentSectionTitle}" : string.Empty;
-        ProgressText = $"{CurrentPageIndex + 1} / {TotalPages}";
+        var pageNum = CurrentPage?.PageNumber ?? (CurrentPageIndex + 1);
+        ProgressText = $"{pageNum} / {TotalPages}";
         CanGoBack = CurrentPageIndex > 0;
         CanGoNext = CurrentPageIndex < TotalPages - 1;
         IsCompleted = false;
@@ -280,7 +333,7 @@ public partial class LearningViewModel : ViewModelBase
 
         var imagePaths = new List<string>();
         var imageDir = GetCurrentImageDir();
-        RenderedHtml = _htmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, imagePaths);
+        RenderedHtml = _htmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, _mainViewModel.Font, imagePaths);
         CurrentPageImagePaths = imagePaths;
 
         var isLastPage = CurrentPageIndex >= TotalPages - 1;
@@ -302,7 +355,8 @@ public partial class LearningViewModel : ViewModelBase
 
         if (_currentDeck != null)
         {
-            await _deckService.UpdateProgressAsync(_currentDeck.Id, CurrentPageIndex + 1);
+            var pageNum = CurrentPage?.PageNumber ?? (CurrentPageIndex + 1);
+            await _deckService.UpdateProgressAsync(_currentDeck.Id, pageNum);
             await _userService.RecordPageViewAsync();
         }
     }
@@ -322,7 +376,8 @@ public partial class LearningViewModel : ViewModelBase
 
         if (_currentDeck != null)
         {
-            await _deckService.UpdateProgressAsync(_currentDeck.Id, CurrentPageIndex + 1);
+            var pageNum = CurrentPage?.PageNumber ?? (CurrentPageIndex + 1);
+            await _deckService.UpdateProgressAsync(_currentDeck.Id, pageNum);
             await _userService.RecordPageViewAsync();
         }
     }
@@ -396,5 +451,56 @@ public partial class LearningViewModel : ViewModelBase
         }
 
         return _decksPath;
+    }
+
+    public void RebuildWithFalconEye(bool enabled)
+    {
+        if (enabled && _pages.Count > 0 && !_pages[0].IsTocPage)
+        {
+            InsertTocPage();
+            CurrentPageIndex = 0;
+            UpdateCurrentPage();
+        }
+        else if (!enabled && _pages.Count > 0 && _pages[0].IsTocPage)
+        {
+            var removed = _pages[0].IsTocPage;
+            if (removed)
+            {
+                _pages.RemoveAt(0);
+                TotalPages = _pages.Count;
+                if (CurrentPageIndex > 0)
+                {
+                    CurrentPageIndex--;
+                }
+
+                UpdateCurrentPage();
+            }
+        }
+    }
+
+    private void InsertTocPage()
+    {
+        if (_pages.Count == 0)
+        {
+            return;
+        }
+
+        var tocPage = new Page
+        {
+            Id = Guid.NewGuid(),
+            PageNumber = 0,
+            Title = "Falcon Eye",
+            ContentType = ContentType.Text,
+            IsTocPage = true,
+        };
+        _pages.Insert(0, tocPage);
+    }
+
+    partial void OnCurrentPageIndexChanged(int value)
+    {
+        if (_pages.Count > 0 && _pages[0].IsTocPage && value == 0)
+        {
+            ProgressText = $"TOC / {TotalPages}";
+        }
     }
 }

@@ -61,6 +61,12 @@ public class SettingsService : ISettingsService
         set => _settings.KeyBindingsProfile = value;
     }
 
+    public bool FalconEyeEnabled
+    {
+        get => _settings.FalconEyeEnabled;
+        set => _settings.FalconEyeEnabled = value;
+    }
+
     public string ResolvedDecksPath => AppSettings.ResolvePath(DecksPath);
 
     public static AppSettings Defaults() => new();

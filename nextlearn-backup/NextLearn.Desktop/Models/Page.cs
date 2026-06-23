@@ -31,4 +31,7 @@ public class Page
 
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public bool IsPreHeadingPage { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool IsTocPage { get; set; }
 }

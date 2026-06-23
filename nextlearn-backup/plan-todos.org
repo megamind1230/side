@@ -1,3 +1,52 @@
+* DONE Falcon Eye: Table of Contents (built-in plugin)
+
+** What
+Falcon Eye is a built-in table of contents feature for decks. When enabled
+via the sidebar toggle, each deck opens with a TOC page (page 0) listing
+all headings with page numbers.
+
+** Features
+- Toggle 🦅 Falcon Eye in sidebar — persists across sessions via ~settings.yaml~
+- TOC page rendered at start of each deck (page 0, not counted as real page)
+- Lists all H1/H2 headings as a clean nested <ol> with page numbers
+- No clickable links — user reads the TOC then uses Ctrl+G to jump
+- Toggle works live — toggling while in a deck inserts/removes the TOC page immediately
+- TOC page does not count toward heatmap timer (lingering on TOC adds no minutes)
+- Keyboard shortcuts (n/p/j/k/h/l/q/d) work on the TOC page via key-forwarding JS
+- Progress saved using real ~Page.PageNumber~ (TOC has page number 0, never recorded)
+
+** Files changed
+
+*** New file
+- ~Services/FalconEyeBuilder.cs~ — generates standalone TOC HTML with nested
+  heading list + page numbers, reuses key-forwarding JS from HtmlContentBuilder
+
+*** Modified files
+- ~Models/AppSettings.cs~ — added ~FalconEyeEnabled~ (default false, persisted to YAML)
+- ~Models/Page.cs~ — added ~IsTocPage~ non-mapped flag for the synthetic TOC page
+- ~Services/ISettingsService.cs~ — added ~FalconEyeEnabled~ property
+- ~Services/SettingsService.cs~ — wired get/set to ~_settings.FalconEyeEnabled~
+
+- ~ViewModels/MainWindowViewModel.cs~ — added ~IsFalconEyeEnabled~ +
+  ~ToggleFalconEyeCommand~; wired into ~LoadSettings~/~SaveSettings~/~ResetSettings~;
+  toggle notifies LearningViewModel when in learning view
+
+- ~ViewModels/LearningViewModel.cs~ — ~SetCurrentDeckAsync~/~StartLearning~:
+  insert TOC page if enabled; ~UpdateCurrentPage~: render TOC HTML via
+  ~FalconEyeBuilder~ when on TOC page; ~RebuildWithFalconEye~ for live toggle;
+  ~InsertTocPage~ helper; ~OnCurrentPageIndexChanged~ handler for TOC display;
+  timer guards (skip recording on TOC); progress saved via ~Page.PageNumber~
+
+- ~Controls/Sidebar.axaml~ — added 🦅 Falcon Eye toggle button between
+  Archived and Streak
+
+** Post-implementation fixes
+- Progress saving uses ~CurrentPage.PageNumber~ instead of ~CurrentPageIndex + 1~
+  (handles TOC offset and works correctly without Falcon Eye too)
+- TOC page excluded from total page count; displays as "TOC / N"
+- Key-forwarding JavaScript added to FalconEyeBuilder HTML so keyboard
+  shortcuts work on the TOC page
+
 * DONE P33: shortcuts page must be the top/upmost layer
 > feature: the`?` menu must be layered as the top most layer at every senario
 
@@ -553,6 +602,7 @@ cycle (missing/corrupt images are skipped).
 `- [ ]`
 `- [-]`
 `- [x]`
+`- [~]`
 Also renders ~TODO~ / ~DONE~ keywords as colored inline spans (green/grey).
 * DONE Breadcrumb styling: bigger font, white, cropped on overflow
 ** What
@@ -1359,4 +1409,46 @@ enables Phase 6 (tests).
 ** Files changed
 - ~~/nextlearn/decks/syntax-highlighting-test.md~
 - ~~/nextlearn/decks/syntax-highlighting-test.org~
+
+* DONE [~] checkbox support
+- ~- [~]~ renders as ~todo-inprogress~ span (amber border, minus sign), same as ~- [-]~
+- Regex expanded: ~^\[( |x|X|-|~)\]\s*~
+- Works in both .md and .org files (shared list renderer)
+
+* DONE Documentation ? icon + F1 shortcut
+- ~?~ Documentation button added to sidebar (between Streak and Settings)
+- ~F1~ key opens documentation in system browser (both Vim and Emacs profiles)
+- Opens ~https://github.com/megamind1230/side/blob/master/nextlearn/README.org~
+- ~OpenDocumentation~ action added to ~KeyboardActionKind~ enum
+
+** Files changed
+- ~Services/KeyboardActionKind.cs~ — added ~OpenDocumentation~ enum value
+- ~Services/KeyBindingService.cs~ — added ~F1~ → ~OpenDocumentation~ binding (Vim + Emacs)
+- ~Views/MainWindow.axaml.cs~ — ~OpenDocumentation~ case in ~HandleKey~
+- ~ViewModels/MainWindowViewModel.cs~ — ~NavigateToDocumentationCommand~ relay command
+- ~Controls/Sidebar.axaml~ — ~?~ Documentation button after Streak
+
+* DONE Copy button on code/quote blocks
+- ~Copy~ button appears on hover over ~<pre>~ and ~<blockquote>~ elements
+- Uses ~document.execCommand('copy')~ for cross-platform WebView compatibility
+- Shows ~Copied!~ feedback for 2 seconds
+- CSS: positioned top-right, hidden by default, revealed on parent hover
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — added ~.copy-btn~ CSS + JS script in ~WrapInHtml~
+
+* DONE Smart code block width
+- ~<pre>~ now uses ~width: max-content; max-width: calc(100vw - 48px)~
+- Short code blocks shrink to content width (no horizontal scrollbar)
+- Long code blocks cap at viewport width and scroll normally
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — ~pre~ CSS rule updated (~width~/~max-width~)
+
+* DONE Study box layout height increased
+- Center grid row proportions changed from ~0.4*,3.5*,0.2*~ to ~0.1*,3.9*,0.1*~
+- Teal content box now uses ~95%~ of available vertical space (was ~85%~)
+
+** Files changed
+- ~Views/MainWindow.axaml~ — ~RowDefinitions~ updated
 
