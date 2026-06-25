@@ -6,7 +6,7 @@ namespace NextLearn.Desktop.Services;
 
 public class MarkdownInlineRenderer : IInlineRenderer
 {
-    public string RenderInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null)
+    public string RenderInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnoteDefinitions = null)
     {
         ArgumentNullException.ThrowIfNull(text);
         var result = HtmlContentBuilder.EscapeHtml(text);
@@ -19,6 +19,56 @@ public class MarkdownInlineRenderer : IInlineRenderer
             codeSpans.Add(m.Groups[1].Value);
             return $"%%%CODE_{placeholderIdx++}%%%";
         });
+
+        // Extract math expressions — code takes priority (code extracted first)
+        var mathExpressions = new List<(string content, string delimiter)>();
+        var mathIdx = 0;
+
+        // $$...$$ display math
+        result = Regex.Replace(result, @"\$\$([\s\S]*?)\$\$", m =>
+        {
+            mathExpressions.Add((m.Groups[1].Value, "$$"));
+            return $"%%%MATH_{mathIdx++}%%%";
+        });
+
+        // $...$ inline math (no space after opening $, no space before closing $)
+        result = Regex.Replace(result, @"\$([^$\s][^$]*[^$\s]|[^$\s])\$", m =>
+        {
+            mathExpressions.Add((m.Groups[1].Value, "$"));
+            return $"%%%MATH_{mathIdx++}%%%";
+        });
+
+        // \[...\] display math
+        result = Regex.Replace(result, @"\\\[([\s\S]*?)\\\]", m =>
+        {
+            mathExpressions.Add((m.Groups[1].Value, @"\["));
+            return $"%%%MATH_{mathIdx++}%%%";
+        });
+
+        // \(...\) inline math
+        result = Regex.Replace(result, @"\\\(([\s\S]*?)\\\)", m =>
+        {
+            mathExpressions.Add((m.Groups[1].Value, @"\("));
+            return $"%%%MATH_{mathIdx++}%%%";
+        });
+
+        // Footnote references [^id] — only replace if id exists in definitions
+        var footnotePlaceholders = new Dictionary<string, (string id, string rawText)>();
+        if (footnoteDefinitions != null)
+        {
+            result = Regex.Replace(result, @"\[\^(\w+)\]", m =>
+            {
+                var id = m.Groups[1].Value;
+                if (footnoteDefinitions.TryGetValue(id, out var rawText))
+                {
+                    var key = $"%%%FN_{id}%%%";
+                    footnotePlaceholders[key] = (id, rawText);
+                    return key;
+                }
+
+                return m.Value;
+            });
+        }
 
         result = Regex.Replace(result, @"\b(TODO|DONE)\b", m =>
             m.Groups[1].Value switch
@@ -73,6 +123,22 @@ public class MarkdownInlineRenderer : IInlineRenderer
             result = result.Replace($"%%%CODE_{i}%%%", $"<code>{codeSpans[i]}</code>");
         }
 
+        // Restore math expressions with original delimiters (KaTeX auto-render finds them in DOM)
+        for (var i = 0; i < mathExpressions.Count; i++)
+        {
+            var (content, delim) = mathExpressions[i];
+            var left = delim;
+            var right = delim switch
+            {
+                "$" => "$",
+                "$$" => "$$",
+                @"\[" => @"\]",
+                @"\(" => @"\)",
+                _ => delim,
+            };
+            result = result.Replace($"%%%MATH_{i}%%%", $"{left}{content}{right}");
+        }
+
         // Bare URL auto-linking (not already inside <a> or href="")
         result = Regex.Replace(result, @"(?<![""=\w])(https?://[^\s<>""'\]\[()]+)", m =>
         {
@@ -85,6 +151,13 @@ public class MarkdownInlineRenderer : IInlineRenderer
 
             return $"<a data-href=\"{url}\" rel=\"noopener\">{url}</a>";
         });
+
+        // Restore footnote references with superscript HTML
+        foreach (var (key, (id, rawText)) in footnotePlaceholders)
+        {
+            var escapedTitle = HtmlContentBuilder.EscapeHtml(rawText);
+            result = result.Replace(key, $"<sup class=\"footnote-ref\"><a href=\"#fn-{id}\" id=\"fnref-{id}\" title=\"{escapedTitle}\">{id}</a></sup>");
+        }
 
         return result;
     }

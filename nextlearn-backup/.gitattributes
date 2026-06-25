@@ -1,0 +1,57 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# C#
+*.cs text diff=csharp
+*.csx text diff=csharp
+*.sln text
+*.csproj text
+*.props text
+*.targets text
+
+# XAML / Avalonia
+*.axaml text diff=xml
+*.xaml text diff=xml
+
+# Web
+*.html text diff=html
+*.css text diff=css
+*.js text diff=javascript
+*.json text
+*.ts text diff=typescript
+
+# Markup / docs
+*.md text diff=markdown
+*.org text
+*.xml text diff=xml
+*.yaml text
+*.yml text
+
+# Config
+*.config text
+*.manifest text
+*.ruleset text
+*.editorconfig text
+
+# Git files
+.gitattributes text
+.gitignore text
+
+# Images (binary)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+
+# Archives (binary)
+*.zip binary
+*.gz binary
+
+# Binaries
+*.dll binary
+*.exe binary
+*.so binary
+*.dylib binary
+*.pdb binary

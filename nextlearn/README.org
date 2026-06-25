@@ -1,12 +1,12 @@
-#+TITLE: nextlearn
+﻿#+TITLE: nextlearn
 #+DESCRIPTION: Learn anything. Fight distraction.
 #+DATE: <2026-06-04 Thu>
 
 * Description
 
 nextlearn is a distraction-free desktop app for learning anything
-through bite-sized decks. You write decks as ~.md~ files with YAML
-frontmatter in ~~/nextlearn/decks/~, the app reads them, and you
+through bite-sized decks. You write decks as ~.md~ files with YAML frontmatter or ~.org~ frontmatter / inline metadata
+ in ~~/nextlearn/decks/~ by default, the app reads them, and you
 flip through pages like a slideshow. Built with Avalonia UI + EF Core
 SQLite.
 
@@ -73,7 +73,8 @@ is a separate project.
 | Documentation ? icon                 | ✅ Done    | Sidebar button + F1 shortcut → opens GitHub README in browser                      |
 | Copy button on code/quote blocks     | ✅ Done    | Hover to copy code/quote content to clipboard, cross-platform                      |
 | Smart code block width               | ✅ Done    | Short code shrink-wraps; long code scrolls at viewport cap                         |
-
+| LaTeX math rendering (KaTeX)         | ✅ Done    | Inline ~$..$~ / ~\(..\)~ and display ~$$..$$~ / ~\[..\]~ w/ auto-render            |
+ 
 * Tech Stack
 
 - .NET 10.0, Avalonia UI 11.3.12 (cross-platform desktop)
@@ -192,7 +193,7 @@ Content
 - `# Section` → sets section context (shown in breadcrumb: ~DeckTitle → Section~)
 - `## Page` → creates a page with ~SectionTitle~ from nearest parent `#`
 - No `##` headings → `#` headings become pages directly (legacy)
-    
+
 * Keyboard Shortcuts
 
 | Key          | Context        | Action                                 |
@@ -602,6 +603,58 @@ The following are handled internally and are not configurable:
 
 - =Esc=: closes overlays in priority order (GoToPage → Handbook → Image → ... → clear focus)
 - =g= then =i= chord: focus and clear search bar on home screen
+
+* LaTeX / Math Rendering
+
+nextlearn renders LaTeX math expressions using KaTeX (bundled offline, no CDN).
+Math is always-on — no frontmatter toggle needed.
+
+** Supported delimiters
+
+| Delimiter pair | Display mode | Example                         |
+|----------------+--------------+---------------------------------|
+| ~$...$~        | Inline       | ~$x^2 + y^2 = z^2$~            |
+| ~\(...\)~      | Inline       | ~\(E = mc^2\)~                  |
+| ~$$...$$~      | Display      | ~$$\int_0^1 x^2 \, dx$$~       |
+| ~\[...\]~      | Display      | ~\[\sum_{n=1}^\infty n^{-2}\]~ |
+
+** Code takes priority
+
+Inline code (backticks in ~.md~, ~=...=~ / ~~...~~ in ~.org~) always takes
+priority over math. This means you can safely use dollar signs inside code
+spans without triggering LaTeX:
+
+- ~`$x^2 + y^2 = z^2$`~ → renders as literal code, not math
+- ~`$5`~ for coffee → renders the literal text ~$5~, avoids math mode
+
+** Dollar signs in plain text
+
+A lone dollar sign followed by a number (e.g. ~$5~, ~$100~) may be interpreted
+as math delimiters. To display them literally, wrap in backticks:
+
+- ~~ `$5` for coffee ~~ → renders as ~$5 for coffee~
+- ~~ `$100` - `$200` ~~ → renders as ~$100 - $200~
+
+This works because the inline code renderer runs before the math extractor,
+so backtick-protected content is never scanned for delimiters.
+
+** Code blocks
+
+Math inside fenced code blocks (~```~) or org source blocks
+(~#+BEGIN_SRC~ / ~#+END_SRC~) is never rendered as math — it stays as
+literal text with syntax highlighting.
+
+** Copy button
+
+Math display blocks (~$$..$$~ / ~\[..\]~) include a hover-to-copy button.
+Copying grabs the raw LaTeX source (from the ~data-latex~ attribute), not
+the rendered HTML.
+
+** Equation numbers
+
+The ~align~, ~equation~, ~gather~ and similar environments render equation
+numbers (~(1)~, ~(2)~, …) on the right side. Display blocks reserve
+~3em~ right padding so numbers don't overlap the equation content.
 
 * Known Limitations
 

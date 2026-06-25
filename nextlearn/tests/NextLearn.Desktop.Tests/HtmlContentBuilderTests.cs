@@ -397,4 +397,147 @@ How I wonder what you are
         body.Should().Contain("&lt;script&gt;");
         body.Should().NotContain("<script>alert");
     }
+
+    [Fact]
+    public void Build_InlineDollarMath_RendersDelimitersInHtml()
+    {
+        var html = HtmlContentBuilder.Build(Page("Value is $x^2$ here"), isOrgFile: false);
+
+        var body = Body(html);
+        body.Should().Contain("$x^2$");
+    }
+
+    [Fact]
+    public void Build_InlineDollarMath_NotDestroyedByItalic()
+    {
+        var html = HtmlContentBuilder.Build(Page("Equation: $x^2 + y^2 = z^2$"), isOrgFile: false);
+
+        var body = Body(html);
+        body.Should().Contain("$x^2 + y^2 = z^2$");
+        body.Should().NotContain("<em>");
+    }
+
+    [Fact]
+    public void Build_DisplayMathDoubleDollar_RendersBlockDiv()
+    {
+        var html = HtmlContentBuilder.Build(Page("$$x^2$$"), isOrgFile: false);
+
+        var body = Body(html);
+        body.Should().Contain("<div class=\"math-display\"");
+        body.Should().Contain("data-latex=\"x^2\"");
+        body.Should().Contain("$$x^2$$");
+    }
+
+    [Fact]
+    public void Build_DisplayMathBracket_RendersBlockDiv()
+    {
+        var html = HtmlContentBuilder.Build(Page(@"\[x^2\]"), isOrgFile: false);
+
+        var body = Body(html);
+        body.Should().Contain("<div class=\"math-display\"");
+        body.Should().Contain(@"\[x^2\]");
+    }
+
+    [Fact]
+    public void Build_InlineParenMath_RendersDelimiters()
+    {
+        var html = HtmlContentBuilder.Build(Page(@"Value is \(x^2\) here"), isOrgFile: false);
+
+        var body = Body(html);
+        body.Should().Contain(@"\(x^2\)");
+    }
+
+    [Fact]
+    public void Build_CodeInsideDollar_StaysAsCode()
+    {
+        var html = HtmlContentBuilder.Build(Page(@"Code is `$x^2$` here"), isOrgFile: false);
+
+        var body = Body(html);
+        body.Should().Contain("<code>$x^2$</code>");
+    }
+
+    [Fact]
+    public void Build_MultiLineDisplayMathDoubleDollar_RendersBlockDiv()
+    {
+        var content = @"$$
+\begin{align}
+x &= 1 \\
+y &= 2
+\end{align}
+$$";
+        var html = HtmlContentBuilder.Build(Page(content), isOrgFile: false);
+
+        var body = Body(html);
+        body.Should().Contain("<div class=\"math-display\"");
+        body.Should().Contain("data-latex=\"\\begin{align}");
+        body.Should().Contain("y &amp;= 2");
+        body.Should().Contain("\\end{align}");
+        body.Should().Contain("$$");
+    }
+
+    [Fact]
+    public void Build_DollarSignInText_NotTreatedAsMath()
+    {
+        var html = HtmlContentBuilder.Build(Page("It costs $5 for coffee"), isOrgFile: false);
+
+        var body = Body(html);
+        body.Should().Contain("$5 for coffee");
+        body.Should().NotContain("class=\"math-display\"");
+    }
+
+    [Fact]
+    public void Build_OrgInlineDollarMath_RendersDelimiters()
+    {
+        var html = HtmlContentBuilder.Build(Page("Value is $x^2$ here"), isOrgFile: true);
+
+        var body = Body(html);
+        body.Should().Contain("$x^2$");
+    }
+
+    [Fact]
+    public void Build_OrgDisplayMathBracket_RendersBlockDiv()
+    {
+        var html = HtmlContentBuilder.Build(Page(@"\[x^2\]"), isOrgFile: true);
+
+        var body = Body(html);
+        body.Should().Contain("<div class=\"math-display\"");
+        body.Should().Contain(@"\[x^2\]");
+    }
+
+    [Fact]
+    public void Build_MathInHeading_RendersMathInsideHeading()
+    {
+        var html = HtmlContentBuilder.Build(Page("# Section with $x^2$"), isOrgFile: false);
+
+        html.Should().Contain("<h1>");
+        html.Should().Contain("$x^2$");
+    }
+
+    [Fact]
+    public void Build_WrapInHtml_ContainsKaTeXPlaceholders()
+    {
+        var html = HtmlContentBuilder.Build(Page("hello"), isOrgFile: false);
+
+        html.Should().Contain("<!--KATEX_CSS-->");
+        html.Should().Contain("/* KATEX_AUTO_RENDER */");
+    }
+
+    [Fact]
+    public void Build_MathDisplay_ContainsCopyButton()
+    {
+        var html = HtmlContentBuilder.Build(Page("$$x^2$$"), isOrgFile: false);
+
+        html.Should().Contain(".math-display:hover .copy-btn");
+        html.Should().Contain("data-latex");
+    }
+
+    [Fact]
+    public void Build_DisplayMathSingleLineDoubleDollar_NotInParagraph()
+    {
+        var html = HtmlContentBuilder.Build(Page("Text before\n$$x^2$$\nText after"), isOrgFile: false);
+
+        var body = Body(html);
+        body.Should().Contain("<div class=\"math-display\"");
+        body.Should().Contain("$$x^2$$");
+    }
 }

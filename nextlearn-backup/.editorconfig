@@ -1,0 +1,45 @@
+root = true
+
+[*]
+indent_style = space
+end_of_line = lf
+charset = utf-8-bom
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.{cs,vb}]
+indent_size = 4
+
+# IDE — code style
+dotnet_diagnostic.IDE0005.severity = warning
+
+# CA — correctness / performance
+dotnet_diagnostic.CA1031.severity = warning    # Do not catch general exception types
+dotnet_diagnostic.CA1062.severity = warning    # Validate arguments of public methods
+dotnet_diagnostic.CA1822.severity = warning    # Mark members as static
+dotnet_diagnostic.CA2000.severity = warning    # Dispose objects before losing scope
+dotnet_diagnostic.CA2007.severity = warning    # Consider calling ConfigureAwait on the awaited task
+
+# SA — StyleCop rules to disable (conflict with project conventions)
+dotnet_diagnostic.SA1101.severity = none       # Prefix local calls with this.
+dotnet_diagnostic.SA1201.severity = none       # Element ordering
+dotnet_diagnostic.SA1202.severity = none       # Access modifier ordering
+dotnet_diagnostic.SA1204.severity = none       # Static members before non-static
+dotnet_diagnostic.SA1309.severity = none       # Field names must not start with underscore
+dotnet_diagnostic.SA1600.severity = none       # Elements should be documented
+dotnet_diagnostic.SA1601.severity = none       # Partial elements should be documented
+dotnet_diagnostic.SA1602.severity = none       # Enumeration items should be documented
+dotnet_diagnostic.SA1633.severity = none       # File should have header
+
+[*.{csproj,props,targets,xml,config}]
+indent_size = 2
+
+[*.{js,css,html,json,yml,yaml}]
+indent_size = 2
+
+[*.md]
+indent_size = 2
+trim_trailing_whitespace = false
+
+[*.org]
+indent_size = 2

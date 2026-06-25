@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -24,6 +25,7 @@ public partial class LearningViewModel : ViewModelBase
 
     private Deck? _currentDeck;
     private List<Page> _pages = new();
+    private IReadOnlyDictionary<string, string>? _allFootnotes;
     private UserProgress? _progress;
     private Timer? _sessionTimer;
     private DateTime _sessionStartTime;
@@ -117,6 +119,8 @@ public partial class LearningViewModel : ViewModelBase
         DeckTitle = deck.HasExplicitTitle ? deck.Title : deck.FileName;
         IsOrgFile = deck.FileName?.EndsWith(".org", StringComparison.OrdinalIgnoreCase) ?? false;
         TotalPages = _pages.Count;
+
+        CollectAllFootnotes();
 
         if (_mainViewModel.IsFalconEyeEnabled)
         {
@@ -248,6 +252,8 @@ public partial class LearningViewModel : ViewModelBase
         IsOrgFile = deck.FileName?.EndsWith(".org", StringComparison.OrdinalIgnoreCase) ?? false;
         TotalPages = _pages.Count;
 
+        CollectAllFootnotes();
+
         if (_mainViewModel.IsFalconEyeEnabled)
         {
             InsertTocPage();
@@ -276,6 +282,40 @@ public partial class LearningViewModel : ViewModelBase
         }
 
         UpdateCurrentPage();
+    }
+
+    private void CollectAllFootnotes()
+    {
+        var allFootnotes = new Dictionary<string, string>();
+        foreach (var page in _pages)
+        {
+            var textContent = page.TextContent ?? string.Empty;
+            if (string.IsNullOrEmpty(textContent))
+            {
+                continue;
+            }
+
+            var lines = textContent.Split('\n');
+            foreach (var line in lines)
+            {
+                var trimmed = line.TrimEnd('\r');
+
+                var mdMatch = Regex.Match(trimmed, @"^[ \t]*\[\^(\w+)\]:\s*(.*)$");
+                if (mdMatch.Success)
+                {
+                    allFootnotes[mdMatch.Groups[1].Value] = mdMatch.Groups[2].Value;
+                    continue;
+                }
+
+                var orgMatch = Regex.Match(trimmed, @"^[ \t]*\[fn:(\w+)\]\s+(.*)$");
+                if (orgMatch.Success)
+                {
+                    allFootnotes[orgMatch.Groups[1].Value] = orgMatch.Groups[2].Value;
+                }
+            }
+        }
+
+        _allFootnotes = allFootnotes.Count > 0 ? allFootnotes : null;
     }
 
     private void UpdateCurrentPage()
@@ -333,7 +373,7 @@ public partial class LearningViewModel : ViewModelBase
 
         var imagePaths = new List<string>();
         var imageDir = GetCurrentImageDir();
-        RenderedHtml = _htmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, _mainViewModel.Font, imagePaths);
+        RenderedHtml = _htmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, _mainViewModel.Font, imagePaths, _allFootnotes);
         CurrentPageImagePaths = imagePaths;
 
         var isLastPage = CurrentPageIndex >= TotalPages - 1;

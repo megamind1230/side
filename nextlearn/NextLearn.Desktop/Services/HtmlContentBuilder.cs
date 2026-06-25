@@ -9,7 +9,7 @@ namespace NextLearn.Desktop.Services;
 
 public static class HtmlContentBuilder
 {
-    public static string Build(Page? page, bool isOrgFile, string? imageDir = null, string? fontFamily = null, List<string>? accumulatedImagePaths = null)
+    public static string Build(Page? page, bool isOrgFile, string? imageDir = null, string? fontFamily = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? allFootnotes = null)
     {
         if (page == null)
         {
@@ -19,6 +19,12 @@ public static class HtmlContentBuilder
         var body = new StringBuilder();
 
         var textContent = page.TextContent ?? string.Empty;
+        var localFootnotes = new Dictionary<string, string>();
+        textContent = ExtractFootnoteDefinitions(textContent, localFootnotes);
+
+        // Use merged footnotes (from all pages) for inline reference resolution,
+        // fall back to local-only if cross-page collection wasn't provided.
+        var resolvedFootnotes = allFootnotes ?? localFootnotes;
         var lines = textContent.Split('\n');
 
         var inParagraph = false;
@@ -48,7 +54,7 @@ public static class HtmlContentBuilder
 
             if (trimmed.StartsWith('|'))
             {
-                if (TryRenderTable(lines, ref i, isOrgFile, out var tableHtml, imageDir, accumulatedImagePaths))
+                if (TryRenderTable(lines, ref i, isOrgFile, out var tableHtml, imageDir, accumulatedImagePaths, resolvedFootnotes))
                 {
                     CloseParagraph(body, ref inParagraph);
                     body.AppendLine(tableHtml);
@@ -72,7 +78,7 @@ public static class HtmlContentBuilder
 
             emptyLineCount = 0;
 
-            if (TryRenderHeading(rawLine, out var headingHtml, isOrgFile, imageDir, accumulatedImagePaths))
+            if (TryRenderHeading(rawLine, out var headingHtml, isOrgFile, imageDir, accumulatedImagePaths, resolvedFootnotes))
             {
                 CloseParagraph(body, ref inParagraph);
                 body.AppendLine(headingHtml);
@@ -88,7 +94,7 @@ public static class HtmlContentBuilder
                 continue;
             }
 
-            if (TryRenderBlockquote(lines, ref i, isOrgFile, out var quoteHtml, imageDir, accumulatedImagePaths))
+            if (TryRenderBlockquote(lines, ref i, isOrgFile, out var quoteHtml, imageDir, accumulatedImagePaths, resolvedFootnotes))
             {
                 CloseParagraph(body, ref inParagraph);
                 body.AppendLine(quoteHtml);
@@ -96,10 +102,18 @@ public static class HtmlContentBuilder
                 continue;
             }
 
-            if (TryRenderList(lines, ref i, isOrgFile, out var listHtml, imageDir, accumulatedImagePaths))
+            if (TryRenderList(lines, ref i, isOrgFile, out var listHtml, imageDir, accumulatedImagePaths, resolvedFootnotes))
             {
                 CloseParagraph(body, ref inParagraph);
                 body.AppendLine(listHtml);
+                i++;
+                continue;
+            }
+
+            if (TryRenderMathBlock(lines, ref i, out var mathBlockHtml))
+            {
+                CloseParagraph(body, ref inParagraph);
+                body.AppendLine(mathBlockHtml);
                 i++;
                 continue;
             }
@@ -114,11 +128,26 @@ public static class HtmlContentBuilder
                 body.AppendLine("<br>");
             }
 
-            body.Append(RenderInline(rawLine, isOrgFile, imageDir, accumulatedImagePaths));
+            body.Append(RenderInline(rawLine, isOrgFile, imageDir, accumulatedImagePaths, resolvedFootnotes));
             i++;
         }
 
         CloseParagraph(body, ref inParagraph);
+
+        if (localFootnotes.Count > 0)
+        {
+            body.AppendLine("<div class=\"footnotes\">");
+            body.AppendLine("<hr>");
+            body.AppendLine("<ul>");
+            foreach (var (id, rawText) in localFootnotes)
+            {
+                var rendered = RenderInline(rawText, isOrgFile, imageDir, accumulatedImagePaths);
+                body.AppendLine($"<li id=\"fn-{id}\" title=\"footnote: {id}\"><span class=\"footnote-marker\">\u00b6</span> {rendered} <a href=\"#fnref-{id}\" class=\"footnote-backref\">\u21a9</a></li>");
+            }
+
+            body.AppendLine("</ul>");
+            body.AppendLine("</div>");
+        }
 
         return WrapInHtml(body.ToString(), fontFamily);
     }
@@ -194,7 +223,7 @@ public static class HtmlContentBuilder
     }
 
     // Gathers | -delimited rows, separates header from body via ---+--- separator, renders <table>
-    private static bool TryRenderTable(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null)
+    private static bool TryRenderTable(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
     {
         html = string.Empty;
         var start = index;
@@ -231,7 +260,7 @@ public static class HtmlContentBuilder
         if (sepIndex > 0)
         {
             result.AppendLine("<thead><tr>");
-            foreach (var cell in SplitTableCell(rows[0], isOrgFile, imageDir, accumulatedImagePaths))
+            foreach (var cell in SplitTableCell(rows[0], isOrgFile, imageDir, accumulatedImagePaths, footnotes))
             {
                 result.AppendLine($"<th>{cell}</th>");
             }
@@ -248,7 +277,7 @@ public static class HtmlContentBuilder
             }
 
             result.AppendLine("<tr>");
-            foreach (var cell in SplitTableCell(rows[r], isOrgFile, imageDir, accumulatedImagePaths))
+            foreach (var cell in SplitTableCell(rows[r], isOrgFile, imageDir, accumulatedImagePaths, footnotes))
             {
                 result.AppendLine($"<td>{cell}</td>");
             }
@@ -270,13 +299,13 @@ public static class HtmlContentBuilder
         return !string.IsNullOrEmpty(inner) && Regex.IsMatch(inner, @"^[\s\|\-\+\:]+$");
     }
 
-    private static List<string> SplitTableCell(string row, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null)
+    private static List<string> SplitTableCell(string row, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
     {
         var cells = row.Split('|');
         var result = new List<string>();
         for (var i = 1; i < cells.Length - 1; i++)
         {
-            result.Add(RenderInline(cells[i].Trim(), isOrgFile, imageDir, accumulatedImagePaths));
+            result.Add(RenderInline(cells[i].Trim(), isOrgFile, imageDir, accumulatedImagePaths, footnotes));
         }
 
         return result;
@@ -292,7 +321,7 @@ public static class HtmlContentBuilder
     }
 
     // Matches # / ## (md) or * / ** (org) heading markers, renders <h1>–<h6> with visible marker span
-    private static bool TryRenderHeading(string line, out string html, bool isOrgFile = false, string? imageDir = null, List<string>? accumulatedImagePaths = null)
+    private static bool TryRenderHeading(string line, out string html, bool isOrgFile = false, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
     {
         html = string.Empty;
 
@@ -335,17 +364,17 @@ public static class HtmlContentBuilder
             }
         }
 
-        var renderedContent = RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths);
+        var renderedContent = RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths, footnotes);
         html = $"<h{level}><span class=\"heading-marker\">{EscapeHtml(marker)}</span> {renderedContent}</h{level}>";
         return true;
     }
 
-    private static string RenderInline(string text, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null)
+    private static string RenderInline(string text, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
     {
         var renderer = isOrgFile
             ? (IInlineRenderer)new OrgInlineRenderer()
             : new MarkdownInlineRenderer();
-        return renderer.RenderInline(text, imageDir, accumulatedImagePaths);
+        return renderer.RenderInline(text, imageDir, accumulatedImagePaths, footnotes);
     }
 
     internal static string EscapeHtml(string text)
@@ -408,7 +437,7 @@ public static class HtmlContentBuilder
         }
     }
 
-    private static bool TryRenderList(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null)
+    private static bool TryRenderList(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
     {
         html = string.Empty;
         var firstLine = lines[index].TrimEnd('\r');
@@ -509,7 +538,7 @@ public static class HtmlContentBuilder
                 content = content.Substring(cbMatch.Length);
             }
 
-            var rendered = RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths);
+            var rendered = RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths, footnotes);
             sb.Append($"<li>{checkboxHtml}{rendered}");
             i++;
         }
@@ -526,8 +555,104 @@ public static class HtmlContentBuilder
         return true;
     }
 
+    // Detects $$...$$ and \[...\] display math blocks (single or multi-line)
+    private static bool TryRenderMathBlock(string[] lines, ref int index, out string html)
+    {
+        html = string.Empty;
+
+        var line = lines[index].TrimEnd('\r');
+        var trimmed = line.Trim();
+
+        var isDoubleDollar = trimmed.StartsWith("$$");
+        var isBracketDisplay = trimmed.StartsWith(@"\[");
+
+        if (!isDoubleDollar && !isBracketDisplay)
+        {
+            return false;
+        }
+
+        string openingDelim;
+        string closingDelim;
+        string htmlLeft;
+        string htmlRight;
+
+        if (isDoubleDollar)
+        {
+            openingDelim = "$$";
+            closingDelim = "$$";
+            htmlLeft = "$$";
+            htmlRight = "$$";
+        }
+        else
+        {
+            openingDelim = @"\[";
+            closingDelim = @"\]";
+            htmlLeft = @"\[";
+            htmlRight = @"\]";
+        }
+
+        // Single-line: opening and closing delimiter on same line
+        string? singleLineContent = null;
+
+        if (isDoubleDollar && trimmed.Length > 4 && trimmed.EndsWith("$$"))
+        {
+            singleLineContent = trimmed.Substring(2, trimmed.Length - 4).Trim();
+        }
+        else if (isBracketDisplay && trimmed.Length > 4 && trimmed.EndsWith(@"\]"))
+        {
+            singleLineContent = trimmed.Substring(2, trimmed.Length - 4).Trim();
+        }
+
+        if (singleLineContent != null)
+        {
+            var escaped = EscapeHtml(singleLineContent);
+            var dataAttr = EscapeHtml(singleLineContent);
+            html = $"<div class=\"math-display\" data-latex=\"{dataAttr}\">{htmlLeft}{escaped}{htmlRight}</div>";
+            return true;
+        }
+
+        // Multi-line: collect content until closing delimiter
+        var contentBuilder = new StringBuilder();
+        var firstPart = trimmed.Substring(openingDelim.Length).Trim();
+
+        if (firstPart.Length > 0)
+        {
+            contentBuilder.AppendLine(firstPart);
+        }
+
+        var startIndex = index + 1;
+        var foundEnd = false;
+
+        for (var j = startIndex; j < lines.Length; j++)
+        {
+            var currentLine = lines[j].TrimEnd('\r');
+            var currentTrimmed = currentLine.Trim();
+
+            if (currentTrimmed == closingDelim ||
+                (isDoubleDollar && currentTrimmed.EndsWith("$$")))
+            {
+                index = j;
+                foundEnd = true;
+                break;
+            }
+
+            contentBuilder.AppendLine(currentTrimmed);
+        }
+
+        if (!foundEnd)
+        {
+            return false;
+        }
+
+        var rawContent = contentBuilder.ToString().TrimEnd('\n', '\r');
+        var escapedContent = EscapeHtml(rawContent);
+        var dataAttrLatex = EscapeHtml(rawContent);
+        html = $"<div class=\"math-display\" data-latex=\"{dataAttrLatex}\">{htmlLeft}{escapedContent}{htmlRight}</div>";
+        return true;
+    }
+
     // Lines starting with > are grouped into <blockquote><p>…</p></blockquote>
-    private static bool TryRenderBlockquote(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null)
+    private static bool TryRenderBlockquote(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
     {
         html = string.Empty;
 
@@ -560,7 +685,7 @@ public static class HtmlContentBuilder
             }
 
             var content = trimmedLine.Substring(1).TrimStart();
-            sb.AppendLine($"<p>{RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths)}</p>");
+            sb.AppendLine($"<p>{RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths, footnotes)}</p>");
             i++;
         }
 
@@ -642,6 +767,42 @@ public static class HtmlContentBuilder
         return prefix + text.Substring(i);
     }
 
+    private static string ExtractFootnoteDefinitions(string textContent, Dictionary<string, string> footnotes)
+    {
+        if (string.IsNullOrEmpty(textContent))
+        {
+            return textContent;
+        }
+
+        var lines = textContent.Split('\n');
+        var keptLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.TrimEnd('\r');
+
+            // Markdown footnote: [^1]: text
+            var mdMatch = Regex.Match(trimmed, @"^[ \t]*\[\^(\w+)\]:\s*(.*)$");
+            if (mdMatch.Success)
+            {
+                footnotes[mdMatch.Groups[1].Value] = mdMatch.Groups[2].Value;
+                continue;
+            }
+
+            // Org footnote: [fn:1] text
+            var orgMatch = Regex.Match(trimmed, @"^[ \t]*\[fn:(\w+)\]\s+(.*)$");
+            if (orgMatch.Success)
+            {
+                footnotes[orgMatch.Groups[1].Value] = orgMatch.Groups[2].Value;
+                continue;
+            }
+
+            keptLines.Add(line);
+        }
+
+        return string.Join("\n", keptLines);
+    }
+
     private static string EmptyHtml(string? fontFamily = null)
     {
         return WrapInHtml(string.Empty, fontFamily);
@@ -650,7 +811,7 @@ public static class HtmlContentBuilder
     private static string WrapInHtml(string bodyContent, string? fontFamily = null)
     {
         fontFamily ??= "Inter";
-        return $$$"""
+        return $$$$"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -661,7 +822,7 @@ public static class HtmlContentBuilder
     html { overflow-x: auto; }
     ::selection { background: #2563EB; color: #FFFFFF; }
     body {
-        font-family: '{{{fontFamily}}}', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: '{{{{fontFamily}}}}', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 16px; line-height: 1.7;
         color: #E2E8F0; background: #1E293B;
         padding: 24px; max-width: none; min-width: calc(100vw + 200px); overflow-x: auto;
@@ -676,7 +837,10 @@ public static class HtmlContentBuilder
     h6 { font-size: 0.9em; font-weight: 600; color: #EC4899; margin: 0 0 6px 0; }
     hr { border: none; border-top: 1px solid #334155; margin: 16px 0; }
     p { margin: 0 0 12px 0; }
-    code { font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace; font-size: 0.9em; background: #78350F; color: #FBBF24; padding: 2px 6px; border-radius: 4px; }
+    code { font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace; font-size: 0.9em; background: #78350F; color: #FBBF24; padding: 2px 6px; border-radius: 4px; cursor: copy; }
+    .katex { cursor: copy; }
+    .katex-display .katex { cursor: auto; }
+    .inline-copied { box-shadow: 0 0 0 2px #10B981; border-radius: 2px; transition: box-shadow 0.3s; }
     a { color: #60A5FA; text-decoration: underline; }
     a:hover { color: #93C5FD; }
     strong { font-weight: 700; color: #F8FAFC; }
@@ -685,6 +849,7 @@ public static class HtmlContentBuilder
     li { margin: 4px 0; }
     pre { background: #282C34; border-radius: 8px; padding: 16px; overflow-x: auto; margin: 0 0 12px 0; white-space: pre; position: relative; width: max-content; max-width: calc(100vw - 48px); }
     pre code { background: none; color: #ABB2BF; padding: 0; border-radius: 0; }
+    .math-display { background: #282C34; border-radius: 8px; padding: 16px; margin: 0 0 12px 0; position: relative; overflow-x: auto; width: max-content; max-width: calc(100vw - 48px); }
     table { border-collapse: collapse; width: 100%; margin: 0 0 12px 0; }
     th, td { border: 1px solid #475569; padding: 8px 12px; text-align: left; }
     th { background: #334155; color: #F1F5F9; font-weight: 600; }
@@ -704,6 +869,15 @@ public static class HtmlContentBuilder
     .todo-inprogress::after { content: "\2212"; color: #F59E0B; font-weight: bold; font-size: 1.2em; }
     .todo-keyword { color: #10B981; font-weight: 600; }
     .done-keyword { color: #94A3B8; }
+    .footnote-ref { font-size: 0.75em; vertical-align: super; line-height: 1; }
+    .footnote-ref a { text-decoration: none; }
+    .footnote-ref a:hover { text-decoration: underline; color: #93C5FD; }
+    .footnotes { margin-top: 32px; padding-top: 16px; border-top: 1px solid #334155; font-size: 0.9em; }
+    .footnotes ul { padding-left: 20px; list-style: none; }
+    .footnotes li { margin: 8px 0; }
+    .footnote-marker { color: #94A3B8; margin-right: 6px; user-select: none; }
+    .footnote-backref { text-decoration: none; color: #64748B; margin-left: 4px; }
+    .footnote-backref:hover { color: #60A5FA; }
     blockquote {
         margin: 0 0 12px 0;
         padding: 8px 16px;
@@ -725,19 +899,25 @@ public static class HtmlContentBuilder
     }
     blockquote .copy-btn { top: 4px; right: 4px; }
     pre:hover .copy-btn, blockquote:hover .copy-btn,
-    pre.org-block:hover .copy-btn { opacity: 1; }
+    pre.org-block:hover .copy-btn, .math-display:hover .copy-btn { opacity: 1; }
     .copy-btn:hover { background: #64748B; }
     .copy-btn.copied { background: #10B981; }
     <!--HIGHLIGHT_CSS-->
+    <!--KATEX_CSS-->
+</style>
+<style>
+    .katex-html { padding-right: 3em; }
 </style>
 </head>
 <body>
-{{{bodyContent}}}
+{{{{bodyContent}}}}
 <script>/* HIGHLIGHT_JS */</script>
 <script>hljs.highlightAll();</script>
+<script>/* KATEX_AUTO_RENDER */</script>
 <script>(function(){var kr=document.createElement('iframe');kr.style.cssText='display:none!important;width:0!important;height:0!important;border:none!important;position:fixed!important';document.body.appendChild(kr);document.addEventListener('keydown',function(e){var k=e.key,m='',h=false;if(e.ctrlKey)m+='C';if(e.shiftKey)m+='S';if(e.altKey)m+='A';switch(k){case'n':case'N':case'p':case'P':case'j':case'J':case'k':case'K':case'h':case'H':case'l':case'L':case'q':case'Q':case'd':case'D':case'e':case'E':case'i':case'I':case'g':case'G':case'Escape':case'?':case'/':case'Enter':h=true;break;case',':case'=':case'-':case'+':case'_':case'0':case')':if(e.ctrlKey)h=true;break;}if(!h)return;e.preventDefault();e.stopPropagation();kr.src='http://key.local/'+encodeURIComponent(k)+'/'+m+'/'+Date.now();},true);})();</script>
 <script>(function(){var lr=document.createElement('iframe');lr.style.cssText='display:none!important;width:0!important;height:0!important;border:none!important;position:fixed!important';document.body.appendChild(lr);document.addEventListener('click',function(e){var t=e.target.closest('a');if(!t)return;var h=t.getAttribute('data-href');if(!h)return;e.preventDefault();e.stopPropagation();lr.src='http://openurl.local/'+encodeURIComponent(h)+'/'+Date.now();},true);})();</script>
-<script>(function(){var e=document.querySelectorAll('pre,blockquote');for(var i=0;i<e.length;i++){var p=e[i];var c=document.createElement('button');c.className='copy-btn';c.textContent='Copy';c.addEventListener('click',function(el,btn){return function(){var t='';if(el.tagName==='PRE'){t=el.textContent}else{var ps=el.querySelectorAll('p');for(var j=0;j<ps.length;j++){t+=ps[j].textContent+'\n'}}var ta=document.createElement('textarea');ta.value=t.trim();ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.textContent='Copied!';btn.classList.add('copied');setTimeout(function(){btn.textContent='Copy';btn.classList.remove('copied')},2000)}}(p,c));p.appendChild(c)}})();</script>
+<script>(function(){var e=document.querySelectorAll('pre,blockquote,.math-display');for(var i=0;i<e.length;i++){var p=e[i];var c=document.createElement('button');c.className='copy-btn';c.textContent='Copy';c.addEventListener('click',function(el,btn){return function(){var t=el.getAttribute('data-latex');if(!t){if(el.tagName==='PRE'){t=el.textContent}else{var ps=el.querySelectorAll('p');for(var j=0;j<ps.length;j++){t+=ps[j].textContent+'\n'}}}var ta=document.createElement('textarea');ta.value=t.trim();ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.textContent='Copied!';btn.classList.add('copied');setTimeout(function(){btn.textContent='Copy';btn.classList.remove('copied')},2000)}}(p,c));p.appendChild(c)}})();</script>
+<script>(function(){function c(e,t){var n=document.createElement('textarea');n.value=t.trim();n.style.cssText='position:fixed;opacity:0';document.body.appendChild(n);n.select();document.execCommand('copy');document.body.removeChild(n);e.classList.add('inline-copied');setTimeout(function(){e.classList.remove('inline-copied')},300)}document.addEventListener('click',function(e){var t;if(t=e.target.closest('code')){if(!t.closest('pre')&&!t.closest('a')){c(t,t.textContent);return}}if(t=e.target.closest('.katex')){if(!t.closest('.katex-display')&&!t.closest('a')){var a=t.querySelector('annotation');c(t,a?a.textContent:t.textContent)}}})})();</script>
 </body>
 </html>
 """;

@@ -1452,3 +1452,55 @@ enables Phase 6 (tests).
 ** Files changed
 - ~Views/MainWindow.axaml~ — ~RowDefinitions~ updated
 
+* DONE Built-in LaTeX math rendering (KaTeX)
+
+** What
+Built-in LaTeX math rendering for deck files using KaTeX (client-side JS
+library). Inline math ($...$ / \(...\)) and display math ($$...$$ / \[...\])
+rendered in the WebView via KaTeX auto-render. Code spans take priority over
+math (`` $x^2$ `` renders as literal code). Display math blocks get a copy
+button (copies raw LaTeX) and dynamic width (same as code blocks).
+
+** Delimiter syntax
+- $...$ — inline math
+- $$...$$ — display math (single or multi-line)
+- \(...\) — inline math (escaped parens)
+- \[...\] — display math (escaped brackets, single or multi-line)
+- Always-on: KaTeX loads for every page, no frontmatter flag needed
+- Code takes priority: code span extraction runs before math extraction
+
+** Implementation summary
+- KaTeX v0.17.0 bundled in ~Assets/katex/~ (katex.min.js, katex-embedded.min.css with fonts inlined, katex-auto-render.min.js)
+- ~HtmlContentBuilder.Build()~: ~TryRenderMathBlock()~ for display math (~$$...$$~ / ~\[...\]~) → ~<div class="math-display" data-latex="...">~
+- ~MarkdownInlineRenderer~ / ~OrgInlineRenderer~: math extraction after code spans, restoration after code restore
+- ~WrapInHtml()~: KaTeX placeholders (~<!--KATEX_CSS-->~ / ~/* KATEX_AUTO_RENDER */~), ~.math-display~ CSS, copy button extended
+- ~WebViewBridge.LoadHtml()~: loads CSS/JS from ~Assets/katex/~, injects with auto-render config (4 delimiter pairs)
+- Eq-number overlap fix: ~.katex-html { padding-right: 3em; }~ in second <style> block after KaTeX CSS
+- 14 math tests added; 137 tests pass
+
+** Files changed
+- ~Assets/katex/~ — KaTeX JS + CSS (embedded fonts) + auto-render
+- ~NextLearn.Desktop.csproj~ — <Content> entries for KaTeX assets
+- ~Services/HtmlContentBuilder.cs~ — TryRenderMathBlock(), WrapInHtml() KaTeX placeholders/CSS/JS/copy button
+- ~Services/MarkdownInlineRenderer.cs~ — math extraction before bold/italic
+- ~Services/OrgInlineRenderer.cs~ — math extraction before code/italic/bold
+- ~Services/WebViewBridge.cs~ — loads & injects KaTeX CSS/JS/auto-render
+- ~tests/.../HtmlContentBuilderTests.cs~ — 14 math test cases
+
+* DONE Inline click-to-copy for code & math
+
+** What
+Left-clicking on inline code (<code>) or inline KaTeX math copies its content
+to the clipboard. Display blocks (<pre>, .math-display) keep their existing
+hover copy button — no change.
+
+** Behavior
+- Inline <code> (not inside <pre> or <a>) → copies raw textContent
+- Inline KaTeX math (not inside .katex-display or <a>) → copies raw LaTeX from <annotation> element
+- Visual feedback: brief green glow (.inline-copied, 300ms)
+- Cursor changes to copy icon on hoverable elements
+- Linked code (<a><code>...</code></a>) is skipped — link navigation takes priority
+
+** Files changed
+- ~Services/HtmlContentBuilder.cs~ — added CSS (.inline-copied, cursor: copy) + JS click handler in WrapInHtml()
+

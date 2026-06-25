@@ -6,7 +6,7 @@ namespace NextLearn.Desktop.Services;
 
 public class OrgInlineRenderer : IInlineRenderer
 {
-    public string RenderInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null)
+    public string RenderInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnoteDefinitions = null)
     {
         ArgumentNullException.ThrowIfNull(text);
         var result = HtmlContentBuilder.EscapeHtml(text);
@@ -29,6 +29,61 @@ public class OrgInlineRenderer : IInlineRenderer
             return key;
         });
 
+        // Extract math expressions before inline formatting
+        var mathExpressions = new List<(string content, string delimiter)>();
+        var mathIdx = 0;
+
+        result = Regex.Replace(result, @"\$\$([\s\S]*?)\$\$", m =>
+        {
+            mathExpressions.Add((m.Groups[1].Value, "$$"));
+            return $"%%%MATH_{mathIdx++}%%%";
+        });
+
+        result = Regex.Replace(result, @"\$([^$\s][^$]*[^$\s]|[^$\s])\$", m =>
+        {
+            mathExpressions.Add((m.Groups[1].Value, "$"));
+            return $"%%%MATH_{mathIdx++}%%%";
+        });
+
+        result = Regex.Replace(result, @"\\\[([\s\S]*?)\\\]", m =>
+        {
+            mathExpressions.Add((m.Groups[1].Value, @"\["));
+            return $"%%%MATH_{mathIdx++}%%%";
+        });
+
+        result = Regex.Replace(result, @"\\\(([\s\S]*?)\\\)", m =>
+        {
+            mathExpressions.Add((m.Groups[1].Value, @"\("));
+            return $"%%%MATH_{mathIdx++}%%%";
+        });
+
+        // Extract ~code~ spans — code takes priority
+        var codeSpans = new List<string>();
+        var codeIdx = 0;
+        result = Regex.Replace(result, @"~([^~]+)~", m =>
+        {
+            codeSpans.Add(m.Groups[1].Value);
+            return $"%%%CODE_{codeIdx++}%%%";
+        });
+
+        // Org footnote references [fn:id] — only replace if id exists in definitions
+        var footnotePlaceholders = new Dictionary<string, (string id, string rawText)>();
+        if (footnoteDefinitions != null)
+        {
+            result = Regex.Replace(result, @"\[fn:(\w+)\]", m =>
+            {
+                var id = m.Groups[1].Value;
+                if (footnoteDefinitions.TryGetValue(id, out var rawText))
+                {
+                    var key = $"%%%FN_{id}%%%";
+                    footnotePlaceholders[key] = (id, rawText);
+                    return key;
+                }
+
+                return m.Value;
+            });
+        }
+
         result = Regex.Replace(result, @"\b(TODO|DONE)\b", m =>
             m.Groups[1].Value switch
             {
@@ -36,7 +91,6 @@ public class OrgInlineRenderer : IInlineRenderer
                 "DONE" => "<span class=\"done-keyword\">DONE</span>",
                 _ => m.Value,
             });
-        result = Regex.Replace(result, @"~([^~]+)~", "<code>$1</code>");
         result = Regex.Replace(result, @"/([^/]+)/", "<em>$1</em>");
         result = Regex.Replace(result, @"(?<!\*)\*([^*]+)\*(?!\*)", "<strong>$1</strong>");
 
@@ -132,6 +186,35 @@ public class OrgInlineRenderer : IInlineRenderer
 
             return $"<a data-href=\"{url}\" rel=\"noopener\">{url}</a>";
         });
+
+        // Restore code spans
+        for (var i = 0; i < codeSpans.Count; i++)
+        {
+            result = result.Replace($"%%%CODE_{i}%%%", $"<code>{codeSpans[i]}</code>");
+        }
+
+        // Restore footnote references with superscript HTML
+        foreach (var (key, (id, rawText)) in footnotePlaceholders)
+        {
+            var escapedTitle = HtmlContentBuilder.EscapeHtml(rawText);
+            result = result.Replace(key, $"<sup class=\"footnote-ref\"><a href=\"#fn-{id}\" id=\"fnref-{id}\" title=\"{escapedTitle}\">{id}</a></sup>");
+        }
+
+        // Restore math expressions with original delimiters (KaTeX auto-render finds them in DOM)
+        for (var i = 0; i < mathExpressions.Count; i++)
+        {
+            var (content, delim) = mathExpressions[i];
+            var left = delim;
+            var right = delim switch
+            {
+                "$" => "$",
+                "$$" => "$$",
+                @"\[" => @"\]",
+                @"\(" => @"\)",
+                _ => delim,
+            };
+            result = result.Replace($"%%%MATH_{i}%%%", $"{left}{content}{right}");
+        }
 
         return result;
     }

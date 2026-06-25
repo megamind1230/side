@@ -9,6 +9,7 @@ public interface IInlineRenderer
     /// <param name="text">The text to render.</param>
     /// <param name="imageDir">Optional base directory for resolving image paths.</param>
     /// <param name="accumulatedImagePaths">Optional list to collect successfully loaded image paths.</param>
+    /// <param name="footnoteDefinitions">Optional map of footnote id to rendered HTML content (for hover preview).</param>
     /// <returns>HTML-formatted string.</returns>
-    string RenderInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null);
+    string RenderInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnoteDefinitions = null);
 }

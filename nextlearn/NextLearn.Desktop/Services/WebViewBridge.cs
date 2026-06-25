@@ -33,6 +33,10 @@ public class WebViewBridge
             var appAssets = Path.Combine(AppContext.BaseDirectory, "Assets");
             var cssPath = Path.Combine(appAssets, "atom-one-dark.min.css");
             var jsPath = Path.Combine(appAssets, "custom-highlight.js");
+            var katexDir = Path.Combine(appAssets, "katex");
+            var katexCssPath = Path.Combine(katexDir, "katex.min.css");
+            var katexJsPath = Path.Combine(katexDir, "katex.min.js");
+            var katexAutoRenderPath = Path.Combine(katexDir, "katex-auto-render.min.js");
 
             if (File.Exists(cssPath))
             {
@@ -53,6 +57,29 @@ public class WebViewBridge
             {
                 html = html.Replace("<script>hljs.highlightAll();</script>", string.Empty);
                 html = html.Replace("/* HIGHLIGHT_JS */", string.Empty);
+            }
+
+            if (File.Exists(katexCssPath))
+            {
+                var katexCss = File.ReadAllText(katexCssPath);
+                html = html.Replace("<!--KATEX_CSS-->", katexCss);
+            }
+            else
+            {
+                html = html.Replace("<!--KATEX_CSS-->", string.Empty);
+            }
+
+            if (File.Exists(katexJsPath) && File.Exists(katexAutoRenderPath))
+            {
+                var katexJs = File.ReadAllText(katexJsPath);
+                var katexAutoRender = File.ReadAllText(katexAutoRenderPath);
+                var katexScript = katexJs + "\n" + katexAutoRender + "\n"
+                    + "document.addEventListener('DOMContentLoaded',function(){renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\\\\\(',right:'\\\\\\)',display:false},{left:'\\\\\\[',right:'\\\\\\]',display:true}],throwOnError:false});});";
+                html = html.Replace("/* KATEX_AUTO_RENDER */", katexScript);
+            }
+            else
+            {
+                html = html.Replace("/* KATEX_AUTO_RENDER */", string.Empty);
             }
 
             var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(html));

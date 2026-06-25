@@ -1,0 +1,23 @@
+﻿# Build outputs
+**/bin/
+**/obj/
+
+# IDE
+**/.vs/
+**/.idea/
+**/.vscode/
+**/*.user
+**/*.suo
+**/*.DotSettings
+**/*.sln.docstates
+
+# OS
+**/.DS_Store
+**/*.db
+
+# Files
+**/*.pdf
+
+# Debugging + logging
+**/*.log
+

@@ -12,6 +12,7 @@ public interface IHtmlContentBuilder
     /// <param name="imageDir">Optional base directory for resolving image paths.</param>
     /// <param name="fontFamily">Optional font family for the body text. Defaults to "Inter".</param>
     /// <param name="accumulatedImagePaths">Optional list to collect successfully loaded image paths.</param>
+    /// <param name="allFootnotes">Optional merged footnotes from all pages (enables cross-page hover preview). If null, only local page footnotes are used.</param>
     /// <returns>A complete HTML document string.</returns>
-    string Build(Page? page, bool isOrgFile, string? imageDir = null, string? fontFamily = null, List<string>? accumulatedImagePaths = null);
+    string Build(Page? page, bool isOrgFile, string? imageDir = null, string? fontFamily = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? allFootnotes = null);
 }
