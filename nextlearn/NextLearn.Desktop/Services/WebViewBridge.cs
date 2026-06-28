@@ -97,6 +97,7 @@ public class WebViewBridge
         if (_webView != null)
         {
             _webView.IsVisible = visible;
+            _webView.Opacity = visible ? 1.0 : 0.0;
         }
     }
 
@@ -193,6 +194,21 @@ public class WebViewBridge
                 "e" or "E" => Key.E,
                 "i" or "I" => Key.I,
                 "g" or "G" => Key.G,
+                "a" or "A" => Key.A,
+                "b" or "B" => Key.B,
+                "c" or "C" => Key.C,
+                "f" or "F" => Key.F,
+                "m" or "M" => Key.M,
+                "o" or "O" => Key.O,
+                "r" or "R" => Key.R,
+                "s" or "S" => Key.S,
+                "t" or "T" => Key.T,
+                "u" or "U" => Key.U,
+                "v" or "V" => Key.V,
+                "w" or "W" => Key.W,
+                "x" or "X" => Key.X,
+                "y" or "Y" => Key.Y,
+                "z" or "Z" => Key.Z,
                 "Escape" => Key.Escape,
                 "?" => Key.Oem2,
                 "/" => Key.Oem2,
@@ -206,6 +222,8 @@ public class WebViewBridge
                 ")" => Key.D0,
                 "ArrowRight" => Key.Right,
                 "ArrowLeft" => Key.Left,
+                "ArrowUp" => Key.Up,
+                "ArrowDown" => Key.Down,
                 _ => Key.None,
             };
 

@@ -55,6 +55,7 @@
                         <ComboBox.Items>
                             <sys:String>Vim</sys:String>
                             <sys:String>Emacs</sys:String>
+                            <sys:String>VS Code</sys:String>
                             <sys:String>Custom</sys:String>
                         </ComboBox.Items>
                     </ComboBox>

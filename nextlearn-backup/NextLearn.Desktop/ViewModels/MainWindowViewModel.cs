@@ -28,6 +28,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IDeckFileService _deckFileService;
     private readonly ISettingsService _settingsService;
     private readonly IKeyBindingService _keyBindingService;
+    private List<CommandPaletteEntry> _allCommandPaletteEntries;
 
     [ObservableProperty]
     private ViewModelBase? _currentView;
@@ -99,10 +100,35 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _settingsStatus = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowChordDisplay))]
+    private string? _chordDisplayText;
+
+    public bool ShowChordDisplay
+    {
+        get { return ChordDisplayText is not null; }
+    }
+
+    [ObservableProperty]
     private bool _isShortcutsHandbookOpen;
 
     [ObservableProperty]
     private List<ShortcutSection> _handbookSections = new();
+
+    [ObservableProperty]
+    private bool _isCommandPaletteOpen;
+
+    [ObservableProperty]
+    private string _commandPaletteInput = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<CommandPaletteEntry> _filteredCommandPaletteEntries = new();
+
+    [ObservableProperty]
+    private CommandPaletteEntry? _selectedCommand;
+
+    private int _selectedCommandIndex = -1;
+
+    public bool HasFilteredCommands => FilteredCommandPaletteEntries.Count > 0;
 
     [ObservableProperty]
     private bool _isImageOverlayOpen;
@@ -233,22 +259,30 @@ public partial class MainWindowViewModel : ViewModelBase
         _deckFileService = new DeckFileService(_context);
         _settingsService = new SettingsService();
         _keyBindingService = new KeyBindingService();
+        _allCommandPaletteEntries = BuildCommandPaletteEntries();
         var htmlContentBuilder = new HtmlContentService();
 
         LoadSettings();
 
-        if (!string.IsNullOrEmpty(_settingsService.KeyBindingsProfile))
-        {
-            _keyBindingService.SwitchProfile(_settingsService.KeyBindingsProfile);
-        }
-
         KeyBindingsChanged += () =>
         {
+            _allCommandPaletteEntries = BuildCommandPaletteEntries();
+            if (IsCommandPaletteOpen)
+            {
+                OnCommandPaletteInputChanged(CommandPaletteInput);
+            }
+
             if (IsShortcutsHandbookOpen)
             {
                 RebuildHandbookSections();
             }
         };
+
+        if (!string.IsNullOrEmpty(_settingsService.KeyBindingsProfile))
+        {
+            _keyBindingService.SwitchProfile(_settingsService.KeyBindingsProfile);
+            KeyBindingsChanged?.Invoke();
+        }
 
         var decksPath = _settingsService.ResolvedDecksPath;
         HomeViewModel = new HomeViewModel(_deckService, _deckFileService, this, decksPath);
@@ -762,6 +796,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public void RebuildHandbookSections()
     {
         var sections = new Dictionary<string, List<ShortcutEntry>>();
+        var seen = new Dictionary<string, HashSet<string>>();
 
         foreach (var b in _keyBindingService.CurrentBindings)
         {
@@ -774,10 +809,20 @@ public partial class MainWindowViewModel : ViewModelBase
             if (!sections.ContainsKey(section))
             {
                 sections[section] = new List<ShortcutEntry>();
+                seen[section] = new HashSet<string>();
             }
 
-            var keyText = FormatKeyForDisplay(b.Key, b.Modifiers);
+            var keyText = b.Chords is { Count: > 0 }
+                ? FormatChordDisplay(b.Chords)
+                : FormatKeyForDisplay(b.Key, b.Modifiers);
             var desc = b.Comment ?? b.Action.ToString();
+
+            // Skip duplicate entries (same keyText and description within a section)
+            var dedupKey = $"{keyText}|{desc}";
+            if (!seen[section].Add(dedupKey))
+            {
+                continue;
+            }
 
             sections[section].Add(new ShortcutEntry
             {
@@ -795,12 +840,12 @@ public partial class MainWindowViewModel : ViewModelBase
             Description = "Close current overlay",
         });
 
-        // Add chord info
-        sections["Home"].Add(new ShortcutEntry
+        // Add static C-g entry for Emacs mode (not in binding table — hard-coded in KeyboardHandler)
+        sections["Global"].Add(new ShortcutEntry
         {
-            Section = "Home",
-            KeyText = "g then i",
-            Description = "Focus and clear search bar",
+            Section = "Global",
+            KeyText = "C-g",
+            Description = "Cancel / close current overlay (Emacs)",
         });
 
         HandbookSections = sections
@@ -809,7 +854,7 @@ public partial class MainWindowViewModel : ViewModelBase
             .ToList();
     }
 
-    private static string FormatKeyForDisplay(string key, string modifiers)
+    internal static string FormatKeyForDisplay(string key, string modifiers, bool compact = false)
     {
         var parts = new List<string>();
         if (modifiers.Contains("Control"))
@@ -854,7 +899,12 @@ public partial class MainWindowViewModel : ViewModelBase
             _ => key.ToLowerInvariant(),
         });
 
-        return string.Join(" + ", parts);
+        return compact ? string.Join("+", parts) : string.Join(" + ", parts);
+    }
+
+    private static string FormatChordDisplay(List<Models.KeyChord> chords)
+    {
+        return string.Join(" ", chords.Select(c => FormatKeyForDisplay(c.Key, c.Modifiers, compact: true)));
     }
 
     public void OpenImageOverlay(string imagePath)
@@ -1011,5 +1061,342 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         await Task.Delay(3000);
         SettingsStatus = string.Empty;
+    }
+
+    // ── Command Palette ─────────────────────────────────────────────
+    partial void OnCommandPaletteInputChanged(string value)
+    {
+        var ctx = IsImageOverlayOpen ? "ImageOverlay" : IsLearning ? "Learning" : "Home";
+        var query = value.Trim().ToLowerInvariant();
+
+        var filtered = _allCommandPaletteEntries
+            .Where(e => e.Contexts.Any(c => c == "*" || c == ctx))
+            .Where(e => string.IsNullOrEmpty(query)
+                || e.Name.StartsWith(query, StringComparison.OrdinalIgnoreCase)
+                || e.Aliases.Any(a => a.StartsWith(query, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        FilteredCommandPaletteEntries = new ObservableCollection<CommandPaletteEntry>(filtered);
+        _selectedCommandIndex = filtered.Count > 0 ? 0 : -1;
+        SelectedCommand = filtered.Count > 0 ? filtered[0] : null;
+        OnPropertyChanged(nameof(HasFilteredCommands));
+    }
+
+    public void OpenCommandPalette()
+    {
+        IsCommandPaletteOpen = true;
+        CommandPaletteInput = string.Empty;
+    }
+
+    public void CloseCommandPalette()
+    {
+        IsCommandPaletteOpen = false;
+        CommandPaletteInput = string.Empty;
+    }
+
+    public void SelectNextCommand()
+    {
+        if (FilteredCommandPaletteEntries.Count == 0)
+        {
+            return;
+        }
+
+        _selectedCommandIndex = (_selectedCommandIndex + 1) % FilteredCommandPaletteEntries.Count;
+        SelectedCommand = FilteredCommandPaletteEntries[_selectedCommandIndex];
+    }
+
+    public void SelectPreviousCommand()
+    {
+        if (FilteredCommandPaletteEntries.Count == 0)
+        {
+            return;
+        }
+
+        _selectedCommandIndex--;
+        if (_selectedCommandIndex < 0)
+        {
+            _selectedCommandIndex = FilteredCommandPaletteEntries.Count - 1;
+        }
+
+        SelectedCommand = FilteredCommandPaletteEntries[_selectedCommandIndex];
+    }
+
+    public void SelectCommand(CommandPaletteEntry entry)
+    {
+        var idx = FilteredCommandPaletteEntries.IndexOf(entry);
+        if (idx >= 0)
+        {
+            _selectedCommandIndex = idx;
+            SelectedCommand = entry;
+        }
+    }
+
+    public void ExecuteSelectedCommand()
+    {
+        if (_selectedCommandIndex < 0 || _selectedCommandIndex >= FilteredCommandPaletteEntries.Count)
+        {
+            return;
+        }
+
+        var entry = FilteredCommandPaletteEntries[_selectedCommandIndex];
+        CloseCommandPalette();
+        entry.Execute();
+    }
+
+    private string GetShortcutText(KeyboardActionKind action)
+    {
+        var binding = _keyBindingService.CurrentBindings.FirstOrDefault(b => b.Action == action);
+        if (binding == null)
+        {
+            return string.Empty;
+        }
+
+        if (binding.Chords is { Count: > 0 })
+        {
+            return FormatChordDisplay(binding.Chords);
+        }
+
+        return FormatKeyForDisplay(binding.Key, binding.Modifiers);
+    }
+
+    private List<CommandPaletteEntry> BuildCommandPaletteEntries()
+    {
+        return new List<CommandPaletteEntry>
+        {
+            // ── Global ─────────────────────────────────────────────
+            new()
+            {
+                Name = "help",
+                Aliases = new[] { "shortcuts", "handbook", "?" },
+                Description = "Toggle shortcuts handbook",
+                Contexts = new[] { "*" },
+                Execute = () => IsShortcutsHandbookOpen = !IsShortcutsHandbookOpen,
+                ShortcutText = GetShortcutText(KeyboardActionKind.ToggleShortcutsHandbook),
+            },
+            new()
+            {
+                Name = "settings",
+                Aliases = new[] { "config", "prefs" },
+                Description = "Open settings",
+                Contexts = new[] { "*" },
+                Execute = () => OpenSettingsCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.OpenSettings),
+            },
+            new()
+            {
+                Name = "sidebar",
+                Aliases = new[] { "menu" },
+                Description = "Toggle sidebar",
+                Contexts = new[] { "*" },
+                Execute = () => ToggleSidebarCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.ToggleSidebar),
+            },
+            new()
+            {
+                Name = "pinned",
+                Aliases = new[] { "pin" },
+                Description = "Show pinned decks",
+                Contexts = new[] { "*" },
+                Execute = () => ShowPinnedViewCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.ShowPinnedView),
+            },
+            new()
+            {
+                Name = "archived",
+                Aliases = new[] { "archive" },
+                Description = "Show archived decks",
+                Contexts = new[] { "*" },
+                Execute = () => ShowArchivedViewCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.ShowArchivedView),
+            },
+            new()
+            {
+                Name = "heatmap",
+                Aliases = new[] { "streak", "activity" },
+                Description = "Show study streak heatmap",
+                Contexts = new[] { "*" },
+                Execute = () => ShowHeatmapCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.ShowHeatmap),
+            },
+            new()
+            {
+                Name = "docs",
+                Aliases = new[] { "documentation" },
+                Description = "Open documentation",
+                Contexts = new[] { "*" },
+                Execute = () => NavigateToDocumentationCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.OpenDocumentation),
+            },
+            new()
+            {
+                Name = "zoom-in",
+                Aliases = new[] { "z+", "zi" },
+                Description = "Zoom text in",
+                Contexts = new[] { "*" },
+                Execute = () => ZoomTextInCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.ZoomTextIn),
+            },
+            new()
+            {
+                Name = "zoom-out",
+                Aliases = new[] { "z-", "zo" },
+                Description = "Zoom text out",
+                Contexts = new[] { "*" },
+                Execute = () => ZoomTextOutCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.ZoomTextOut),
+            },
+            new()
+            {
+                Name = "zoom-reset",
+                Aliases = new[] { "z0" },
+                Description = "Reset text zoom",
+                Contexts = new[] { "*" },
+                Execute = () => ResetTextZoomCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.ResetTextZoom),
+            },
+            new()
+            {
+                Name = "folders",
+                Aliases = new[] { "decks", "open" },
+                Description = "Open decks folder in file manager",
+                Contexts = new[] { "*" },
+                Execute = () => OpenDecksFolderCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.OpenDecksFolder),
+            },
+            new()
+            {
+                Name = "marketplace",
+                Aliases = new[] { "plugins", "extensions" },
+                Description = "Open marketplace",
+                Contexts = new[] { "*" },
+                Execute = () => NavigateToMarketplaceCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.NavigateToMarketplace),
+            },
+
+            // ── Home ───────────────────────────────────────────────
+            new()
+            {
+                Name = "search",
+                Aliases = new[] { "find", "/" },
+                Description = "Focus search bar",
+                Contexts = new[] { "Home" },
+                Execute = () => HomeViewModel.FocusSearch(),
+                ShortcutText = GetShortcutText(KeyboardActionKind.FocusSearchBar),
+            },
+            new()
+            {
+                Name = "clear",
+                Aliases = new[] { "clear-search" },
+                Description = "Clear and focus search bar",
+                Contexts = new[] { "Home" },
+                Execute = () =>
+                {
+                    HomeViewModel.SearchText = string.Empty;
+                    HomeViewModel.FocusSearch();
+                },
+                ShortcutText = GetShortcutText(KeyboardActionKind.FocusSearchWithClear),
+            },
+
+            // ── Learning ────────────────────────────────────────────
+            new()
+            {
+                Name = "next",
+                Aliases = new[] { "n", ">" },
+                Description = "Next page",
+                Contexts = new[] { "Learning" },
+                Execute = () => LearningViewModel.NextPageCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.NextPage),
+            },
+            new()
+            {
+                Name = "prev",
+                Aliases = new[] { "p", "<" },
+                Description = "Previous page",
+                Contexts = new[] { "Learning" },
+                Execute = () => LearningViewModel.PreviousPageCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.PreviousPage),
+            },
+            new()
+            {
+                Name = "home",
+                Aliases = new[] { "exit", "quit", "q" },
+                Description = "Exit to home",
+                Contexts = new[] { "Learning" },
+                Execute = () => NavigateToHomeCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.NavigateHome),
+            },
+            new()
+            {
+                Name = "goto",
+                Aliases = new[] { "go" },
+                Description = "Open go-to-page dialog",
+                Contexts = new[] { "Learning" },
+                Execute = () => LearningViewModel.IsGoToPageOpen = true,
+                ShortcutText = GetShortcutText(KeyboardActionKind.OpenGoToPage),
+            },
+
+            // ── Image Overlay ───────────────────────────────────────
+            new()
+            {
+                Name = "img-zoom-in",
+                Aliases = new[] { "z+" },
+                Description = "Zoom in on image",
+                Contexts = new[] { "ImageOverlay" },
+                Execute = () => ZoomInCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.ZoomIn),
+            },
+            new()
+            {
+                Name = "img-zoom-out",
+                Aliases = new[] { "z-" },
+                Description = "Zoom out on image",
+                Contexts = new[] { "ImageOverlay" },
+                Execute = () => ZoomOutCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.ZoomOut),
+            },
+            new()
+            {
+                Name = "img-zoom-reset",
+                Aliases = new[] { "z0" },
+                Description = "Reset image zoom",
+                Contexts = new[] { "ImageOverlay" },
+                Execute = () => ResetZoomCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.ResetZoom),
+            },
+            new()
+            {
+                Name = "next-img",
+                Aliases = new[] { "next" },
+                Description = "Next image",
+                Contexts = new[] { "ImageOverlay" },
+                Execute = () => NextImageCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.NextImage),
+            },
+            new()
+            {
+                Name = "prev-img",
+                Aliases = new[] { "previous" },
+                Description = "Previous image",
+                Contexts = new[] { "ImageOverlay" },
+                Execute = () => PreviousImageCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.PreviousImage),
+            },
+            new()
+            {
+                Name = "invert",
+                Aliases = new[] { "inv" },
+                Description = "Toggle image color inversion",
+                Contexts = new[] { "ImageOverlay" },
+                Execute = () => ToggleInvertCommand.Execute(null),
+            },
+            new()
+            {
+                Name = "open-img",
+                Aliases = new[] { "open", "view" },
+                Description = "Open image in external viewer",
+                Contexts = new[] { "ImageOverlay" },
+                Execute = () => OpenImageInViewerCommand.Execute(null),
+            },
+        };
     }
 }

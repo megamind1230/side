@@ -49,7 +49,7 @@ is a separate project.
 | Auto-refresh on file change          | ✅ Done    | FileSystemWatcher watches decks dir                                                |
 | Streak tracking & daily log          | ✅ Done    | Wall-clock minutes, daily activity                                                 |
 | Heatmap overlay (full-page)          | ✅ Done    | Snake layout 90° CCW, 6-level orange, green today                                  |
-| Keyboard shortcuts                   | ✅ Done    | N/P/J/K/H/L/Q/D/E//Esc (see table below)                                           |
+| Keyboard shortcuts                   | ✅ Done    | Vim / Emacs / Custom profiles, multi-key chords, command palette                      |
 | Settings (sidebar → ⚙)              | ✅ Done    | Theme, font, decks path, save/reset                                                |
 | Theme switching                      | 🚧 Plugin  | Will be extracted (Dark/Light)                                                     |
 | Tag cloud / tag filter               | ❌ Not yet | Planned (P27)                                                                      |
@@ -221,6 +221,15 @@ Content
 | N / P / ◀ ▶  | Image overlay  | Next / prev image on current page      |
 | Button: Done | Last page      | Complete deck + navigate home          |
 | Key: n       | Last page      | Complete but stay (allows revision)    |
+| `:` / `M-x` | Global         | Open command palette                   |
+| C-x p        | Home           | Show pinned decks                      |
+| C-x a        | Home           | Show archived decks                    |
+| C-x h        | Home           | Show heatmap                           |
+| C-c o        | Home           | Open decks folder                      |
+| C-c m        | Home           | Open marketplace                       |
+| C-c s        | Global         | Toggle sidebar                         |
+| s            | Global         | Toggle sidebar (Vim)                   |
+| C-g          | Any            | Cancel chord / close overlay (Emacs)   |
 | Ctrl+Shift++ | Global         | Text zoom in (larger)                  |
 | Ctrl+Shift+_ | Global         | Text zoom out (smaller)                |
 | Ctrl+Shift+0 | Global         | Reset text zoom / reset heatmap zoom   |
@@ -229,6 +238,18 @@ Content
 | 🔥 Streak    | Home / Sidebar | Open heatmap overlay                   |
 | F1           | Global         | Open documentation in browser          |
 | ? (Sidebar)  | Home           | Open documentation in browser          |
+| Ctrl+P       | Global         | Open command palette (VS Code)         |
+| Ctrl+Shift+P | Global         | Show pinned decks (VS Code)            |
+| Ctrl+Shift+A | Global         | Show archived decks (VS Code)          |
+| Ctrl+Shift+H | Global         | Show heatmap overlay (VS Code)         |
+| Ctrl+Shift+M | Global         | Open marketplace (VS Code)             |
+| Ctrl+O       | Global         | Open decks folder (VS Code)            |
+| Ctrl+B       | Global         | Toggle sidebar (VS Code)               |
+| Ctrl+W       | Learning       | Close deck / go home (VS Code)         |
+| Ctrl+F       | Home           | Focus search bar (VS Code)             |
+| Alt+Right    | Learning       | Next page (VS Code)                    |
+| Alt+Left     | Learning       | Previous page (VS Code)                |
+| Ctrl+K Ctrl+S| Global         | Toggle handbook (VS Code)              |
 
 * How to Use
 
@@ -381,6 +402,29 @@ Switch between them in Settings → Key Bindings.
 
 The Vim preset ships with the app. You can also find the complete mapping below
 for reference or manual setup.
+
+** Command Palette
+
+Press ~:~ (Vim) or ~M-x~ (Alt+X, Emacs) to open the command palette — a
+bottom-bar overlay that shows all available commands with their current
+keyboard shortcuts. Type any part of the command name to live-filter the
+list. Press ~Enter~ to execute the selected command, or ~Esc~ to close.
+
+The palette displays commands from all profiles, but only the currently
+active profile's shortcuts are shown as key hints.
+
+** Multi-key chords
+
+Both profiles support multi-key chords (e.g. ~C-x p~, ~C-c s~, ~g then i~).
+When you press a chord prefix, a pending indicator appears at the top-center
+of the window showing the keys pressed so far. If you don't complete the
+chord within 500ms, it cancels automatically.
+
+Available chord prefixes:
+- ~C-x~ (Emacs) — followed by ~p~ (pinned), ~a~ (archived), ~h~ (heatmap)
+- ~C-c~ (Emacs) — followed by ~o~ (open decks folder), ~m~ (marketplace), ~s~ (sidebar)
+- ~g~ (Vim) — followed by ~i~ (focus and clear search bar)
+- ~C-g~ (Emacs only) — cancels the pending chord and closes current overlay (like Esc)
 
 ** Vim preset (default)
 
@@ -561,7 +605,60 @@ bindings:
     key: Oem2          # / key (with Shift = ?)
     modifiers: Shift
     _comment: "Toggle shortcuts handbook (? or Shift+/)"
+
+  - action: ToggleSidebar
+    key: S
+    modifiers: ""
+    _comment: "Toggle sidebar"
+
+  - action: OpenDecksFolder
+    key: O
+    modifiers: ""
+    _comment: "Open decks folder"
+
+  - action: FocusSearchWithClear
+    key: G
+    modifiers: ""
+    chords:
+      - { key: I, modifiers: "" }
+    context: Home
+    _comment: "Focus and clear search bar (g then i)"
 #+END_SRC
+
+** Emacs preset
+
+The Emacs preset adds multi-key chords on top of the Vim-like single-key
+navigation. Look up the full list in the app via ~?~ / ~Shift+/~ (Shortcuts
+Handbook) or open the command palette with ~M-x~.
+
+Key differences from Vim:
+- ~C-g~ cancels pending chords and closes overlays (like Esc)
+- ~M-x~ opens the command palette (instead of ~:~)
+- ~o~ does NOT open the decks folder (Vim-only)
+- ~C-x p/a/h~ show pinned/archived/heatmap views
+- ~C-c o/m/s~ open decks folder / marketplace / toggle sidebar
+
+** VS Code preset
+
+The VS Code preset uses Ctrl-based shortcuts familiar from VS Code, while
+keeping single-key Vim navigation (J/K/H/L, N/P, Q/D) for speed.
+
+Key bindings unique to this profile:
+- ~Ctrl+P~ opens the command palette (like Quick Open)
+- ~Ctrl+Shift+P~ shows pinned decks
+- ~Ctrl+Shift+A~ shows archived decks
+- ~Ctrl+Shift+H~ shows the heatmap
+- ~Ctrl+Shift+M~ opens the marketplace
+- ~Ctrl+O~ opens the decks folder
+- ~Ctrl+B~ toggles the sidebar
+- ~Ctrl+W~ closes the deck / goes home
+- ~Ctrl+G~ opens go-to-page (Learning)
+- ~Ctrl+F~ focuses the search bar (Home)
+- ~Alt+Right~ / ~Alt+Left~ next / previous page (Learning)
+- ~Ctrl+K then Ctrl+S~ toggles the shortcuts handbook
+- ~F1~ opens documentation (shared with all profiles)
+- ~?~ / ~Shift+/~ toggles the shortcuts handbook (shared with all profiles)
+- ~:~ also opens the command palette (like Vim)
 
 To use a custom config, unhide the template file written to the app's config directory:
 
@@ -574,35 +671,48 @@ Then select ~Custom~ in Settings → Key Bindings and click Save.
 
 ** Binding format reference
 
-| Field       | Required | Description                                                      |
-|-------------+----------+------------------------------------------------------------------|
-| ~action~    | yes      | One of the ~KeyboardActionKind~ enum values (see below)          |
-| ~key~       | yes      | Avalonia Key enum name; inline ~#~ comments explain the real key |
-| ~modifiers~ | yes      | ~Control~, ~Shift~, ~Alt~, ~Control+Shift~, or empty ~""~        |
-| ~context~   | no       | ~Learning~, ~Home~, ~ImageOverlay~, or omit for global           |
-| ~textBox~   | no       | Set ~true~ to allow in text input fields (default false)         |
-| ~_comment~  | no       | Description shown in the Shortcuts Handbook                      |
+| Field        | Required | Description                                                           |
+|--------------+----------+-----------------------------------------------------------------------|
+| ~action~     | yes      | One of the ~KeyboardActionKind~ enum values (see below)               |
+| ~key~        | yes      | Avalonia Key enum name; inline ~#~ comments explain the real key      |
+| ~modifiers~  | yes      | ~Control~, ~Shift~, ~Alt~, ~Control+Shift~, or empty ~""~             |
+| ~chords~     | no       | List of ~{ key, modifiers }~ for multi-key sequences (e.g. ~C-x p~)   |
+| ~context~   | no       | ~Learning~, ~Home~, ~ImageOverlay~, or omit for global                |
+| ~textBox~   | no       | Set ~true~ to allow in text input fields (default false)              |
+| ~_comment~  | no       | Description shown in the Shortcuts Handbook                           |
 
 Available ~action~ values:
 
 - ~NextPage~ / ~PreviousPage~ — flip deck pages during study
 - ~ScrollDown~ / ~ScrollUp~ / ~ScrollLeft~ / ~ScrollRight~ — scroll WebView content
-- ~NavigateHome~ — exit study or settings back to deck list
+- ~NavigateHome~ — exit study or settings back to deck list (closes all overlays first)
 - ~OpenSettings~ / ~CloseSettings~ — toggle settings panel
+- ~ExitSettingsHome~ — close settings and navigate home
 - ~ZoomTextIn~ / ~ZoomTextOut~ / ~ResetTextZoom~ — font scaling
 - ~ZoomIn~ / ~ZoomOut~ / ~ResetZoom~ — image overlay zoom
 - ~NextImage~ / ~PreviousImage~ — cycle images in overlay
 - ~FocusSearchBar~ — focus the search bar on home screen
+- ~FocusSearchWithClear~ — focus and clear search bar (g then i chord)
 - ~ScrollDeckListDown~ / ~ScrollDeckListUp~ — scroll the deck list
 - ~ToggleShortcutsHandbook~ — show/hide this handbook
 - ~OpenGoToPage~ — jump to a page number during study
 - ~OpenDocumentation~ — open GitHub README in browser
 - ~ZoomHeatmapIn~ / ~ZoomHeatmapOut~ / ~ZoomHeatmapReset~ — heatmap zoom
+- ~ToggleSidebar~ — toggle sidebar panel
+- ~OpenDecksFolder~ — open decks folder in file manager
+- ~ShowPinnedView~ — show pinned decks
+- ~ShowArchivedView~ — show archived decks
+- ~ShowHeatmap~ — show study streak heatmap
+- ~NavigateToMarketplace~ — navigate to marketplace
+- ~OpenCommandPalette~ — open command palette (: / M-x)
+- ~CloseCommandPalette~ — close command palette (Esc)
+- ~ChordPrefix~ — prefix of a multi-key chord (shows pending indicator)
 
 The following are handled internally and are not configurable:
 
-- =Esc=: closes overlays in priority order (GoToPage → Handbook → Image → ... → clear focus)
-- =g= then =i= chord: focus and clear search bar on home screen
+- =Esc=: closes overlays in priority order (CommandPalette → GoToPage → Handbook → ImageOverlay → ArchivedView → PinnedView → Heatmap → Marketplace → Settings → Sidebar → clear focus)
+- =C-g= (Emacs only): same as Esc — cancels pending chord and closes current overlay
+- =: = (Vim) / =M-x= (Emacs): open command palette (hard-coded in KeyboardHandler before binding table lookup, so it works even in text fields)
 
 * LaTeX / Math Rendering
 

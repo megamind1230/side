@@ -469,3 +469,49 @@ When expanding test files from 39 to 52 languages, the php-template and python-r
 ** Fix
 - Removed duplicate PHP Template and Python REPL sections from the .md file
 - Changed ~#+BEGIN_SRC bash~ to ~#+BEGIN_SRC shell~ in the .org Shell section
+
+* CLOSED B42: Study page keyboard handling — layered fix needed
+
+** Location
+- ~NextLearn.Desktop/Services/WebViewBridge.cs~ (~DecodeKeyUri~ switch, line ~184~)
+- ~NextLearn.Desktop/Views/MainWindow.axaml.cs~ (~HandleKey~ switch, line ~403~)
+- ~NextLearn.Desktop/Services/KeyBindingService.cs~ (VimBindings missing ~S~ entry)
+- ~NextLearn.Desktop/ViewModels/MainWindowViewModel.cs~ (C-g missing from handbook)
+
+** Symptoms
+1. C-c chords fail on study page (Ctrl+C intercepted before handler)
+2. C-x chords fail on study page (Ctrl+X intercepted before handler)
+3. C-v / M-v / C-b / C-f scroll keys don't work on study page
+4. C-c s doesn't toggle sidebar from study page
+5. C-x p/a/h doesn't open pinned/archived/heatmap from study page
+6. C-c o/m doesn't open decks dir/marketplace from study page
+7. Vim mode missing ~s~ → sidebar toggle
+8. Emacs handbook missing C-g = Esc note
+
+** Root Cause
+The issue had two layers, not three:
+
+| Layer | Issue | Fix |
+|-------|-------|-----|
+| A | ~DecodeKeyUri~ only mapped 10 letters (n/p/j/k/h/l/q/d/e/i/g). All new JS-forwarded letters hit ~_ => Key.None~ and were silently dropped | Expand switch to all a-z, A-Z, ArrowUp, ArrowDown |
+| B | ~HandleKey~ switch missing 6 cases (~ToggleSidebar~, ~ShowPinnedView~, ~ShowArchivedView~, ~ShowHeatmap~, ~NavigateToMarketplace~, ~OpenDecksFolder~) — chord-completed actions silently fell to ~default: return false~ | Add the 6 cases |
+
+Layer C (WebKitGTK native keybinding signals) was hypothesized but turned out
+to be a false alarm. The tunnel handler installed via
+~AddHandler(InputElement.KeyDownEvent, ...)~ fires at the Avalonia event
+tunnel phase — before the native WebKitGTK widget processes the key at the
+GTK signal level. Avalonia's input system intercepts all keyboard events at
+the window level first, then forwards them to the focused control. Since the
+tunnel handler runs during this window-level pre-processing, it sees
+EVERY keypress before WebKitGTK can consume it. This is inherent to
+Avalonia's event routing architecture — no GTK EventControllerKey hack is
+needed.
+
+** Fix
+- ~WebViewBridge.cs~: ~DecodeKeyUri~ expanded with a-z, A-Z, ArrowUp, ArrowDown — allows all forwarded letters to decode correctly
+- ~MainWindow.axaml.cs~: 6 missing switch cases added for ToggleSidebar, ShowPinnedView, ShowArchivedView, ShowHeatmap, NavigateToMarketplace, OpenDecksFolder
+- ~KeyBindingService.cs~: ~S~ → ~ToggleSidebar~ added to VimBindings
+- ~MainWindowViewModel.cs~: Static ~C-g~ → /Cancel/ entry added to auto-generated handbook (Emacs mode)
+
+** Status
+- ✅ RESOLVED — all keyboards keys on study page now work correctly across both Vim and Emacs profiles. No GTK platform-specific code was required. The Avalonia tunnel handler captures all key events before WebKitGTK processes them.

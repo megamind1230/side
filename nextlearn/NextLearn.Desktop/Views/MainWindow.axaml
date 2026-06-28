@@ -183,14 +183,35 @@ FontSize="20" Foreground="White"
             </DockPanel>
         </Panel>
 
-        <ctrls:Sidebar/>
-        <ctrls:ShortcutsHandbook/>
-        <ctrls:ImageOverlay/>
-        <ctrls:SettingsPanel/>
-        <ctrls:PinnedDecksPanel/>
-        <ctrls:ArchivedDecksPanel/>
-        <ctrls:MarketplacePanel/>
-        <ctrls:HeatmapPanel/>
+        <ctrls:Sidebar ZIndex="500"/>
+        <ctrls:ImageOverlay ZIndex="500"/>
+        <ctrls:SettingsPanel ZIndex="500"/>
+        <ctrls:PinnedDecksPanel ZIndex="500"/>
+        <ctrls:ArchivedDecksPanel ZIndex="500"/>
+        <ctrls:MarketplacePanel ZIndex="500"/>
+        <ctrls:HeatmapPanel ZIndex="500"/>
+        <ctrls:CommandPalette ZIndex="1000"/>
+
+        <!-- Chord display — shows pending/completed multi-key sequences -->
+        <Border ZIndex="1500"
+                IsVisible="{Binding ShowChordDisplay}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="0,16,0,0"
+                Background="#1E293B"
+                BorderBrush="#334155"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="20,10"
+                Opacity="0.95">
+            <TextBlock Text="{Binding ChordDisplayText}"
+                       Foreground="#E2E8F0"
+                       FontSize="14"
+                       FontFamily="Consolas, monospace"
+                       HorizontalAlignment="Center"/>
+        </Border>
+
+        <ctrls:ShortcutsHandbook ZIndex="2000"/>
     </Panel>
 
     <Window.Styles>

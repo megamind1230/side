@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NextLearn.Desktop.Services;
 using YamlDotNet.Serialization;
 
@@ -13,6 +14,9 @@ public class KeyBinding
 
     [YamlMember(Alias = "modifiers")]
     public string Modifiers { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "chords")]
+    public List<KeyChord>? Chords { get; set; }
 
     [YamlMember(Alias = "context")]
     public string? Context { get; set; }

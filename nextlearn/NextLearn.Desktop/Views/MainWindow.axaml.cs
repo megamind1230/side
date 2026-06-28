@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -35,23 +37,55 @@ public partial class MainWindow : Window
             InputElement.KeyDownEvent,
             (_, e) =>
             {
-                if (e.Key != Key.O)
-                {
-                    return;
-                }
-
-                if (e.Source is TextBox)
-                {
-                    return;
-                }
-
                 if (DataContext is not MainWindowViewModel vm)
                 {
                     return;
                 }
 
-                vm.OpenDecksFolderCommand.Execute(null);
-                e.Handled = true;
+                // Open command palette before native WebView captures the key
+                if (!vm.IsCommandPaletteOpen)
+                {
+                    if (vm.KeyBindingService.ActiveProfile == "Emacs")
+                    {
+                        // Emacs: M-x opens palette
+                        if (e.Key == Key.X && e.KeyModifiers == KeyModifiers.Alt)
+                        {
+                            vm.OpenCommandPalette();
+                            e.Handled = true;
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // Vim/Custom: : opens palette
+                        if (e.Key == Key.OemSemicolon && e.KeyModifiers == KeyModifiers.Shift)
+                        {
+                            vm.OpenCommandPalette();
+                            e.Handled = true;
+                            return;
+                        }
+                    }
+                }
+
+                // o — open decks folder (Vim only, unmodified O)
+                if (e.Key == Key.O && e.KeyModifiers == KeyModifiers.None
+                    && e.Source is not TextBox
+                    && vm.KeyBindingService.ActiveProfile == "Vim")
+                {
+                    vm.OpenDecksFolderCommand.Execute(null);
+                    e.Handled = true;
+                }
+
+                // Process ALL remaining keys through HandleKey before the WebView
+                // consumes them (especially chords, Ctrl+V, Ctrl+B, Alt+V, etc.)
+                if (!e.Handled && _keyboardHandler != null)
+                {
+                    var isTextBox = this.FocusManager?.GetFocusedElement() is TextBox;
+                    if (HandleKey(e.Key, e.KeyModifiers, isTextBox))
+                    {
+                        e.Handled = true;
+                    }
+                }
             },
             RoutingStrategies.Tunnel);
     }
@@ -116,11 +150,13 @@ public partial class MainWindow : Window
             or nameof(MainWindowViewModel.IsShortcutsHandbookOpen)
             or nameof(MainWindowViewModel.IsPinnedViewOpen)
             or nameof(MainWindowViewModel.IsArchivedViewOpen)
-            or nameof(MainWindowViewModel.IsHeatmapOpen))
+            or nameof(MainWindowViewModel.IsHeatmapOpen)
+            or nameof(MainWindowViewModel.IsMarketplaceOpen)
+            or nameof(MainWindowViewModel.IsCommandPaletteOpen))
         {
             _webViewBridge.SetVisible(!(vm.IsImageOverlayOpen || vm.IsSidebarOpen || vm.IsSettingsOpen
                 || vm.IsShortcutsHandbookOpen || vm.IsPinnedViewOpen || vm.IsArchivedViewOpen
-                || vm.IsHeatmapOpen));
+                || vm.IsHeatmapOpen || vm.IsMarketplaceOpen || vm.IsCommandPaletteOpen));
         }
     }
 
@@ -334,10 +370,33 @@ public partial class MainWindow : Window
 
         var action = _keyboardHandler.HandleKey(key, modifiers, isTextBox);
 
-        if (action != KeyboardActionKind.ChordG && _chordTimer != null)
+        if (action != KeyboardActionKind.ChordPrefix && _chordTimer != null)
         {
             _chordTimer.Dispose();
             _chordTimer = null;
+        }
+
+        // Update chord display
+        if (action == KeyboardActionKind.ChordPrefix)
+        {
+            // Already handled in the case below — do nothing here
+        }
+        else if (action != KeyboardActionKind.None)
+        {
+            var completed = _keyboardHandler.LastCompletedChord;
+            if (completed is { Count: > 0 })
+            {
+                vm.ChordDisplayText = FormatPendingChord(completed);
+                DispatcherTimer.RunOnce(() => vm.ChordDisplayText = null, TimeSpan.FromSeconds(1));
+            }
+            else
+            {
+                vm.ChordDisplayText = null;
+            }
+        }
+        else
+        {
+            vm.ChordDisplayText = null;
         }
 
         // Ctrl+Shift+= / Ctrl+Shift+- / Ctrl+Shift+0 — font-only zoom for entire app
@@ -406,6 +465,10 @@ public partial class MainWindow : Window
                 vm.CloseHeatmapCommand.Execute(null);
                 return true;
 
+            case KeyboardActionKind.CloseMarketplace:
+                vm.CloseMarketplaceCommand.Execute(null);
+                return true;
+
             // Ctrl+Shift+= / Ctrl+Shift+- / Ctrl+Shift+0 — heatmap zoom
             case KeyboardActionKind.ZoomHeatmapIn:
                 vm.ZoomHeatmapInCommand.Execute(null);
@@ -426,6 +489,16 @@ public partial class MainWindow : Window
 
             case KeyboardActionKind.CloseSidebar:
                 vm.IsSidebarOpen = false;
+                return true;
+
+            // : / M-x — open command palette from anywhere
+            case KeyboardActionKind.OpenCommandPalette:
+                vm.OpenCommandPalette();
+                return true;
+
+            // Esc — close command palette
+            case KeyboardActionKind.CloseCommandPalette:
+                vm.CloseCommandPalette();
                 return true;
 
             // Ctrl+, — open settings from anywhere
@@ -476,15 +549,27 @@ public partial class MainWindow : Window
                 _webViewBridge?.ScrollBy(40, 0);
                 return true;
 
-            // Q / D — exit study view to home
+            // Q / D / C-x q / C-x d — navigate home and close any open overlay
             case KeyboardActionKind.NavigateHome:
+                vm.IsHeatmapOpen = false;
+                vm.IsPinnedViewOpen = false;
+                vm.IsArchivedViewOpen = false;
+                vm.IsMarketplaceOpen = false;
+                vm.IsSidebarOpen = false;
+                vm.IsSettingsOpen = false;
                 vm.NavigateToHomeCommand.Execute(null);
                 return true;
 
-            // g — first key of g+i chord to focus+clear search
-            case KeyboardActionKind.ChordG:
+            // Prefix of a multi-key chord — show pending, start/restart 500ms timeout
+            case KeyboardActionKind.ChordPrefix:
+                vm.ChordDisplayText = FormatPendingChord(_keyboardHandler.PendingChord);
                 _chordTimer?.Dispose();
-                _chordTimer = DispatcherTimer.RunOnce(() => _keyboardHandler.CancelChord(), TimeSpan.FromMilliseconds(500));
+                Action cancelChord = () =>
+                {
+                    _keyboardHandler.CancelChord();
+                    vm.ChordDisplayText = null;
+                };
+                _chordTimer = DispatcherTimer.RunOnce(cancelChord, TimeSpan.FromMilliseconds(500));
                 return true;
 
             // g then i — focus search bar and clear current text
@@ -526,6 +611,36 @@ public partial class MainWindow : Window
                 FocusManager?.ClearFocus();
                 return true;
 
+            // S — toggle sidebar
+            case KeyboardActionKind.ToggleSidebar:
+                vm.ToggleSidebarCommand.Execute(null);
+                return true;
+
+            // C-c o / O — open decks folder
+            case KeyboardActionKind.OpenDecksFolder:
+                vm.OpenDecksFolderCommand.Execute(null);
+                return true;
+
+            // C-x p — show pinned view
+            case KeyboardActionKind.ShowPinnedView:
+                vm.ShowPinnedViewCommand.Execute(null);
+                return true;
+
+            // C-x a — show archived view
+            case KeyboardActionKind.ShowArchivedView:
+                vm.ShowArchivedViewCommand.Execute(null);
+                return true;
+
+            // C-x h — show heatmap
+            case KeyboardActionKind.ShowHeatmap:
+                vm.ShowHeatmapCommand.Execute(null);
+                return true;
+
+            // C-c m — navigate to marketplace
+            case KeyboardActionKind.NavigateToMarketplace:
+                vm.NavigateToMarketplaceCommand.Execute(null);
+                return true;
+
             // F1 — open documentation
             case KeyboardActionKind.OpenDocumentation:
                 OpenInBrowser("https://github.com/megamind1230/side/blob/master/nextlearn/README.org");
@@ -534,6 +649,34 @@ public partial class MainWindow : Window
             default:
                 return false;
         }
+    }
+
+    private static string FormatPendingChord(IReadOnlyList<(Key key, KeyModifiers modifiers)> chords)
+    {
+        var formatted = chords.Select(c => MainWindowViewModel.FormatKeyForDisplay(
+            c.key.ToString(), ModifiersToString(c.modifiers), compact: true));
+        return string.Join(" ", formatted);
+    }
+
+    private static string ModifiersToString(KeyModifiers mods)
+    {
+        var parts = new List<string>();
+        if (mods.HasFlag(KeyModifiers.Control))
+        {
+            parts.Add("Control");
+        }
+
+        if (mods.HasFlag(KeyModifiers.Shift))
+        {
+            parts.Add("Shift");
+        }
+
+        if (mods.HasFlag(KeyModifiers.Alt))
+        {
+            parts.Add("Alt");
+        }
+
+        return string.Join("+", parts);
     }
 
     private void OnFontChanged(string fontFamily)
