@@ -76,7 +76,8 @@ FontSize="20" Foreground="White"
                                     Focusable="False"
                                     NavigationStarted="OnWebViewNavigationStarted"
                                     PointerPressed="OnContentWebViewPointerPressed"
-                                    GotFocus="OnContentWebViewGotFocus" />
+                                    GotFocus="OnContentWebViewGotFocus"
+                                    IsVisible="{Binding !IsDeckLinkPromptOpen}" />
                             </Border>
                         </Grid>
                     </Border>
@@ -210,6 +211,39 @@ FontSize="20" Foreground="White"
                        FontFamily="Consolas, monospace"
                        HorizontalAlignment="Center"/>
         </Border>
+
+        <!-- Deck link prompt overlay -->
+        <Panel ZIndex="9999"
+               IsVisible="{Binding IsDeckLinkPromptOpen}"
+               Background="Transparent">
+            <Border Background="#80000000"
+                    PointerPressed="CloseDeckLinkPromptOnBackdrop"/>
+            <Border HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="#1E293B"
+                    BorderBrush="#334155"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="24"
+                    MinWidth="320">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="{Binding DeckLinkPromptTitle}"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="#E2E8F0"/>
+                    <Button Content="{Binding DeckLinkPromptActionText}"
+                            Command="{Binding NavigateToDeckLinkCommand}"
+                            Background="#2563EB"
+                            Foreground="White"
+                            HorizontalAlignment="Stretch"/>
+                    <Button Content="Cancel"
+                            Command="{Binding DismissDeckLinkPromptCommand}"
+                            Background="#334155"
+                            Foreground="#E2E8F0"
+                            HorizontalAlignment="Stretch"/>
+                </StackPanel>
+            </Border>
+        </Panel>
 
         <ctrls:ShortcutsHandbook ZIndex="2000"/>
     </Panel>

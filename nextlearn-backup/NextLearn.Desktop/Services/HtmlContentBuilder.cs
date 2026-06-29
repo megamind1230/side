@@ -9,7 +9,7 @@ namespace NextLearn.Desktop.Services;
 
 public static class HtmlContentBuilder
 {
-    public static string Build(Page? page, bool isOrgFile, string? imageDir = null, string? fontFamily = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? allFootnotes = null)
+    public static string Build(Page? page, bool isOrgFile, string? imageDir = null, string? fontFamily = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? allFootnotes = null, string? decksPath = null, string? currentDir = null)
     {
         if (page == null)
         {
@@ -54,7 +54,7 @@ public static class HtmlContentBuilder
 
             if (trimmed.StartsWith('|'))
             {
-                if (TryRenderTable(lines, ref i, isOrgFile, out var tableHtml, imageDir, accumulatedImagePaths, resolvedFootnotes))
+                if (TryRenderTable(lines, ref i, isOrgFile, out var tableHtml, imageDir, accumulatedImagePaths, resolvedFootnotes, decksPath, currentDir))
                 {
                     CloseParagraph(body, ref inParagraph);
                     body.AppendLine(tableHtml);
@@ -78,7 +78,7 @@ public static class HtmlContentBuilder
 
             emptyLineCount = 0;
 
-            if (TryRenderHeading(rawLine, out var headingHtml, isOrgFile, imageDir, accumulatedImagePaths, resolvedFootnotes))
+            if (TryRenderHeading(rawLine, out var headingHtml, isOrgFile, imageDir, accumulatedImagePaths, resolvedFootnotes, decksPath, currentDir))
             {
                 CloseParagraph(body, ref inParagraph);
                 body.AppendLine(headingHtml);
@@ -94,7 +94,7 @@ public static class HtmlContentBuilder
                 continue;
             }
 
-            if (TryRenderBlockquote(lines, ref i, isOrgFile, out var quoteHtml, imageDir, accumulatedImagePaths, resolvedFootnotes))
+            if (TryRenderBlockquote(lines, ref i, isOrgFile, out var quoteHtml, imageDir, accumulatedImagePaths, resolvedFootnotes, decksPath, currentDir))
             {
                 CloseParagraph(body, ref inParagraph);
                 body.AppendLine(quoteHtml);
@@ -102,7 +102,7 @@ public static class HtmlContentBuilder
                 continue;
             }
 
-            if (TryRenderList(lines, ref i, isOrgFile, out var listHtml, imageDir, accumulatedImagePaths, resolvedFootnotes))
+            if (TryRenderList(lines, ref i, isOrgFile, out var listHtml, imageDir, accumulatedImagePaths, resolvedFootnotes, decksPath, currentDir))
             {
                 CloseParagraph(body, ref inParagraph);
                 body.AppendLine(listHtml);
@@ -128,7 +128,7 @@ public static class HtmlContentBuilder
                 body.AppendLine("<br>");
             }
 
-            body.Append(RenderInline(rawLine, isOrgFile, imageDir, accumulatedImagePaths, resolvedFootnotes));
+            body.Append(RenderInline(rawLine, isOrgFile, imageDir, accumulatedImagePaths, resolvedFootnotes, decksPath, currentDir));
             i++;
         }
 
@@ -141,8 +141,8 @@ public static class HtmlContentBuilder
             body.AppendLine("<ul>");
             foreach (var (id, rawText) in localFootnotes)
             {
-                var rendered = RenderInline(rawText, isOrgFile, imageDir, accumulatedImagePaths);
-                body.AppendLine($"<li id=\"fn-{id}\" title=\"footnote: {id}\"><span class=\"footnote-marker\">\u00b6</span> {rendered} <a href=\"#fnref-{id}\" class=\"footnote-backref\">\u21a9</a></li>");
+                    var rendered = RenderInline(rawText, isOrgFile, imageDir, accumulatedImagePaths, null, decksPath, currentDir);
+                    body.AppendLine($"<li id=\"fn-{id}\" title=\"footnote: {id}\"><span class=\"footnote-marker\">\u00b6</span> {rendered} <a href=\"#fnref-{id}\" class=\"footnote-backref\">\u21a9</a></li>");
             }
 
             body.AppendLine("</ul>");
@@ -223,7 +223,7 @@ public static class HtmlContentBuilder
     }
 
     // Gathers | -delimited rows, separates header from body via ---+--- separator, renders <table>
-    private static bool TryRenderTable(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
+    private static bool TryRenderTable(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null, string? decksPath = null, string? currentDir = null)
     {
         html = string.Empty;
         var start = index;
@@ -260,7 +260,7 @@ public static class HtmlContentBuilder
         if (sepIndex > 0)
         {
             result.AppendLine("<thead><tr>");
-            foreach (var cell in SplitTableCell(rows[0], isOrgFile, imageDir, accumulatedImagePaths, footnotes))
+            foreach (var cell in SplitTableCell(rows[0], isOrgFile, imageDir, accumulatedImagePaths, footnotes, decksPath, currentDir))
             {
                 result.AppendLine($"<th>{cell}</th>");
             }
@@ -277,7 +277,7 @@ public static class HtmlContentBuilder
             }
 
             result.AppendLine("<tr>");
-            foreach (var cell in SplitTableCell(rows[r], isOrgFile, imageDir, accumulatedImagePaths, footnotes))
+            foreach (var cell in SplitTableCell(rows[r], isOrgFile, imageDir, accumulatedImagePaths, footnotes, decksPath, currentDir))
             {
                 result.AppendLine($"<td>{cell}</td>");
             }
@@ -299,13 +299,13 @@ public static class HtmlContentBuilder
         return !string.IsNullOrEmpty(inner) && Regex.IsMatch(inner, @"^[\s\|\-\+\:]+$");
     }
 
-    private static List<string> SplitTableCell(string row, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
+    private static List<string> SplitTableCell(string row, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null, string? decksPath = null, string? currentDir = null)
     {
         var cells = row.Split('|');
         var result = new List<string>();
         for (var i = 1; i < cells.Length - 1; i++)
         {
-            result.Add(RenderInline(cells[i].Trim(), isOrgFile, imageDir, accumulatedImagePaths, footnotes));
+            result.Add(RenderInline(cells[i].Trim(), isOrgFile, imageDir, accumulatedImagePaths, footnotes, decksPath, currentDir));
         }
 
         return result;
@@ -321,7 +321,7 @@ public static class HtmlContentBuilder
     }
 
     // Matches # / ## (md) or * / ** (org) heading markers, renders <h1>–<h6> with visible marker span
-    private static bool TryRenderHeading(string line, out string html, bool isOrgFile = false, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
+    private static bool TryRenderHeading(string line, out string html, bool isOrgFile = false, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null, string? decksPath = null, string? currentDir = null)
     {
         html = string.Empty;
 
@@ -364,17 +364,117 @@ public static class HtmlContentBuilder
             }
         }
 
-        var renderedContent = RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths, footnotes);
+        var renderedContent = RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths, footnotes, decksPath, currentDir);
         html = $"<h{level}><span class=\"heading-marker\">{EscapeHtml(marker)}</span> {renderedContent}</h{level}>";
         return true;
     }
 
-    private static string RenderInline(string text, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
+    private static string RenderInline(string text, bool isOrgFile, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null, string? decksPath = null, string? currentDir = null)
     {
         var renderer = isOrgFile
             ? (IInlineRenderer)new OrgInlineRenderer()
             : new MarkdownInlineRenderer();
-        return renderer.RenderInline(text, imageDir, accumulatedImagePaths, footnotes);
+        return renderer.RenderInline(text, imageDir, accumulatedImagePaths, footnotes, decksPath, currentDir);
+    }
+
+    internal static bool TryGetDeckLink(string linkTarget, string? decksPath, out string relativePath, string? currentDir = null)
+    {
+        relativePath = string.Empty;
+        if (decksPath == null)
+        {
+            return false;
+        }
+
+        var cleanTarget = linkTarget.StartsWith("file:", StringComparison.OrdinalIgnoreCase)
+            ? linkTarget[5..]
+            : linkTarget;
+
+        // Already has .md/.org → check directly.
+        if (cleanTarget.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ||
+            cleanTarget.EndsWith(".org", StringComparison.OrdinalIgnoreCase))
+        {
+            return TryResolveDeckPath(cleanTarget, decksPath, out relativePath, currentDir);
+        }
+
+        // Has other extension (e.g. .png) → not a deck link.
+        if (!string.IsNullOrEmpty(Path.GetExtension(cleanTarget)))
+        {
+            return false;
+        }
+
+        // No extension → try .md then .org.
+        foreach (var ext in new[] { ".md", ".org" })
+        {
+            if (TryResolveDeckPath(cleanTarget + ext, decksPath, out relativePath, currentDir))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveDeckPath(string target, string decksPath, out string relativePath, string? currentDir = null)
+    {
+        relativePath = string.Empty;
+        var decksRoot = Path.GetFullPath(decksPath);
+
+        // Generate variants to try: exact, +prefixed (pinned), ~suffixed (archived)
+        var variants = GetFileVariants(target);
+
+        // Try current file's directory first (Obsidian-style: same-dir link resolution)
+        if (currentDir != null)
+        {
+            foreach (var variant in variants)
+            {
+                var currentFullPath = Path.GetFullPath(Path.Combine(currentDir, variant));
+                if (currentFullPath.StartsWith(decksRoot, StringComparison.Ordinal) &&
+                    File.Exists(currentFullPath))
+                {
+                    relativePath = Path.GetRelativePath(decksRoot, currentFullPath);
+                    return true;
+                }
+            }
+        }
+
+        // Fall back to vault root
+        foreach (var variant in variants)
+        {
+            var fullPath = Path.GetFullPath(Path.Combine(decksPath, variant));
+            if (!fullPath.StartsWith(decksRoot, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (File.Exists(fullPath))
+            {
+                relativePath = Path.GetRelativePath(decksRoot, fullPath);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string[] GetFileVariants(string target)
+    {
+        var name = Path.GetFileName(target);
+        var dir = Path.GetDirectoryName(target);
+
+        // Already has + prefix or ~ suffix — no variants needed
+        if (name.StartsWith('+') || name.EndsWith('~'))
+        {
+            return [target];
+        }
+
+        var pinnedName = "+" + name;
+        var archivedName = name + "~";
+
+        var dirPrefix = string.IsNullOrEmpty(dir) ? string.Empty : dir + Path.DirectorySeparatorChar;
+        var pinnedTarget = dirPrefix + pinnedName;
+        var archivedTarget = dirPrefix + archivedName;
+
+        return [target, pinnedTarget, archivedTarget];
     }
 
     internal static string EscapeHtml(string text)
@@ -437,7 +537,7 @@ public static class HtmlContentBuilder
         }
     }
 
-    private static bool TryRenderList(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
+    private static bool TryRenderList(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null, string? decksPath = null, string? currentDir = null)
     {
         html = string.Empty;
         var firstLine = lines[index].TrimEnd('\r');
@@ -538,7 +638,7 @@ public static class HtmlContentBuilder
                 content = content.Substring(cbMatch.Length);
             }
 
-            var rendered = RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths, footnotes);
+            var rendered = RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths, footnotes, decksPath, currentDir);
             sb.Append($"<li>{checkboxHtml}{rendered}");
             i++;
         }
@@ -652,7 +752,7 @@ public static class HtmlContentBuilder
     }
 
     // Lines starting with > are grouped into <blockquote><p>…</p></blockquote>
-    private static bool TryRenderBlockquote(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null)
+    private static bool TryRenderBlockquote(string[] lines, ref int index, bool isOrgFile, out string html, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnotes = null, string? decksPath = null, string? currentDir = null)
     {
         html = string.Empty;
 
@@ -685,7 +785,7 @@ public static class HtmlContentBuilder
             }
 
             var content = trimmedLine.Substring(1).TrimStart();
-            sb.AppendLine($"<p>{RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths, footnotes)}</p>");
+            sb.AppendLine($"<p>{RenderInline(content, isOrgFile, imageDir, accumulatedImagePaths, footnotes, decksPath, currentDir)}</p>");
             i++;
         }
 
@@ -915,8 +1015,8 @@ public static class HtmlContentBuilder
 <script>hljs.highlightAll();</script>
 <script>/* KATEX_AUTO_RENDER */</script>
 <script>(function(){var kr=document.createElement('iframe');kr.style.cssText='display:none!important;width:0!important;height:0!important;border:none!important;position:fixed!important';document.body.appendChild(kr);document.addEventListener('keydown',function(e){var k=e.key,m='',h=false;if(e.ctrlKey)m+='C';if(e.shiftKey)m+='S';if(e.altKey)m+='A';switch(k){case'a':case'A':case'b':case'B':case'c':case'C':case'd':case'D':case'e':case'E':case'f':case'F':case'g':case'G':case'h':case'H':case'i':case'I':case'j':case'J':case'k':case'K':case'l':case'L':case'm':case'M':case'n':case'N':case'o':case'O':case'p':case'P':case'q':case'Q':case'r':case'R':case's':case'S':case't':case'T':case'u':case'U':case'v':case'V':case'w':case'W':case'x':case'X':case'y':case'Y':case'z':case'Z':case'Escape':case'?':case'/':case'Enter':h=true;break;case'ArrowUp':case'ArrowDown':case'ArrowLeft':case'ArrowRight':h=true;break;case',':case'=':case'-':case'+':case'_':case'0':case')':if(e.ctrlKey)h=true;break;}if(!h)return;e.preventDefault();e.stopPropagation();kr.src='http://key.local/'+encodeURIComponent(k)+'/'+m+'/'+Date.now();},true);})();</script>
-<script>(function(){var lr=document.createElement('iframe');lr.style.cssText='display:none!important;width:0!important;height:0!important;border:none!important;position:fixed!important';document.body.appendChild(lr);document.addEventListener('click',function(e){var t=e.target.closest('a');if(!t)return;var h=t.getAttribute('data-href');if(!h)return;e.preventDefault();e.stopPropagation();lr.src='http://openurl.local/'+encodeURIComponent(h)+'/'+Date.now();},true);})();</script>
-<script>(function(){var e=document.querySelectorAll('pre,blockquote,.math-display');for(var i=0;i<e.length;i++){var p=e[i];var c=document.createElement('button');c.className='copy-btn';c.textContent='Copy';c.addEventListener('click',function(el,btn){return function(){var t=el.getAttribute('data-latex');if(!t){if(el.tagName==='PRE'){t=el.textContent}else{var ps=el.querySelectorAll('p');for(var j=0;j<ps.length;j++){t+=ps[j].textContent+'\n'}}}var ta=document.createElement('textarea');ta.value=t.trim();ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.textContent='Copied!';btn.classList.add('copied');setTimeout(function(){btn.textContent='Copy';btn.classList.remove('copied')},2000)}}(p,c));p.appendChild(c)}})();</script>
+<script>(function(){var lr=document.createElement('iframe');lr.style.cssText='display:none!important;width:0!important;height:0!important;border:none!important;position:fixed!important';document.body.appendChild(lr);document.addEventListener('click',function(e){var t=e.target.closest('a');if(!t)return;var h=t.getAttribute('data-href');if(!h){var d=t.getAttribute('data-decklink');if(d){e.preventDefault();e.stopPropagation();lr.src='http://decklink.local/'+encodeURIComponent(d)+'/'+Date.now();}return;}e.preventDefault();e.stopPropagation();lr.src='http://openurl.local/'+encodeURIComponent(h)+'/'+Date.now();},true);})();</script>
+<script>(function(){function textWithout(el){var clone=el.cloneNode(true);clone.querySelectorAll('.copy-btn').forEach(function(b){b.remove()});return clone.textContent}var e=document.querySelectorAll('pre,blockquote,.math-display');for(var i=0;i<e.length;i++){var p=e[i];var c=document.createElement('button');c.className='copy-btn';c.textContent='Copy';c.addEventListener('click',function(el,btn){return function(){var t=el.getAttribute('data-latex');if(!t){t=textWithout(el)}var ta=document.createElement('textarea');ta.value=t.trim();ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.textContent='Copied!';btn.classList.add('copied');setTimeout(function(){btn.textContent='Copy';btn.classList.remove('copied')},2000)}}(p,c));p.appendChild(c)}})();</script>
 <script>(function(){function c(e,t){var n=document.createElement('textarea');n.value=t.trim();n.style.cssText='position:fixed;opacity:0';document.body.appendChild(n);n.select();document.execCommand('copy');document.body.removeChild(n);e.classList.add('inline-copied');setTimeout(function(){e.classList.remove('inline-copied')},300)}document.addEventListener('click',function(e){var t;if(t=e.target.closest('code')){if(!t.closest('pre')&&!t.closest('a')){c(t,t.textContent);return}}if(t=e.target.closest('.katex')){if(!t.closest('.katex-display')&&!t.closest('a')){var a=t.querySelector('annotation');c(t,a?a.textContent:t.textContent)}}})})();</script>
 </body>
 </html>

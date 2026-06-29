@@ -4,6 +4,9 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NextLearn.Desktop.Models;
@@ -18,6 +21,7 @@ public partial class HomeViewModel : ViewModelBase
     private readonly MainWindowViewModel _mainViewModel;
     private readonly string _decksPath;
     private FileSystemWatcher? _watcher;
+    private CancellationTokenSource? _refreshCts;
     private List<Deck> _allDecks = new();
 
     [ObservableProperty]
@@ -35,6 +39,7 @@ public partial class HomeViewModel : ViewModelBase
         _deckFileService = deckFileService;
         _mainViewModel = mainViewModel;
         _decksPath = Constants.GetDecksPath(decksPath);
+        Directory.CreateDirectory(_decksPath);
         SetupFileWatcher();
         LoadDecks();
     }
@@ -50,13 +55,31 @@ public partial class HomeViewModel : ViewModelBase
         _watcher = new FileSystemWatcher(decksPath)
         {
             NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime,
+            IncludeSubdirectories = true,
             EnableRaisingEvents = true,
         };
 
-        _watcher.Created += (s, e) => Refresh();
-        _watcher.Changed += (s, e) => Refresh();
-        _watcher.Deleted += (s, e) => Refresh();
-        _watcher.Renamed += (s, e) => Refresh();
+        _watcher.Created += (s, e) => ScheduleRefresh();
+        _watcher.Changed += (s, e) => ScheduleRefresh();
+        _watcher.Deleted += (s, e) => ScheduleRefresh();
+        _watcher.Renamed += (s, e) => ScheduleRefresh();
+    }
+
+    private void ScheduleRefresh()
+    {
+        _refreshCts?.Cancel();
+        _refreshCts = new CancellationTokenSource();
+        var token = _refreshCts.Token;
+        Task.Delay(300, token)
+            .ContinueWith(
+                _ =>
+                {
+                    if (!token.IsCancellationRequested)
+                    {
+                        Dispatcher.UIThread.Post(Refresh);
+                    }
+                },
+                token);
     }
 
     public void Refresh()
@@ -79,9 +102,9 @@ public partial class HomeViewModel : ViewModelBase
             var extensions = new[] { "*.md", "*.org" };
             foreach (var ext in extensions)
             {
-                foreach (var file in Directory.GetFiles(decksPath, ext))
+                foreach (var file in Directory.GetFiles(decksPath, ext, SearchOption.AllDirectories))
                 {
-                    var deck = DeckFileParser.LoadDeckFromFile(file);
+                    var deck = DeckFileParser.LoadDeckFromFile(file, decksPath);
                     if (deck != null)
                     {
                         _deckService.SaveOrUpdateDeck(deck);
@@ -92,7 +115,7 @@ public partial class HomeViewModel : ViewModelBase
         }
 
         Decks.Clear();
-        foreach (var deck in _allDecks)
+        foreach (var deck in _allDecks.OrderBy(d => d.FileName))
         {
             Decks.Add(deck);
         }
@@ -210,21 +233,24 @@ public partial class HomeViewModel : ViewModelBase
     [RelayCommand]
     private void PinDeck(Deck deck)
     {
-        _deckFileService.PinDeck(deck.Id, _decksPath);
+        _deckFileService.PinDeck(deck, _decksPath);
+        _deckService.SyncDeckMetadata(deck);
         Refresh();
     }
 
     [RelayCommand]
     private void UnpinDeck(Deck deck)
     {
-        _deckFileService.UnpinDeck(deck.Id, _decksPath);
+        _deckFileService.UnpinDeck(deck, _decksPath);
+        _deckService.SyncDeckMetadata(deck);
         Refresh();
     }
 
     [RelayCommand]
     private void ArchiveDeck(Deck deck)
     {
-        _deckFileService.ArchiveDeck(deck.Id, _decksPath);
+        _deckFileService.ArchiveDeck(deck, _decksPath);
+        _deckService.SyncDeckMetadata(deck);
         Refresh();
     }
 
@@ -233,13 +259,14 @@ public partial class HomeViewModel : ViewModelBase
     {
         if (deck.IsPinned)
         {
-            _deckFileService.UnpinDeck(deck.Id, _decksPath);
+            _deckFileService.UnpinDeck(deck, _decksPath);
         }
         else
         {
-            _deckFileService.PinDeck(deck.Id, _decksPath);
+            _deckFileService.PinDeck(deck, _decksPath);
         }
 
+        _deckService.SyncDeckMetadata(deck);
         Refresh();
     }
 

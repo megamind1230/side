@@ -134,6 +134,22 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isImageOverlayOpen;
 
     [ObservableProperty]
+    private bool _isDeckLinkPromptOpen;
+
+    private string _deckLinkTarget = string.Empty;
+    private string _deckLinkDisplay = string.Empty;
+
+    private bool IsArchivedDeckLink => _deckLinkTarget.EndsWith('~');
+
+    public string DeckLinkPromptTitle =>
+        IsArchivedDeckLink
+            ? $"This deck is archived. Unarchive and open \"{_deckLinkDisplay}\"?"
+            : $"Open \"{_deckLinkDisplay}\"?";
+
+    public string DeckLinkPromptActionText =>
+        IsArchivedDeckLink ? "Unarchive & Open" : "Open Deck";
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentImageFileName))]
     private string _currentImagePath = string.Empty;
 
@@ -256,7 +272,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _userService = new UserService(_context);
         _deckService = new DeckService(_context, _userService);
-        _deckFileService = new DeckFileService(_context);
+        _deckFileService = new DeckFileService();
         _settingsService = new SettingsService();
         _keyBindingService = new KeyBindingService();
         _allCommandPaletteEntries = BuildCommandPaletteEntries();
@@ -517,6 +533,11 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     public async Task NavigateToHomeAsync()
     {
+        if (IsImageOverlayOpen)
+        {
+            CloseImageOverlay();
+        }
+
         if (IsLearning)
         {
             await LearningViewModel.SaveProgressAsync();
@@ -638,7 +659,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         var decksPath = _settingsService.ResolvedDecksPath;
         PinnedDecks.Clear();
-        foreach (var d in DeckFileService.GetPinnedDecks(decksPath))
+        foreach (var d in DeckFileService.GetPinnedDecks(decksPath).OrderBy(d => d.FileName))
         {
             PinnedDecks.Add(d);
         }
@@ -655,7 +676,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         var decksPath = _settingsService.ResolvedDecksPath;
         ArchivedDecks.Clear();
-        foreach (var d in DeckFileService.GetArchivedDecks(decksPath))
+        foreach (var d in DeckFileService.GetArchivedDecks(decksPath).OrderBy(d => d.FileName))
         {
             ArchivedDecks.Add(d);
         }
@@ -684,7 +705,8 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         ArgumentNullException.ThrowIfNull(deck);
         var decksPath = _settingsService.ResolvedDecksPath;
-        _deckFileService.UnpinDeck(deck.Id, decksPath);
+        _deckFileService.UnpinDeck(deck, decksPath);
+        _deckService.SyncDeckMetadata(deck);
         PinnedDecks.Remove(deck);
         HomeViewModel.Refresh();
     }
@@ -694,7 +716,8 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         ArgumentNullException.ThrowIfNull(deck);
         var decksPath = _settingsService.ResolvedDecksPath;
-        _deckFileService.UnarchiveDeck(deck.Id, decksPath);
+        _deckFileService.UnarchiveDeck(deck, decksPath);
+        _deckService.SyncDeckMetadata(deck);
         ArchivedDecks.Remove(deck);
         HomeViewModel.Refresh();
     }
@@ -940,6 +963,69 @@ public partial class MainWindowViewModel : ViewModelBase
         IsImageOverlayOpen = false;
         ZoomLevel = 1.0;
         Log.Information("Image overlay closed");
+    }
+
+    public void TryOpenDeckLink(string relativePath)
+    {
+        _deckLinkTarget = relativePath;
+        _deckLinkDisplay = relativePath;
+        OnPropertyChanged(nameof(DeckLinkPromptTitle));
+        OnPropertyChanged(nameof(DeckLinkPromptActionText));
+        IsDeckLinkPromptOpen = true;
+        Log.Information("Deck link prompt: {Path}", relativePath);
+    }
+
+    [RelayCommand]
+    private void DismissDeckLinkPrompt()
+    {
+        IsDeckLinkPromptOpen = false;
+        _deckLinkTarget = string.Empty;
+        _deckLinkDisplay = string.Empty;
+    }
+
+    [RelayCommand]
+    private void NavigateToDeckLink()
+    {
+        IsDeckLinkPromptOpen = false;
+        var target = _deckLinkTarget;
+        _deckLinkTarget = string.Empty;
+        _deckLinkDisplay = string.Empty;
+
+        if (string.IsNullOrEmpty(target))
+        {
+            return;
+        }
+
+        var decksPath = _settingsService.ResolvedDecksPath;
+        var fullPath = Path.GetFullPath(Path.Combine(decksPath, target));
+
+        if (!fullPath.StartsWith(Path.GetFullPath(decksPath), StringComparison.Ordinal) || !File.Exists(fullPath))
+        {
+            Log.Warning("Deck link target not found or invalid: {Path}", target);
+            return;
+        }
+
+        // If archived, load deck first (file still has content), unarchive, sync DB, then navigate
+        if (target.EndsWith('~'))
+        {
+            var deck = DeckFileParser.LoadDeckFromFile(fullPath, decksPath);
+            if (deck == null)
+            {
+                Log.Warning("Failed to load archived deck from {Path}", fullPath);
+                return;
+            }
+
+            _deckFileService.UnarchiveDeck(deck, decksPath);
+            _deckService.SyncDeckMetadata(deck);
+            NavigateToLearningByDeck(deck);
+            return;
+        }
+
+        var normalDeck = DeckFileParser.LoadDeckFromFile(fullPath, decksPath);
+        if (normalDeck != null)
+        {
+            NavigateToLearningByDeck(normalDeck);
+        }
     }
 
     [RelayCommand]

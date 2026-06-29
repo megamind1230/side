@@ -50,4 +50,10 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="YamlDotNet" Version="18.0.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>NextLearn.Desktop.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>

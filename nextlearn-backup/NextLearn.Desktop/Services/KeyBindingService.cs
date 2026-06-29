@@ -38,10 +38,10 @@ public class KeyBindingService : IKeyBindingService
 #   ScrollDeckListDown, ScrollDeckListUp,
 #   ZoomHeatmapIn, ZoomHeatmapOut, ZoomHeatmapReset,
 #   OpenDocumentation, OpenCommandPalette, CloseCommandPalette,
-#   OpenDecksFolder, ToggleSidebar, CloseSidebar,
+#   OpenDecksFolder, ToggleSidebar,
 #   ShowPinnedView, ShowArchivedView, ShowHeatmap,
-#   NavigateToMarketplace, CloseMarketplace,
-#   OpenSettings, CloseSettings, ExitSettingsHome
+#   NavigateToMarketplace,
+#   CloseSettings, ExitSettingsHome
 #
 # Multi-key chords: use the "chords" field instead of "key" + "modifiers"
 #   Example — g then i to focus and clear search:

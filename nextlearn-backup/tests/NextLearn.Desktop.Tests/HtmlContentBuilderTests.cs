@@ -540,4 +540,155 @@ $$";
         body.Should().Contain("<div class=\"math-display\"");
         body.Should().Contain("$$x^2$$");
     }
+
+    // ----------------------------------------------------------------
+    // TryGetDeckLink — + (pinned) / ~ (archived) fallback
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public void TryGetDeckLink_ExactMatch_FindsFile()
+    {
+        var decksDir = CreateDecksDir("decklink");
+        var file = CreateDeckFile(decksDir, "target.md", "Minimal");
+        var cleanFile = Path.GetFileName(file);
+
+        var found = HtmlContentBuilder.TryGetDeckLink("target", decksDir, out var relativePath);
+
+        found.Should().BeTrue();
+        relativePath.Should().Be(cleanFile);
+    }
+
+    [Fact]
+    public void TryGetDeckLink_ExactMatchOrg_FindsFile()
+    {
+        var decksDir = CreateDecksDir("decklink");
+        var file = CreateDeckFile(decksDir, "target.org", "Minimal");
+        var cleanFile = Path.GetFileName(file);
+
+        var found = HtmlContentBuilder.TryGetDeckLink("target", decksDir, out var relativePath);
+
+        found.Should().BeTrue();
+        relativePath.Should().Be(cleanFile);
+    }
+
+    [Fact]
+    public void TryGetDeckLink_PinnedFile_FindsWithPlusPrefix()
+    {
+        var decksDir = CreateDecksDir("decklink");
+        CreateDeckFile(decksDir, "+index.md", "Minimal");
+
+        var found = HtmlContentBuilder.TryGetDeckLink("index", decksDir, out var relativePath);
+
+        found.Should().BeTrue();
+        relativePath.Should().Be("+index.md");
+    }
+
+    [Fact]
+    public void TryGetDeckLink_ArchivedFile_FindsWithTildeSuffix()
+    {
+        var decksDir = CreateDecksDir("decklink");
+        CreateDeckFile(decksDir, "index.md~", "Minimal");
+
+        var found = HtmlContentBuilder.TryGetDeckLink("index", decksDir, out var relativePath);
+
+        found.Should().BeTrue();
+        relativePath.Should().Be("index.md~");
+    }
+
+    [Fact]
+    public void TryGetDeckLink_PinnedOrg_FindsWithPlusPrefix()
+    {
+        var decksDir = CreateDecksDir("decklink");
+        CreateDeckFile(decksDir, "+deck.org", "Minimal");
+
+        var found = HtmlContentBuilder.TryGetDeckLink("deck", decksDir, out var relativePath);
+
+        found.Should().BeTrue();
+        relativePath.Should().Be("+deck.org");
+    }
+
+    [Fact]
+    public void TryGetDeckLink_ArchivedOrg_FindsWithTildeSuffix()
+    {
+        var decksDir = CreateDecksDir("decklink");
+        CreateDeckFile(decksDir, "deck.org~", "Minimal");
+
+        var found = HtmlContentBuilder.TryGetDeckLink("deck", decksDir, out var relativePath);
+
+        found.Should().BeTrue();
+        relativePath.Should().Be("deck.org~");
+    }
+
+    [Fact]
+    public void TryGetDeckLink_PinnedPrecedesArchived_ResolvesPinned()
+    {
+        var decksDir = CreateDecksDir("decklink");
+        CreateDeckFile(decksDir, "+note.md", "Pinned version");
+        CreateDeckFile(decksDir, "note.md~", "Archived version");
+
+        var found = HtmlContentBuilder.TryGetDeckLink("note", decksDir, out var relativePath);
+
+        // Exact → +pinned → ~archived; +pinned is tried before ~archived
+        found.Should().BeTrue();
+        relativePath.Should().Be("+note.md");
+    }
+
+    [Fact]
+    public void TryGetDeckLink_ExactPrecedesPinnedAndArchived_ResolvesExact()
+    {
+        var decksDir = CreateDecksDir("decklink");
+        CreateDeckFile(decksDir, "note.md", "Exact version");
+        CreateDeckFile(decksDir, "+note.md", "Pinned version");
+        CreateDeckFile(decksDir, "note.md~", "Archived version");
+
+        var found = HtmlContentBuilder.TryGetDeckLink("note", decksDir, out var relativePath);
+
+        found.Should().BeTrue();
+        relativePath.Should().Be("note.md");
+    }
+
+    [Fact]
+    public void TryGetDeckLink_PinnedInSubdir_WithCurrentDir_FindsIt()
+    {
+        var decksDir = CreateDecksDir("decklink");
+        var subDir = Path.Combine(decksDir, "sub");
+        CreateDeckFile(subDir, "+target.md", "Minimal");
+
+        var found = HtmlContentBuilder.TryGetDeckLink("target", decksDir, out var relativePath, currentDir: subDir);
+
+        found.Should().BeTrue();
+        relativePath.Should().Be(Path.Combine("sub", "+target.md"));
+    }
+
+    [Fact]
+    public void TryGetDeckLink_ArchivedInSubdir_WithCurrentDir_FindsIt()
+    {
+        var decksDir = CreateDecksDir("decklink");
+        var subDir = Path.Combine(decksDir, "sub");
+        CreateDeckFile(subDir, "target.md~", "Minimal");
+
+        var found = HtmlContentBuilder.TryGetDeckLink("target", decksDir, out var relativePath, currentDir: subDir);
+
+        found.Should().BeTrue();
+        relativePath.Should().Be(Path.Combine("sub", "target.md~"));
+    }
+
+    // Helper methods for these tests
+    private static string CreateDecksDir(string subDir)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "NextLearnTests", subDir, Guid.NewGuid().ToString());
+        Directory.CreateDirectory(dir);
+        return dir;
+    }
+
+    private string CreateDeckFile(string decksDir, string fileName, string content)
+    {
+        var path = Path.Combine(decksDir, fileName);
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+        File.WriteAllText(path, content);
+        _filesToCleanup.Add(path);
+        return path;
+    }
 }

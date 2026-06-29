@@ -11,13 +11,15 @@ namespace NextLearn.Desktop.Services;
 
 public static class DeckFileParser
 {
-    public static Deck? LoadDeckFromFile(string filePath)
+    public static Deck? LoadDeckFromFile(string filePath, string? relativeTo = null)
     {
         try
         {
             var content = File.ReadAllText(filePath);
             var lines = File.ReadAllLines(filePath);
-            var fileName = Path.GetFileName(filePath);
+            var fileName = relativeTo != null
+                ? Path.GetRelativePath(relativeTo, filePath)
+                : Path.GetFileName(filePath);
             bool isOrg = fileName.EndsWith(".org", StringComparison.OrdinalIgnoreCase);
 
             string title;

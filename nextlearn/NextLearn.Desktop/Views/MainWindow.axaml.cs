@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -26,6 +27,7 @@ public partial class MainWindow : Window
     private KeyboardHandler? _keyboardHandler;
     private WebViewBridge? _webViewBridge;
     private IDisposable? _chordTimer;
+    private bool _scaleReapplyPending;
 
     public MainWindow()
     {
@@ -122,6 +124,7 @@ public partial class MainWindow : Window
             vm.PropertyChanged += OnMainViewModelPropertyChanged;
             vm.LearningViewModel.PropertyChanged += OnLearningViewModelPropertyChanged;
             vm.TextScaleChanged += OnTextScaleChanged;
+            vm.HomeViewModel.Decks.CollectionChanged += OnDecksChanged;
             vm.FontChanged += OnFontChanged;
             OnFontChanged(string.IsNullOrWhiteSpace(vm.Font) ? "Inter" : vm.Font);
 
@@ -188,6 +191,14 @@ public partial class MainWindow : Window
         e.Handled = true;
         Focus();
         Activate();
+    }
+
+    private void CloseDeckLinkPromptOnBackdrop(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm)
+        {
+            vm.DismissDeckLinkPromptCommand.Execute(null);
+        }
     }
 
     private void OnContentWebViewGotFocus(object? sender, GotFocusEventArgs e)
@@ -260,6 +271,32 @@ public partial class MainWindow : Window
                 OpenInBrowser(url);
             }
 
+            return;
+        }
+
+        if (uri.Scheme == "http" && uri.Host == "decklink.local")
+        {
+            e.Cancel = true;
+            var path = uri.AbsolutePath.TrimStart('/');
+            var lastSlash = path.LastIndexOf('/');
+            if (lastSlash >= 0)
+            {
+                var lastSegment = path[(lastSlash + 1)..];
+                if (lastSegment.All(char.IsDigit))
+                {
+                    path = path[..lastSlash];
+                }
+            }
+
+            path = Uri.UnescapeDataString(path);
+            Log.Information("Deck link clicked: {Path}", path);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (DataContext is MainWindowViewModel vm)
+                {
+                    vm.TryOpenDeckLink(path);
+                }
+            });
             return;
         }
 
@@ -685,35 +722,61 @@ public partial class MainWindow : Window
         _webViewBridge?.SetFontFamily(fontFamily);
     }
 
+    private static readonly ConditionalWeakTable<Control, object> _baseFontSizes = new();
+
     private async void OnTextScaleChanged(double oldScale, double newScale)
     {
-        ApplyScaleToText(oldScale, newScale);
+        ApplyAbsoluteScale(this, newScale);
         _webViewBridge?.SetFontScale(newScale);
     }
 
-    private void ApplyScaleToText(double oldScale, double newScale)
+    private void OnDecksChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
-        var ratio = newScale / oldScale;
-        ScaleVisualFont(this, ratio);
+        if (_scaleReapplyPending)
+        {
+            return;
+        }
+
+        _scaleReapplyPending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _scaleReapplyPending = false;
+            if (DataContext is MainWindowViewModel vm)
+            {
+                ApplyAbsoluteScale(this, vm.TextScale);
+            }
+        });
     }
 
-    private static void ScaleVisualFont(Control control, double ratio)
+    private static void ApplyAbsoluteScale(Control control, double scale)
     {
         if (control is TextBlock tb)
         {
-            tb.FontSize *= ratio;
+            if (!_baseFontSizes.TryGetValue(tb, out var box))
+            {
+                box = tb.FontSize;
+                _baseFontSizes.Add(tb, box);
+            }
+
+            tb.FontSize = (double)box * scale;
         }
 
         if (control is TextBox tbx)
         {
-            tbx.FontSize *= ratio;
+            if (!_baseFontSizes.TryGetValue(tbx, out var box))
+            {
+                box = tbx.FontSize;
+                _baseFontSizes.Add(tbx, box);
+            }
+
+            tbx.FontSize = (double)box * scale;
         }
 
         foreach (var child in control.GetLogicalChildren())
         {
             if (child is Control c)
             {
-                ScaleVisualFont(c, ratio);
+                ApplyAbsoluteScale(c, scale);
             }
         }
     }

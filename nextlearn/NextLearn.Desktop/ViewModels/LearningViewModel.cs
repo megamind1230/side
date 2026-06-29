@@ -216,10 +216,10 @@ public partial class LearningViewModel : ViewModelBase
 
         foreach (var ext in extensions)
         {
-            var files = Directory.GetFiles(_decksPath, ext);
+            var files = Directory.GetFiles(_decksPath, ext, SearchOption.AllDirectories);
             foreach (var file in files)
             {
-                var loadedDeck = DeckFileParser.LoadDeckFromFile(file);
+                var loadedDeck = DeckFileParser.LoadDeckFromFile(file, _decksPath);
                 if (loadedDeck != null && loadedDeck.Id == deckId)
                 {
                     deck = loadedDeck;
@@ -366,14 +366,15 @@ public partial class LearningViewModel : ViewModelBase
         }
         else
         {
-            CurrentSectionBreadcrumb = string.Empty;
+            CurrentSectionBreadcrumb = "no H1 heading found yet";
         }
 
         CurrentPageBreadcrumb = CurrentPage?.Title ?? string.Empty;
 
         var imagePaths = new List<string>();
         var imageDir = GetCurrentImageDir();
-        RenderedHtml = _htmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, _mainViewModel.Font, imagePaths, _allFootnotes);
+        var currentDir = GetCurrentDeckDir();
+        RenderedHtml = _htmlContentBuilder.Build(CurrentPage, IsOrgFile, imageDir, _mainViewModel.Font, imagePaths, _allFootnotes, _decksPath, currentDir);
         CurrentPageImagePaths = imagePaths;
 
         var isLastPage = CurrentPageIndex >= TotalPages - 1;
@@ -491,6 +492,17 @@ public partial class LearningViewModel : ViewModelBase
         }
 
         return _decksPath;
+    }
+
+    private string? GetCurrentDeckDir()
+    {
+        if (_currentDeck == null || string.IsNullOrEmpty(_currentDeck.FileName))
+        {
+            return null;
+        }
+
+        var fullPath = Path.GetFullPath(Path.Combine(_decksPath, _currentDeck.FileName));
+        return Path.GetDirectoryName(fullPath);
     }
 
     public void RebuildWithFalconEye(bool enabled)

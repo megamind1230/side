@@ -6,7 +6,7 @@ namespace NextLearn.Desktop.Services;
 
 public class OrgInlineRenderer : IInlineRenderer
 {
-    public string RenderInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnoteDefinitions = null)
+    public string RenderInline(string text, string? imageDir = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? footnoteDefinitions = null, string? decksPath = null, string? currentDir = null)
     {
         ArgumentNullException.ThrowIfNull(text);
         var result = HtmlContentBuilder.EscapeHtml(text);
@@ -98,57 +98,10 @@ public class OrgInlineRenderer : IInlineRenderer
         foreach (var (key, value) in orgLinkPlaceholders)
             result = result.Replace(key, value);
 
-        // Standard markdown link [text](url) — only process http/https URLs; skip ![...](...) and [![...](...)](...)
-        result = Regex.Replace(result, @"(?<!\!)\[(?!\!)([^\]]+)\]\(([^)]+)\)", m =>
-        {
-            var url = m.Groups[2].Value;
-            if (url.StartsWith("http://") || url.StartsWith("https://"))
-            {
-                return $"<a data-href=\"{url}\" rel=\"noopener\">{m.Groups[1].Value}</a>";
-            }
+        // ── Bang prefix ! : suppress deck-link → literal text; http-links & images unaffected ──
 
-            return m.Value;
-        });
-
-        // Standard markdown image ![](path) with optional title (handle &quot; from EscapeHtml)
-        result = Regex.Replace(result, @"!\[([^\]]*)\]\(([^\s)]+)(?:\s+(?:""|&quot;)[^""]*(?:""|&quot;))?\)", m =>
-        {
-            return HtmlContentBuilder.RenderImageTag(m.Groups[1].Value, m.Groups[2].Value, imageDir, accumulatedImagePaths);
-        });
-
-        // [[file:path][alt]] — render as-is (no ! prefix means no image processing)
-        result = Regex.Replace(result, @"\[\[file:([^\]]+)\]\[([^\]]*)\]\]", m =>
-        {
-            return m.Value;
-        });
-
-        // Org [[url][text]] links — only http/https; file: images handled by ![[...]] version
-        result = Regex.Replace(result, @"\[\[([^\]]+)\]\[([^\]]*)\]\]", m =>
-        {
-            var url = m.Groups[1].Value;
-            var text = m.Groups[2].Value;
-            if (url.StartsWith("http://") || url.StartsWith("https://"))
-            {
-                return $"<a data-href=\"{url}\" rel=\"noopener\">{HtmlContentBuilder.EscapeHtml(text)}</a>";
-            }
-
-            return $"[[{HtmlContentBuilder.EscapeHtml(url)}][{HtmlContentBuilder.EscapeHtml(text)}]]";
-        });
-
-        // Org [[url]] links — only http/https; file: images handled by ![[...]] version
-        result = Regex.Replace(result, @"\[\[([^\]]+)\]\]", m =>
-        {
-            var url = m.Groups[1].Value;
-            if (url.StartsWith("http://") || url.StartsWith("https://"))
-            {
-                return $"<a data-href=\"{url}\" rel=\"noopener\">{url}</a>";
-            }
-
-            return $"[[{HtmlContentBuilder.EscapeHtml(url)}]]";
-        });
-
-        // ![[url][text]] — ! prefix: http/https → link, file: → image with alt, else → image
-        result = Regex.Replace(result, @"!\[\[([^\]]+)\]\[([^\]]*)\]\]", m =>
+        // ![[file:path][text]] — if deck-link → literal text; http → link; else → image
+        result = Regex.Replace(result, @"!\[\[file:([^\]]+)\]\[([^\]]*)\]\]", m =>
         {
             var url = m.Groups[1].Value;
             var text = m.Groups[2].Value;
@@ -158,10 +111,28 @@ public class OrgInlineRenderer : IInlineRenderer
             }
 
             var path = url.StartsWith("file:") ? url[5..] : url;
+            if (HtmlContentBuilder.TryGetDeckLink(path, decksPath, out _, currentDir))
+            {
+                return m.Value;
+            }
+
             return HtmlContentBuilder.RenderImageTag(text, path, imageDir, accumulatedImagePaths);
         });
 
-        // ![[path]] — ! prefix: http/https → link, file: → strip prefix, else → image
+        // ![[target|display]] — if deck-link → literal text; else → image
+        result = Regex.Replace(result, @"!\[\[([^\]]+)\|([^\]]+)\]\]", m =>
+        {
+            var target = m.Groups[1].Value;
+            var display = m.Groups[2].Value;
+            if (HtmlContentBuilder.TryGetDeckLink(target, decksPath, out _, currentDir))
+            {
+                return m.Value;
+            }
+
+            return HtmlContentBuilder.RenderImageTag(display, target, imageDir, accumulatedImagePaths);
+        });
+
+        // ![[path]] — if deck-link → literal text; http → link; else → image
         result = Regex.Replace(result, @"!\[\[([^\]]+)\]\]", m =>
         {
             var content = m.Groups[1].Value;
@@ -171,7 +142,100 @@ public class OrgInlineRenderer : IInlineRenderer
             }
 
             var path = content.StartsWith("file:") ? content[5..] : content;
+            if (HtmlContentBuilder.TryGetDeckLink(path, decksPath, out _, currentDir))
+            {
+                return m.Value;
+            }
+
             return HtmlContentBuilder.RenderImageTag(string.Empty, path, imageDir, accumulatedImagePaths);
+        });
+
+        // ── Non-bang wiki link / markdown formats ──
+
+        // Standard markdown link [text](url) — skip ![...](...) and [![...](...)](...)
+        result = Regex.Replace(result, @"(?<!\!)\[(?!\!)([^\]]+)\]\(([^)]+)\)", m =>
+        {
+            var url = m.Groups[2].Value;
+            if (url.StartsWith("http://") || url.StartsWith("https://"))
+            {
+                return $"<a data-href=\"{url}\" rel=\"noopener\">{m.Groups[1].Value}</a>";
+            }
+
+            if (HtmlContentBuilder.TryGetDeckLink(url, decksPath, out var relPath, currentDir))
+            {
+                return $"<a data-decklink=\"{relPath}\" class=\"decklink\">{m.Groups[1].Value}</a>";
+            }
+
+            return m.Value;
+        });
+
+        // Standard markdown image ![](path) with optional title
+        result = Regex.Replace(result, @"!\[([^\]]*)\]\(([^\s)]+)(?:\s+(?:""|&quot;)[^""]*(?:""|&quot;))?\)", m =>
+        {
+            return HtmlContentBuilder.RenderImageTag(m.Groups[1].Value, m.Groups[2].Value, imageDir, accumulatedImagePaths);
+        });
+
+        // [[file:path][text]] — org-style, .md/.org → deck link
+        result = Regex.Replace(result, @"\[\[file:([^\]]+)\]\[([^\]]*)\]\]", m =>
+        {
+            var path = m.Groups[1].Value;
+            var text = m.Groups[2].Value;
+            if (HtmlContentBuilder.TryGetDeckLink(path, decksPath, out var relPath, currentDir))
+            {
+                var display = string.IsNullOrEmpty(text) ? relPath : text;
+                return $"<a data-decklink=\"{relPath}\" class=\"decklink\">{display}</a>";
+            }
+
+            return m.Value;
+        });
+
+        // [[target|display]] — Obsidian alias format
+        result = Regex.Replace(result, @"\[\[([^\]]+)\|([^\]]+)\]\]", m =>
+        {
+            var target = m.Groups[1].Value;
+            var display = m.Groups[2].Value;
+            if (HtmlContentBuilder.TryGetDeckLink(target, decksPath, out var relPath, currentDir))
+            {
+                return $"<a data-decklink=\"{relPath}\" class=\"decklink\">{display}</a>";
+            }
+
+            return m.Value;
+        });
+
+        // [[url][text]] — org-style, http/https → link; .md/.org → deck link
+        result = Regex.Replace(result, @"\[\[([^\]]+)\]\[([^\]]*)\]\]", m =>
+        {
+            var url = m.Groups[1].Value;
+            var text = m.Groups[2].Value;
+            if (url.StartsWith("http://") || url.StartsWith("https://"))
+            {
+                return $"<a data-href=\"{url}\" rel=\"noopener\">{HtmlContentBuilder.EscapeHtml(text)}</a>";
+            }
+
+            if (HtmlContentBuilder.TryGetDeckLink(url, decksPath, out var relPath, currentDir))
+            {
+                var display = string.IsNullOrEmpty(text) ? relPath : text;
+                return $"<a data-decklink=\"{relPath}\" class=\"decklink\">{display}</a>";
+            }
+
+            return $"[[{HtmlContentBuilder.EscapeHtml(url)}][{HtmlContentBuilder.EscapeHtml(text)}]]";
+        });
+
+        // [[url]] — bare wiki link; http/https → link; .md/.org → deck link
+        result = Regex.Replace(result, @"\[\[([^\]]+)\]\]", m =>
+        {
+            var url = m.Groups[1].Value;
+            if (url.StartsWith("http://") || url.StartsWith("https://"))
+            {
+                return $"<a data-href=\"{url}\" rel=\"noopener\">{url}</a>";
+            }
+
+            if (HtmlContentBuilder.TryGetDeckLink(url, decksPath, out var relPath, currentDir))
+            {
+                return $"<a data-decklink=\"{relPath}\" class=\"decklink\">{url}</a>";
+            }
+
+            return $"[[{HtmlContentBuilder.EscapeHtml(url)}]]";
         });
 
         // Bare URL auto-linking (not already inside <a> or href="")

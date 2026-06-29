@@ -17,9 +17,13 @@ public interface IDeckService
     /// <returns>The deck with pages, or null if not found.</returns>
     Deck? GetDeckById(Guid deckId);
 
-    /// <summary>Creates a new deck or updates an existing one.</summary>
+    /// <summary>Creates a new deck or updates an existing one (includes pages).</summary>
     /// <param name="deck">The deck to save.</param>
     void SaveOrUpdateDeck(Deck deck);
+
+    /// <summary>Updates deck metadata (FileName, IsPinned, IsArchived) without touching pages.</summary>
+    /// <param name="deck">The deck with updated metadata.</param>
+    void SyncDeckMetadata(Deck deck);
 
     /// <summary>Returns a single page by ID.</summary>
     /// <param name="pageId">The page ID.</param>

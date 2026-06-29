@@ -13,6 +13,8 @@ public interface IHtmlContentBuilder
     /// <param name="fontFamily">Optional font family for the body text. Defaults to "Inter".</param>
     /// <param name="accumulatedImagePaths">Optional list to collect successfully loaded image paths.</param>
     /// <param name="allFootnotes">Optional merged footnotes from all pages (enables cross-page hover preview). If null, only local page footnotes are used.</param>
+    /// <param name="decksPath">Optional decks root directory for resolving wiki-link targets.</param>
+    /// <param name="currentDir">Optional current deck file directory for same-dir wiki-link resolution.</param>
     /// <returns>A complete HTML document string.</returns>
-    string Build(Page? page, bool isOrgFile, string? imageDir = null, string? fontFamily = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? allFootnotes = null);
+    string Build(Page? page, bool isOrgFile, string? imageDir = null, string? fontFamily = null, List<string>? accumulatedImagePaths = null, IReadOnlyDictionary<string, string>? allFootnotes = null, string? decksPath = null, string? currentDir = null);
 }

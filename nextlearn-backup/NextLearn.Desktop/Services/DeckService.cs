@@ -66,6 +66,21 @@ public class DeckService : IDeckService
         _context.SaveChanges();
     }
 
+    /// <summary>Updates deck metadata (FileName, IsPinned, IsArchived) without touching pages.</summary>
+    /// <param name="deck">The deck with updated metadata.</param>
+    public void SyncDeckMetadata(Deck deck)
+    {
+        ArgumentNullException.ThrowIfNull(deck);
+        var existing = _context.Decks.Find(deck.Id);
+        if (existing != null)
+        {
+            existing.FileName = deck.FileName;
+            existing.IsPinned = deck.IsPinned;
+            existing.IsArchived = deck.IsArchived;
+            _context.SaveChanges();
+        }
+    }
+
     public Page? GetPage(Guid pageId)
     {
         return _context.Pages.FirstOrDefault(p => p.Id == pageId);

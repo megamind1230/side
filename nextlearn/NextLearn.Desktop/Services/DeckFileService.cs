@@ -1,104 +1,141 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using NextLearn.Desktop.Data;
 using NextLearn.Desktop.Models;
+using Serilog;
 
 namespace NextLearn.Desktop.Services;
 
 public class DeckFileService : IDeckFileService
 {
-    private readonly AppDbContext _context;
-
-    public DeckFileService(AppDbContext context)
+    public void ArchiveDeck(Deck deck, string decksPath)
     {
-        _context = context;
-    }
+        ArgumentNullException.ThrowIfNull(deck);
 
-    public void ArchiveDeck(Guid deckId, string decksPath)
-    {
-        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
-        if (deck == null)
+        var name = Path.GetFileName(deck.FileName);
+        if (name.EndsWith('~'))
         {
             return;
         }
 
         var oldPath = Path.Combine(decksPath, deck.FileName);
+        var newFileName = deck.FileName + "~";
         var newPath = oldPath + "~";
         if (File.Exists(oldPath))
         {
-            File.Move(oldPath, newPath);
+            try
+            {
+                File.Move(oldPath, newPath);
+            }
+            catch (IOException ex)
+            {
+                Log.Error(ex, "Failed to archive deck {FileName} from {OldPath} to {NewPath}", deck.FileName, oldPath, newPath);
+                return;
+            }
         }
 
+        deck.FileName = newFileName;
         deck.IsArchived = true;
-        _context.SaveChanges();
     }
 
-    public void UnarchiveDeck(Guid deckId, string decksPath)
+    public void UnarchiveDeck(Deck deck, string decksPath)
     {
-        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
-        if (deck == null)
-        {
-            return;
-        }
+        ArgumentNullException.ThrowIfNull(deck);
 
-        var archivedPath = Path.Combine(decksPath, deck.FileName + "~");
-        var restoredPath = Path.Combine(decksPath, deck.FileName);
-        if (File.Exists(archivedPath))
-        {
-            File.Move(archivedPath, restoredPath);
-        }
-
-        deck.IsArchived = false;
-        _context.SaveChanges();
-    }
-
-    public void PinDeck(Guid deckId, string decksPath)
-    {
-        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
-        if (deck == null)
+        var name = Path.GetFileName(deck.FileName);
+        if (!name.EndsWith('~'))
         {
             return;
         }
 
         var oldPath = Path.Combine(decksPath, deck.FileName);
-        var newPath = Path.Combine(decksPath, "+" + deck.FileName);
-        if (File.Exists(oldPath))
-        {
-            File.Move(oldPath, newPath);
-        }
-
-        deck.IsPinned = true;
-        deck.FileName = "+" + deck.FileName;
-        _context.SaveChanges();
-    }
-
-    public void UnpinDeck(Guid deckId, string decksPath)
-    {
-        var deck = _context.Decks.FirstOrDefault(d => d.Id == deckId);
-        if (deck == null)
-        {
-            return;
-        }
-
-        var fileName = deck.FileName;
-        if (!fileName.StartsWith('+'))
-        {
-            return;
-        }
-
-        var oldPath = Path.Combine(decksPath, fileName);
-        var newFileName = fileName[1..];
+        var newFileName = deck.FileName[..^1];
         var newPath = Path.Combine(decksPath, newFileName);
         if (File.Exists(oldPath))
         {
-            File.Move(oldPath, newPath);
+            try
+            {
+                File.Move(oldPath, newPath);
+            }
+            catch (IOException ex)
+            {
+                Log.Error(ex, "Failed to unarchive deck {FileName} from {OldPath} to {NewPath}", deck.FileName, oldPath, newPath);
+                return;
+            }
         }
 
-        deck.IsPinned = false;
         deck.FileName = newFileName;
-        _context.SaveChanges();
+        deck.IsArchived = false;
+    }
+
+    public void PinDeck(Deck deck, string decksPath)
+    {
+        ArgumentNullException.ThrowIfNull(deck);
+
+        var name = Path.GetFileName(deck.FileName);
+        if (name.StartsWith('+'))
+        {
+            return;
+        }
+
+        var dir = Path.GetDirectoryName(deck.FileName);
+        var oldPath = Path.Combine(decksPath, deck.FileName);
+        var newName = "+" + name;
+        var newFileName = string.IsNullOrEmpty(dir) ? newName : Path.Combine(dir, newName);
+        var newPath = Path.Combine(decksPath, newFileName);
+        if (File.Exists(oldPath))
+        {
+            var destDir = Path.GetDirectoryName(newPath);
+            if (!string.IsNullOrEmpty(destDir))
+            {
+                Directory.CreateDirectory(destDir);
+            }
+
+            try
+            {
+                File.Move(oldPath, newPath);
+            }
+            catch (IOException ex)
+            {
+                Log.Error(ex, "Failed to pin deck {FileName} from {OldPath} to {NewPath}", deck.FileName, oldPath, newPath);
+                return;
+            }
+        }
+
+        deck.FileName = newFileName;
+        deck.IsPinned = true;
+    }
+
+    public void UnpinDeck(Deck deck, string decksPath)
+    {
+        ArgumentNullException.ThrowIfNull(deck);
+
+        var name = Path.GetFileName(deck.FileName);
+        if (!name.StartsWith('+'))
+        {
+            return;
+        }
+
+        var dir = Path.GetDirectoryName(deck.FileName);
+        var oldPath = Path.Combine(decksPath, deck.FileName);
+        var newName = name[1..];
+        var newFileName = string.IsNullOrEmpty(dir) ? newName : Path.Combine(dir, newName);
+        var newPath = Path.Combine(decksPath, newFileName);
+        if (File.Exists(oldPath))
+        {
+            try
+            {
+                File.Move(oldPath, newPath);
+            }
+            catch (IOException ex)
+            {
+                Log.Error(ex, "Failed to unpin deck {FileName} from {OldPath} to {NewPath}", deck.FileName, oldPath, newPath);
+                return;
+            }
+        }
+
+        deck.FileName = newFileName;
+        deck.IsPinned = false;
     }
 
     public static List<Deck> GetArchivedDecks(string decksPath)
@@ -107,9 +144,9 @@ public class DeckFileService : IDeckFileService
         var extensions = new[] { "*.md~", "*.org~" };
         foreach (var ext in extensions)
         {
-            foreach (var file in Directory.GetFiles(decksPath, ext))
+            foreach (var file in Directory.GetFiles(decksPath, ext, SearchOption.AllDirectories))
             {
-                var deck = DeckFileParser.LoadDeckFromFile(file);
+                var deck = DeckFileParser.LoadDeckFromFile(file, decksPath);
                 if (deck != null)
                 {
                     list.Add(deck);
@@ -126,9 +163,9 @@ public class DeckFileService : IDeckFileService
         var extensions = new[] { "+*.md", "+*.org" };
         foreach (var ext in extensions)
         {
-            foreach (var file in Directory.GetFiles(decksPath, ext))
+            foreach (var file in Directory.GetFiles(decksPath, ext, SearchOption.AllDirectories))
             {
-                var deck = DeckFileParser.LoadDeckFromFile(file);
+                var deck = DeckFileParser.LoadDeckFromFile(file, decksPath);
                 if (deck != null)
                 {
                     list.Add(deck);

@@ -515,3 +515,59 @@ needed.
 
 ** Status
 - ✅ RESOLVED — all keyboards keys on study page now work correctly across both Vim and Emacs profiles. No GTK platform-specific code was required. The Avalonia tunnel handler captures all key events before WebKitGTK processes them.
+
+* FIXED FS1: Pinned file-only deck never unpins
+
+** Location
+~DeckFileService.cs~ — ~UnpinDeck(Guid deckId, ...)~
+
+** Status
+- ✅ FIXED.
+
+** Symptom
+A deck with a ~+~-prefixed filename (e.g. ~+FINEmdeck1.md~) but no corresponding DB record could never be unpinned. Clicking unpin appeared to do nothing.
+
+** Root Cause
+~UnpinDeck~ took a ~Guid~ and queried ~AppDbContext.Decks.Find(deckId)~ to get the ~Deck~ object. For filesystem-only decks (no DB record), ~Find~ returned null → method returned early without renaming the file.
+
+** Fix
+Changed the method signature to ~UnpinDeck(Deck deck, string decksPath)~ — callers pass the deck object directly. The file rename now works regardless of DB state. Callers sync the updated ~FileName~/~IsPinned~ via ~SyncDeckMetadata~.
+
+* FIXED FS2: SQLite unique constraint crash on archive
+
+** Location
+~DeckService.cs~ — ~SaveOrUpdateDeck(Deck)~
+
+** Status
+- ✅ FIXED.
+
+** Symptom
+When archiving a deck that had a DB record, the app crashed with a SQLite ~UNIQUE constraint failed: Pages.DeckId, Pages.PageNumber~ error.
+
+** Root Cause
+~SaveOrUpdateDeck~ deleted all existing pages for the deck, then re-inserted them in a single ~SaveChanges~ call. SQLite processes INSERTs in the order received — the inserts ran before the deletes, causing a violation of the ~(DeckId, PageNumber)~ unique index.
+
+** Fix
+Added ~SyncDeckMetadata(Deck)~ to ~IDeckService~/~DeckService~. This method only updates ~FileName~, ~IsPinned~, and ~IsArchived~ — it never touches the ~Pages~ table. Callers (HomeViewModel, MainWindowViewModel) call ~SyncDeckMetadata~ after file operations instead of ~SaveOrUpdateDeck~, avoiding the constraint entirely.
+
+* Known Limitations
+
+** .org file support is partial
+- Parsing exists but the editor always produces ~.md~ output
+- ~GetDeckMarkdownPath()~ creates a ~.md~ fallback, potentially
+  creating duplicate files when the original is ~.org~
+- Heading parsing and code blocks work correctly (~*~/~~~** ~~, ~#+BEGIN_SRC~)
+- Inline code in org files uses ~=code=~ / ~~code~~ syntax (not backticks)(corret)
+
+** File-based decks bypass the database
+- Deck content lives in ~.md~ files, (DB stores progress/activity only)
+- Deck IDs are deterministic (SHA256 of path), so progress is stable
+- But deck content is never persisted to DB — (files are the source of truth)
+
+** Single-window architecture
+- All views stack in one ~Panel~ — visibility managed by boolean flags
+- ~IsLearning~, ~IsSettingsOpen~, ~IsSidebarOpen~ instead of a single enum
+
+** Search doesn't search deck page content
+- Only ~Title~, ~Description~, ~FileName~, and ~Tags~ (via ~#tag~) are searched
+- The actual text content inside deck pages is not indexed or searched
