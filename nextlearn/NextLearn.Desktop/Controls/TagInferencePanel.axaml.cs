@@ -2,9 +2,9 @@ using Avalonia.Controls;
 
 namespace NextLearn.Desktop.Controls;
 
-public partial class SettingsPanel : UserControl
+public partial class TagInferencePanel : UserControl
 {
-    public SettingsPanel()
+    public TagInferencePanel()
     {
         InitializeComponent();
     }

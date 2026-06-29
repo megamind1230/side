@@ -49,4 +49,6 @@ public enum KeyboardActionKind
     ShowArchivedView,
     ShowHeatmap,
     NavigateToMarketplace,
+    OpenTagInference,
+    CloseTagInference,
 }

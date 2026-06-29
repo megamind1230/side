@@ -20,6 +20,9 @@ public class AppSettings
     [YamlMember(Alias = "falconEyeEnabled")]
     public bool FalconEyeEnabled { get; set; } = false;
 
+    [YamlMember(Alias = "geminiApiKey")]
+    public string GeminiApiKey { get; set; } = string.Empty;
+
     public static string ResolvePath(string path)
     {
         if (string.IsNullOrEmpty(path))

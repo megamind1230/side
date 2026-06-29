@@ -39,7 +39,7 @@ public class KeyBindingService : IKeyBindingService
 #   ZoomHeatmapIn, ZoomHeatmapOut, ZoomHeatmapReset,
 #   OpenDocumentation, OpenCommandPalette, CloseCommandPalette,
 #   OpenDecksFolder, ToggleSidebar,
-#   ShowPinnedView, ShowArchivedView, ShowHeatmap,
+#   ShowPinnedView, ShowArchivedView, ShowHeatmap, OpenTagInference,
 #   NavigateToMarketplace,
 #   CloseSettings, ExitSettingsHome
 #
@@ -459,6 +459,7 @@ bindings:
             G(null, KeyboardActionKind.OpenDocumentation, "F1", string.Empty, "Open documentation"),
             G(null, KeyboardActionKind.ToggleSidebar, "S", string.Empty, "Toggle sidebar"),
             G(null, KeyboardActionKind.OpenDecksFolder, "O", string.Empty, "Open decks folder"),
+            G(null, KeyboardActionKind.OpenTagInference, "T", string.Empty, "Open tag inference (T)"),
         };
     }
 
@@ -509,6 +510,7 @@ bindings:
             M(null, KeyboardActionKind.ToggleShortcutsHandbook, "Toggle handbook (C-h ?)", "H", "Control", "Oem2", "Shift"),
             M(null, KeyboardActionKind.OpenDocumentation, "Open docs (C-h d)", "H", "Control", "D"),
             M(null, KeyboardActionKind.ToggleSidebar, "Toggle sidebar (C-c s)", "C", "Control", "S"),
+            M(null, KeyboardActionKind.OpenTagInference, "Open tag inference (C-c t)", "C", "Control", "T"),
         };
     }
 
@@ -565,6 +567,7 @@ bindings:
             G(null, KeyboardActionKind.ZoomTextOut, "OemMinus", "Control+Shift", "Zoom text out (also heatmap out)", true),
             G(null, KeyboardActionKind.ResetTextZoom, "D0", "Control+Shift", "Reset text zoom (also heatmap reset)", true),
             G(null, KeyboardActionKind.ResetTextZoom, "NumPad0", "Control+Shift", "Reset text zoom (also heatmap reset)", true),
+            G(null, KeyboardActionKind.OpenTagInference, "T", "Control+Shift", "Open tag inference (Ctrl+Shift+T)", true),
         };
     }
 }

@@ -244,4 +244,87 @@ Content
         deck.Should().NotBeNull();
         deck!.Tags.Should().BeEmpty();
     }
+
+    [Fact]
+    public void LoadDeckFromFile_TagsBlockList_ParsesCorrectly()
+    {
+        var content = @"---
+title: Block List
+tags:
+  - food
+  - computer
+  - nested/tag
+---
+Content
+";
+        var path = CreateFile(content);
+        var deck = DeckFileParser.LoadDeckFromFile(path);
+
+        deck.Should().NotBeNull();
+        deck!.Tags.Should().Be("food, computer, nested/tag");
+    }
+
+    [Fact]
+    public void LoadDeckFromFile_TagsInlineArray_ParsesCorrectly()
+    {
+        var content = @"---
+title: Inline Array
+tags: [tag1, tag2, some-keyword]
+---
+Content
+";
+        var path = CreateFile(content);
+        var deck = DeckFileParser.LoadDeckFromFile(path);
+
+        deck.Should().NotBeNull();
+        deck!.Tags.Should().Be("tag1, tag2, some-keyword");
+    }
+
+    [Fact]
+    public void LoadDeckFromFile_TagsQuotedString_ParsesCorrectly()
+    {
+        var content = @"---
+title: Quoted
+tags: ""tag1, tag2""
+---
+Content
+";
+        var path = CreateFile(content);
+        var deck = DeckFileParser.LoadDeckFromFile(path);
+
+        deck.Should().NotBeNull();
+        deck!.Tags.Should().Be("tag1, tag2");
+    }
+
+    [Fact]
+    public void LoadDeckFromFile_TagsSingleQuotedString_ParsesCorrectly()
+    {
+        var content = @"---
+title: Single Quoted
+tags: 'tag1, tag2'
+---
+Content
+";
+        var path = CreateFile(content);
+        var deck = DeckFileParser.LoadDeckFromFile(path);
+
+        deck.Should().NotBeNull();
+        deck!.Tags.Should().Be("tag1, tag2");
+    }
+
+    [Fact]
+    public void LoadDeckFromFile_TagsEmptyBlockList_ReturnsEmpty()
+    {
+        var content = @"---
+title: Empty Block List
+tags:
+---
+Content
+";
+        var path = CreateFile(content);
+        var deck = DeckFileParser.LoadDeckFromFile(path);
+
+        deck.Should().NotBeNull();
+        deck!.Tags.Should().BeEmpty();
+    }
 }

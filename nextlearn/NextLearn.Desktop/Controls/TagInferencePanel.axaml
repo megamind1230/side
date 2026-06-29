@@ -1,0 +1,116 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NextLearn.Desktop.ViewModels"
+             xmlns:models="using:NextLearn.Desktop.Models"
+             x:Class="NextLearn.Desktop.Controls.TagInferencePanel"
+             x:DataType="vm:MainWindowViewModel">
+    <Panel IsVisible="{Binding IsTagInferenceOpen}" ZIndex="300">
+        <DockPanel Background="#1E293B">
+            <Border DockPanel.Dock="Top" Padding="16,12" Background="#1E293B">
+                <DockPanel>
+                    <Button Command="{Binding CloseTagInferenceCommand}"
+                            Background="Transparent" Padding="12,8">
+                        <TextBlock Text="← Back" FontSize="16" Foreground="#94A3B8"/>
+                    </Button>
+                    <TextBlock Text="🏷 Tag Inference" FontSize="20" FontWeight="Bold"
+                               Foreground="#E2E8F0" VerticalAlignment="Center"
+                               Margin="16,0,0,0"/>
+                </DockPanel>
+            </Border>
+
+            <Border DockPanel.Dock="Top" Height="4" IsVisible="{Binding TagInferenceViewModel.IsInferring}">
+                <ProgressBar Value="{Binding TagInferenceViewModel.InferenceProgress}"
+                             Minimum="0" Maximum="100"
+                             Foreground="#2563EB" Background="#334155" Height="4"/>
+            </Border>
+
+            <ScrollViewer Margin="24">
+                <StackPanel Spacing="16">
+
+                    <TextBlock Text="{Binding TagInferenceViewModel.InferenceStatus}"
+                               IsVisible="{Binding TagInferenceViewModel.IsInferring}"
+                               Foreground="#94A3B8" FontSize="14"/>
+
+                    <TextBlock Text="{Binding TagInferenceViewModel.ErrorMessage}"
+                               IsVisible="{Binding TagInferenceViewModel.HasError}"
+                               Foreground="#EF4444" FontSize="14"
+                               TextWrapping="Wrap"/>
+
+                    <TextBox Text="{Binding TagInferenceViewModel.SearchText}"
+                             Watermark="Search decks…"
+                             IsVisible="{Binding TagInferenceViewModel.ShowDeckList}"
+                             Padding="12" FontSize="14"
+                             Foreground="#E2E8F0" Background="#1E293B" BorderBrush="#334155"/>
+
+                    <Border IsVisible="{Binding TagInferenceViewModel.IsPreviewVisible}"
+                            Background="#1E293B" CornerRadius="12" Padding="20"
+                            BorderBrush="#334155" BorderThickness="1">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Tag Preview" FontSize="16" FontWeight="Bold" Foreground="#E2E8F0"/>
+                            <TextBlock Text="Ensure this file is not being modified externally during inference."
+                                       Foreground="#FBBF24" FontSize="12" TextWrapping="Wrap"/>
+                            <Border Background="#0F172A" CornerRadius="8" Padding="16">
+                                <StackPanel Spacing="8">
+                                    <DockPanel>
+                                        <TextBlock Text="Current: " Foreground="#94A3B8" FontSize="13"/>
+                                        <TextBlock Text="{Binding TagInferenceViewModel.ExistingTagsDisplay}"
+                                                   Foreground="#E2E8F0" FontSize="13" TextWrapping="Wrap"/>
+                                    </DockPanel>
+                                    <DockPanel>
+                                        <TextBlock Text="Proposed: " Foreground="#94A3B8" FontSize="13"/>
+                                        <TextBlock Text="{Binding TagInferenceViewModel.ProposedTagsDisplay}"
+                                                   Foreground="#10B981" FontSize="13" TextWrapping="Wrap"
+                                                   FontWeight="SemiBold"/>
+                                    </DockPanel>
+                                </StackPanel>
+                            </Border>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+                                <Button Command="{Binding TagInferenceViewModel.CancelPreviewCommand}"
+                                        Background="#334155" Foreground="#94A3B8"
+                                        Padding="24,10" FontSize="14" Content="Cancel"/>
+                                <Button Command="{Binding TagInferenceViewModel.ApplyTagsCommand}"
+                                        Background="#0D9488" Foreground="White"
+                                        Padding="24,10" FontSize="14" Content="Apply Tags"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding TagInferenceViewModel.Decks}"
+                                  IsVisible="{Binding TagInferenceViewModel.ShowDeckList}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:Deck">
+                                <Border Background="#1E293B" CornerRadius="12" Padding="20" Margin="0,0,0,16"
+                                        BorderBrush="#334155" BorderThickness="1">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center">
+                                            <Button Content="Infer Tags →"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).TagInferenceViewModel.InferTagsCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Background="#2563EB" Foreground="White" Padding="16,8"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,24,0">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Title}" FontSize="14"
+                                                           Foreground="#E2E8F0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                                                <TextBlock FontSize="13" Foreground="#FBBF24" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                                    <Run Text="Name: "/>
+                                                    <Run Text="{Binding FileName}"/>
+                                                </TextBlock>
+                                            </DockPanel>
+                                            <TextBlock Text="{Binding Description}" Foreground="#94A3B8" TextWrapping="Wrap"/>
+                                            <TextBlock Foreground="#94A3B8" FontSize="13">
+                                                <Run Text="{Binding PageCount, StringFormat='{}{0} pages'}"/>
+                                                <Run Text=" | "/>
+                                                <Run Text="{Binding Tags}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Panel>
+</UserControl>

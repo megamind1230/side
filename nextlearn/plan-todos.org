@@ -147,3 +147,162 @@ prompt.
 ** Test impact
 - ~HtmlContentBuilderTests~: 8 new tests for TryGetDeckLink (+/~/~ fallback,
   subdirectory, precedence)
+
+* DONE AI Tag Inference — Google Gemini
+
+** What
+New Tag Inference page using Google Gemini (free tier) to automatically
+suggest tags for .md and .org deck files. Shows a diff preview before
+applying, supports all existing tag formats, and preserves existing tags.
+
+** New files
+
+*** 1. Services/ITagInferenceService.cs
+Interface for AI tag inference:
+- ~Task<TagInferenceResult> InferTagsAsync(string deckContent, string existingTags)~
+- ~TagInferenceResult~: ~List<string> SuggestedTags~ + ~bool Success~ + ~string? Error~
+
+*** 2. Services/TagInferenceService.cs
+Gemini API implementation:
+- ~HttpClient~ POST to ~https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}~
+- Token estimation (~content.Length / 4~): if >900K → error "too large";
+  if >700K → truncate with warning
+- Prompt: "Suggest 2–15 additional tags… return JSON array of strings"
+- ~GeminiResponse~ deserialization model classes
+- No internet → ~HttpRequestException~ → friendly error message
+
+*** 3. Services/IDeckFileWriter.cs + DeckFileWriter.cs
+Write updated tags back to source file, preserving original format:
+- ~WriteTags(string filePath, List<string> newTags)~
+- Detect format: inline comma-sep / quoted / inline array / block list / .org colon
+- Append new tags, dedup against existing
+- Re-read file before writing to catch external modifications
+- If ~LastWriteTimeUtc~ differs from read time → prompt user
+
+*** 4. ViewModels/TagInferenceViewModel.cs
+Page ViewModel:
+- ~ObservableCollection<Deck> Decks~ — searchable deck list (no learn/pin/archive buttons)
+- ~string SearchText~ — filter decks
+- ~Deck? SelectedDeck~
+- ~string? InferenceStatus~ — current step text
+- ~double InferenceProgress~ — 0–100 for progress bar
+- ~string? ExistingTagsDisplay~
+- ~string? ProposedTagsDisplay~
+- ~bool IsPreviewVisible~ — diff view after inference
+- ~bool IsInferring~ — disables buttons during inference
+- ~bool IsApiKeyMissing~ — gate
+- Commands: ~InferTagsCommand~, ~ApplyTagsCommand~, ~CancelCommand~
+
+*** 5. Controls/TagInferencePanel.axaml + .axaml.cs
+New page view:
+- Search box (top)
+- Deck list (cards with title, description, current tags, "Infer Tags →" button)
+- Progress bar + status text (visible during inference)
+- Diff panel (current tags vs proposed additions, highlighted)
+- "Apply" / "Cancel" buttons
+
+** Modified files
+
+*** 6. AppSettings.cs
+- Add ~string GeminiApiKey~ (default empty)
+
+*** 7. SettingsService.cs + ISettingsService.cs
+- Expose ~string GeminiApiKey~ get/set
+- ~Load()~ / ~Save()~ handle it
+
+*** 8. SettingsPanel.axaml
+- Add password-style text field for API key
+- Add "Get a free Gemini API key" link button → opens ~https://aistudio.google.com/apikey~
+- Add status indicator (configured / missing)
+
+*** 9. Sidebar.axaml
+- Insert nav item between Falcon Eye and Streak:
+  ~<Button Command="{Binding ShowTagInferenceCommand}" ...>~
+  ~    <TextBlock Text="🏷"/> <TextBlock Text="  Tag Inference"/>~
+  ~</Button>~
+
+*** 10. MainWindowViewModel.cs
+- Add ~bool IsTagInferenceOpen~ (observable)
+- Add ~ShowTagInferenceCommand~ → ~[RelayCommand] void ShowTagInference()~
+  (closes other panels, sets ~IsTagInferenceOpen = true~)
+- Wire ~TagInferenceViewModel~ (manual DI)
+- Add command palette entry ~"tag-inference"~ (aliases: ~"ai-tags", "infer"~,
+  context ~"*"~, shortcut ~Ctrl+Shift+T~)
+
+*** 11. MainWindow.axaml
+- Add ~<ctrls:TagInferencePanel IsVisible="{Binding IsTagInferenceOpen}"/>~
+  in the main content panel
+
+*** 12. KeyboardActionKind.cs
+- Add ~OpenTagInference~ enum value
+
+*** 13. KeyBindingService.cs
+- All 3 profiles (Vim, Emacs, VS Code):
+  ~G(null, KeyboardActionKind.OpenTagInference, "T", "Control Shift", "Open Tag Inference")~
+
+*** 14. KeyboardHandler.cs + MainWindow.axaml.cs
+- ~HandleKey~: dispatch ~OpenTagInference~ → ~ShowTagInferenceCommand~
+- Ensure ~Ctrl+Shift+T~ is registered
+
+** Progress UI (TagInferenceViewModel)
+
+| Step | Progress | Status text |
+|------|----------|-------------|
+| 1    | 10%      | "Parsing deck content…" |
+| 2    | 30%      | "Contacting Gemini…" |
+| 3    | 70%      | "Analyzing content…" |
+| 4    | 90%      | "Formatting results…" |
+| 5    | 100%     | "Ready" |
+
+If any step fails → show error inline, reset to idle.
+
+** Tag format detection matrix (DeckFileWriter)
+
+| Source format | Detection | Write strategy |
+|---|---|---|
+| ~tags: a, b~ | inline comma-sep | ~tags: a, b, c, d~ |
+| ~tags: "a, b"~ | double-quoted inline | ~tags: "a, b, c, d"~ |
+| ~tags: 'a, b'~ | single-quoted inline | ~tags: 'a, b, c, d'~ |
+| ~tags: [a, b]~ | YAML array | ~tags: [a, b, c, d]~ |
+| ~tags:\n  - a\n  - b~ | block list | Append ~  - c~/~  - d~ |
+| ~#+TAGS: :a:b:~ | org colon | ~#+TAGS: :a:b:c:d:~ |
+| ~#+TAGS: a, b~ | org plain | ~#+TAGS: a, b, c, d~ |
+
+** Edge cases
+
+| Case | Behavior |
+|---|---|
+| No API key configured | Show "Configure Gemini API key in Settings" with link button |
+| No internet | ~HttpRequestException~ → "No internet connection. Check and try again." |
+| Rate limit (429) | "Rate limited by Gemini. Wait a moment and try again." |
+| Deck too large (>900K tokens) | "Deck too large (~{n} tokens, max 1M). Split into smaller files." |
+| Very large (>700K tokens) | Warning + truncate to 700K; results may miss some content |
+| Empty deck | "Deck is empty — nothing to infer." |
+| File modified during inference | On Apply: re-read file, detect ~LastWriteTimeUtc~ change → prompt user |
+| API returns empty/unexpected | "Gemini returned an unexpected response. Try again." |
+| .org hierarchy tags (~:a::b:~) | Preserve double-colon when merging |
+| API key invalid (401) | "Invalid API key. Check your Gemini API key in Settings." |
+
+** Estimated inference time (Gemini 2.0 Flash)
+
+| Deck size | Example | Time |
+|---|---|---|
+| <1KB | Quick notes | 1–2s |
+| 1–10KB | Page of notes | 2–4s |
+| 10–100KB | Multiple sections | 4–8s |
+| 100–700KB | Large doc | 8–20s |
+| >700KB | Truncated | — |
+
+** Future reuse
+Same ~HttpClient~ + API key infra supports:
+- MCQ quiz generation from deck content
+- Flashcard Q&A extraction
+- Deck summarization / description generation
+
+** Test impact
+- ~DeckFileWriterTests~ — format detection for all tag styles,
+  dedup, merge, external-modification detection
+- ~TagInferenceServiceTests~ — mock ~HttpClient~, test prompt construction,
+  response parsing, error handling
+- ~TagInferenceViewModelTests~ — progress states, apply/cancel flow
+- Existing ~DeckFileParserTests~ — verify parser unchanged

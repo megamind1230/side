@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -28,6 +29,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IDeckFileService _deckFileService;
     private readonly ISettingsService _settingsService;
     private readonly IKeyBindingService _keyBindingService;
+    private readonly ITagInferenceService _tagInferenceService;
+    private readonly IDeckFileWriter _deckFileWriter;
     private List<CommandPaletteEntry> _allCommandPaletteEntries;
 
     [ObservableProperty]
@@ -59,6 +62,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isHeatmapOpen;
+
+    [ObservableProperty]
+    private bool _isTagInferenceOpen;
 
     [ObservableProperty]
     private int _todayMinutes;
@@ -95,6 +101,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _keyBindingsProfile = string.Empty;
+
+    [ObservableProperty]
+    private string _geminiApiKey = string.Empty;
 
     [ObservableProperty]
     private string _settingsStatus = string.Empty;
@@ -264,6 +273,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public LearningViewModel LearningViewModel { get; }
 
+    public TagInferenceViewModel TagInferenceViewModel { get; private set; }
+
     public MainWindowViewModel()
     {
         _context = new AppDbContext();
@@ -275,6 +286,8 @@ public partial class MainWindowViewModel : ViewModelBase
         _deckFileService = new DeckFileService();
         _settingsService = new SettingsService();
         _keyBindingService = new KeyBindingService();
+        _tagInferenceService = new TagInferenceService(new HttpClient());
+        _deckFileWriter = new DeckFileWriter();
         _allCommandPaletteEntries = BuildCommandPaletteEntries();
         var htmlContentBuilder = new HtmlContentService();
 
@@ -303,6 +316,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var decksPath = _settingsService.ResolvedDecksPath;
         HomeViewModel = new HomeViewModel(_deckService, _deckFileService, this, decksPath);
         LearningViewModel = new LearningViewModel(_deckService, _userService, htmlContentBuilder, this, decksPath);
+        TagInferenceViewModel = new TagInferenceViewModel(_settingsService, _tagInferenceService, _deckFileWriter, decksPath);
 
         CurrentView = HomeViewModel;
     }
@@ -407,6 +421,7 @@ public partial class MainWindowViewModel : ViewModelBase
         DecksPath = _settingsService.DecksPath;
         KeyBindingsProfile = _settingsService.KeyBindingsProfile;
         IsFalconEyeEnabled = _settingsService.FalconEyeEnabled;
+        GeminiApiKey = _settingsService.GeminiApiKey;
     }
 
     [RelayCommand]
@@ -417,6 +432,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _settingsService.DecksPath = DecksPath;
         _settingsService.KeyBindingsProfile = KeyBindingsProfile;
         _settingsService.FalconEyeEnabled = IsFalconEyeEnabled;
+        _settingsService.GeminiApiKey = GeminiApiKey;
         _keyBindingService.SwitchProfile(KeyBindingsProfile);
         KeyBindingsChanged?.Invoke();
 
@@ -447,6 +463,7 @@ public partial class MainWindowViewModel : ViewModelBase
         DecksPath = defaults.DecksPath;
         KeyBindingsProfile = defaults.KeyBindingsProfile;
         IsFalconEyeEnabled = defaults.FalconEyeEnabled;
+        GeminiApiKey = defaults.GeminiApiKey;
     }
 
     [RelayCommand]
@@ -461,6 +478,28 @@ public partial class MainWindowViewModel : ViewModelBase
             }
         }
     }
+
+#pragma warning disable CA1822 // Member does not access instance data
+    [RelayCommand]
+    private void OpenGeminiApiUrl()
+    {
+        try
+        {
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo("https://aistudio.google.com/apikey")
+            {
+                UseShellExecute = true,
+            };
+            process.Start();
+        }
+#pragma warning disable CA1031
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to open Gemini API URL");
+        }
+#pragma warning restore CA1031
+    }
+#pragma warning restore CA1822
 
     [RelayCommand]
     private void OpenDecksFolder()
@@ -553,6 +592,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         IsPinnedViewOpen = false;
         IsArchivedViewOpen = false;
+        IsTagInferenceOpen = false;
         IsLearning = true;
         var deck = HomeViewModel.Decks.FirstOrDefault(d => d.Id == deckId);
         if (deck != null)
@@ -571,6 +611,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         IsPinnedViewOpen = false;
         IsArchivedViewOpen = false;
+        IsTagInferenceOpen = false;
         IsLearning = true;
         await LearningViewModel.SetCurrentDeckAsync(deck);
         CurrentView = LearningViewModel;
@@ -584,6 +625,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsArchivedViewOpen = false;
         IsSettingsOpen = false;
         IsHeatmapOpen = false;
+        IsTagInferenceOpen = false;
         IsMarketplaceOpen = true;
     }
 
@@ -640,6 +682,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsPinnedViewOpen = false;
         IsArchivedViewOpen = false;
         IsHeatmapOpen = false;
+        IsTagInferenceOpen = false;
         IsSettingsOpen = true;
     }
 
@@ -668,6 +711,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsArchivedViewOpen = false;
         IsSettingsOpen = false;
         IsHeatmapOpen = false;
+        IsTagInferenceOpen = false;
         IsPinnedViewOpen = true;
     }
 
@@ -685,6 +729,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsPinnedViewOpen = false;
         IsSettingsOpen = false;
         IsHeatmapOpen = false;
+        IsTagInferenceOpen = false;
         IsArchivedViewOpen = true;
     }
 
@@ -731,6 +776,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsArchivedViewOpen = false;
         IsSettingsOpen = false;
         IsMarketplaceOpen = false;
+        IsTagInferenceOpen = false;
         IsHeatmapOpen = true;
     }
 
@@ -738,6 +784,26 @@ public partial class MainWindowViewModel : ViewModelBase
     public void CloseHeatmap()
     {
         IsHeatmapOpen = false;
+    }
+
+    [RelayCommand]
+    public void ShowTagInference()
+    {
+        IsSidebarOpen = false;
+        IsPinnedViewOpen = false;
+        IsArchivedViewOpen = false;
+        IsSettingsOpen = false;
+        IsHeatmapOpen = false;
+        IsMarketplaceOpen = false;
+        TagInferenceViewModel.LoadDecks();
+        IsTagInferenceOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseTagInference()
+    {
+        IsTagInferenceOpen = false;
+        TagInferenceViewModel.CancelPreviewCommand.Execute(null);
     }
 
     [RelayCommand]
@@ -1312,6 +1378,15 @@ public partial class MainWindowViewModel : ViewModelBase
                 Contexts = new[] { "*" },
                 Execute = () => NavigateToDocumentationCommand.Execute(null),
                 ShortcutText = GetShortcutText(KeyboardActionKind.OpenDocumentation),
+            },
+            new()
+            {
+                Name = "tag-inference",
+                Aliases = new[] { "ai-tags", "infer", "tag" },
+                Description = "Open AI tag inference page",
+                Contexts = new[] { "*" },
+                Execute = () => ShowTagInferenceCommand.Execute(null),
+                ShortcutText = GetShortcutText(KeyboardActionKind.OpenTagInference),
             },
             new()
             {

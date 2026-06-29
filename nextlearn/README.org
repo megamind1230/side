@@ -13,7 +13,7 @@ SQLite.
 nextlearn is a keyboard-centric complete study gear for ~.md~ and ~.org~ files — not just a flashcard app.
 Create decks manually or with AI, study in a minimal distraction-free UI,
 search decks instantly, export to Anki, and more. Future features include
-AI-powered MCQ tests with local storage, information snipping, and AI tag inference.
+AI-powered MCQ tests with local storage, information snipping, and more.
 
 This repo contains only ~nextlearn.Desktop~ — the offline Avalonia UI
 desktop app. The companion website (for browsing/downloading decks)
@@ -79,6 +79,7 @@ is a separate project.
 | Copy button on code/quote blocks     | ✅ Done    | Hover to copy code/quote content to clipboard, cross-platform                               |
 | Smart code block width               | ✅ Done    | Short code shrink-wraps; long code scrolls at viewport cap                                  |
 | LaTeX math rendering (KaTeX)         | ✅ Done    | Inline ~$..$~ / ~\(..\)~ and display ~$$..$$~ / ~\[..\]~ w/ auto-render                     |
+| AI Tag Inference (Google Gemini)     | ✅ Done    | Open side bar → Tag Inference panel (or profile shortcut: ~T~ Vim, ~C-c t~ Emacs, ~Ctrl+Shift+T~ VS Code). Select a deck → auto-suggest 2–15 tags via Gemini API (free tier). Diff preview before applying. Supports 7 tag formats. Frontmatter health check auto-fills missing ~title~/~desc~/~tags~. |
  
 * Tech Stack
 
@@ -96,10 +97,12 @@ is a separate project.
 
 * Architecture
 
-** Design philosophy — fully offline
+** Design philosophy — mostly offline
 
-The desktop app NEVER makes HTTP/S calls. Downloads are always
-manual: user → website → download → drop into local folder.
+The desktop app is fully offline except for the optional AI Tag Inference feature,
+which requires an internet connection and a free Google Gemini API key.
+All other features (deck reading, search, study, heatmap, export) work
+completely offline with no network calls.
 
 ** Data Sources
 
@@ -125,6 +128,7 @@ Phase 5 of the clean code initiative is complete:
 | ~nextlearn.Desktop/Services/~   | Business logic layer                  |
 | ~nextlearn.Desktop/ViewModels/~ | MVVM view models                      |
 | ~nextlearn.Desktop/Views/~      | MainWindow.axaml (single window)      |
+| ~nextlearn.Desktop/Controls/~   | TagInferencePanel, Sidebar, Settings  |
 
 ** Key Services
 
@@ -140,6 +144,8 @@ Phase 5 of the clean code initiative is complete:
 | FalconEyeBuilder       | Generates table-of-contents HTML from Deck                         |
 | MarkdownInlineRenderer | Strategy for .md inline rendering                                  |
 | OrgInlineRenderer      | Strategy for .org inline rendering                                 |
+| TagInferenceService    | Gemini API client: model discovery, retry, tag parsing             |
+| DeckFileWriter         | Tag write-back (7 formats) + frontmatter health check (.md/.org)   |
 
 * Deck File Format
 
@@ -431,6 +437,7 @@ Available chord prefixes:
 | `Ctrl+Shift+0`          | Global       | Reset text zoom                 |
 | `Ctrl+,`                | Global       | Open settings                   |
 | `?` / `Shift+/`         | Global       | Toggle shortcuts handbook       |
+| `T`                     | Global       | Open Tag Inference panel             |
 | `S`                     | Global       | Toggle sidebar                  |
 | `O`                     | Global       | Open decks folder               |
 | `F1`                    | Global       | Open documentation in browser   |
@@ -639,6 +646,7 @@ bindings:
 | `C-c C-s`               | Global       | Open settings                      |
 | `C-h ?`                 | Global       | Toggle shortcuts handbook          |
 | `C-h d`                 | Global       | Open documentation in browser      |
+| `C-c t`                 | Global       | Open Tag Inference panel             |
 | `C-c s`                 | Global       | Toggle sidebar                     |
 | `Ctrl+Shift++`          | Global       | Zoom text in (also heatmap)        |
 | `Ctrl+Shift+-`          | Global       | Zoom text out (also heatmap)       |
@@ -676,6 +684,7 @@ bindings:
 | `Ctrl+,`                | Global       | Open settings                   |
 | `?` / `Shift+/`         | Global       | Toggle shortcuts handbook       |
 | `Ctrl+K` then `Ctrl+S`  | Global       | Toggle shortcuts handbook       |
+| `Ctrl+Shift+T`          | Global       | Open Tag Inference panel         |
 | `Ctrl+B`                | Global       | Toggle sidebar                  |
 | `Ctrl+O`                | Global       | Open decks folder               |
 | `F1`                    | Global       | Open documentation in browser   |
@@ -732,6 +741,8 @@ Available ~action~ values:
 - ~NavigateToMarketplace~ — navigate to marketplace
 - ~OpenCommandPalette~ — open command palette (: / M-x)
 - ~CloseCommandPalette~ — close command palette (Esc)
+- ~OpenTagInference~ — open Tag Inference panel (~T~ Vim / ~C-c t~ Emacs / ~Ctrl+Shift+T~ VS Code)
+- ~CloseTagInference~ — close Tag Inference panel (Esc)
 - ~ChordPrefix~ — prefix of a multi-key chord (shows pending indicator)
 
 The following are handled internally and are not configurable:

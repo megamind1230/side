@@ -67,6 +67,12 @@ public class SettingsService : ISettingsService
         set => _settings.FalconEyeEnabled = value;
     }
 
+    public string GeminiApiKey
+    {
+        get => _settings.GeminiApiKey;
+        set => _settings.GeminiApiKey = value;
+    }
+
     public string ResolvedDecksPath => AppSettings.ResolvePath(DecksPath);
 
     public static AppSettings Defaults() => new();

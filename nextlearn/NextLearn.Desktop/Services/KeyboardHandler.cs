@@ -239,6 +239,11 @@ public class KeyboardHandler
             return KeyboardActionKind.ClosePinnedView;
         }
 
+        if (_vm.IsTagInferenceOpen)
+        {
+            return KeyboardActionKind.CloseTagInference;
+        }
+
         if (_vm.IsHeatmapOpen)
         {
             return KeyboardActionKind.CloseHeatmap;

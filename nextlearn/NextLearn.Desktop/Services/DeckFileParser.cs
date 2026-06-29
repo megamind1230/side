@@ -226,7 +226,51 @@ public static class DeckFileParser
             }
             else if (trimmed.StartsWith("tags:", StringComparison.OrdinalIgnoreCase))
             {
-                tags = trimmed[5..].Trim();
+                var raw = trimmed[5..].Trim();
+
+                if ((raw.StartsWith('"') && raw.EndsWith('"')) ||
+                    (raw.StartsWith('\'') && raw.EndsWith('\'')))
+                {
+                    raw = raw.Length >= 2 ? raw[1..^1] : string.Empty;
+                }
+
+                if (raw.StartsWith('[') && raw.EndsWith(']'))
+                {
+                    var inner = raw.Length >= 2 ? raw[1..^1] : string.Empty;
+                    var items = inner.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    tags = string.Join(", ", items);
+                }
+                else if (!string.IsNullOrWhiteSpace(raw))
+                {
+                    tags = raw;
+                }
+                else
+                {
+                    var listItems = new List<string>();
+                    int j = i + 1;
+                    while (j < lines.Length)
+                    {
+                        var line = lines[j];
+                        var match = Regex.Match(line, @"^\s*-\s+(.+)$");
+                        if (!match.Success)
+                        {
+                            break;
+                        }
+
+                        listItems.Add(match.Groups[1].Value.Trim());
+                        j++;
+                    }
+
+                    if (listItems.Count > 0)
+                    {
+                        i = j - 1;
+                        tags = string.Join(", ", listItems);
+                    }
+                    else
+                    {
+                        tags = string.Empty;
+                    }
+                }
             }
         }
 

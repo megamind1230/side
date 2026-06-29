@@ -673,6 +673,16 @@ public partial class MainWindow : Window
                 vm.ShowHeatmapCommand.Execute(null);
                 return true;
 
+            // Ctrl+Shift+T — open tag inference page
+            case KeyboardActionKind.OpenTagInference:
+                vm.ShowTagInferenceCommand.Execute(null);
+                return true;
+
+            // Esc — close tag inference
+            case KeyboardActionKind.CloseTagInference:
+                vm.CloseTagInferenceCommand.Execute(null);
+                return true;
+
             // C-c m — navigate to marketplace
             case KeyboardActionKind.NavigateToMarketplace:
                 vm.NavigateToMarketplaceCommand.Execute(null);

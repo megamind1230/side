@@ -62,6 +62,20 @@
 
                     <Border Height="1" Background="#334155"/>
 
+                    <TextBlock Text="Gemini API Key" FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0"/>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Command="{Binding OpenGeminiApiUrlCommand}"
+                                Background="#334155" Foreground="#E2E8F0" Padding="12,8"
+                                Content="Get free key" FontSize="13" Margin="8,0,0,0"/>
+                        <TextBox Text="{Binding GeminiApiKey}" Watermark="Paste your Gemini API key"
+                                 PasswordChar="•"
+                                 Padding="8" FontSize="13" Foreground="#E2E8F0"
+                                 Background="#1E293B" BorderBrush="#334155"/>
+                    </DockPanel>
+                    <TextBlock Text="Free at aistudio.google.com" FontSize="11" Foreground="#64748B"/>
+
+                    <Border Height="1" Background="#334155"/>
+
                     <TextBlock Text="{Binding SettingsStatus}" FontSize="13" Foreground="#10B981"
                                HorizontalAlignment="Center" TextWrapping="Wrap"/>
 

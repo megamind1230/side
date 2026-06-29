@@ -1,0 +1,55 @@
+﻿#+TITLE: Changelog
+
+** 2026-06-05 — Project init
+  Avalonia UI + EF Core SQLite scaffold, .md/.org deck parser,
+  YAML frontmatter, basic learning loop.
+
+** 2026-06-07 — Image support
+  Image rendering in decks.
+
+** 2026-06-12 — Links + image links
+  Markdown/org link rendering, image link support.
+
+** 2026-06-14 — Pin/archive/code revamp
+  Pin/archive decks, code block rendering, z-index stacking fixes.
+
+** 2026-06-15 — Go-to-page + text zoom
+  Ctrl+G dialog, Ctrl+Shift++/- zoom, whole-UI zoom.
+
+** 2026-06-16 — Heatmap + streak
+  Full-page heatmap overlay (snake layout) + daily streak tracking.
+
+** 2026-06-19 — Config YAML + unit testing
+  Config format JSON→YAML, XML docs, clean code pass, unit tests.
+
+** 2026-06-20 — Falcon Eye TOC + UX polish
+  Sidebar heading-based table of contents plugin. Study box height,
+  F1 docs, font changes on save, [~] progress marker, copy icon
+  on code blocks.
+
+** 2026-06-23 — LaTeX + inline code copy
+  KaTeX inline/display math with auto-render. Copy button on
+  inline-code and LaTeX elements.
+
+** 2026-06-25 — Footnotes hover (cross-page)
+  Footnote tooltip previews across pages.
+
+** 2026-06-28 — Command palette + VS Code profile
+  M-x style command palette with fuzzy search, VS Code keybinding
+  preset.
+
+** 2026-06-28 — Sort + FS watcher + DbContext race
+  Deck lists sorted by FileName, FileSystemWatcher debounce (300ms),
+  DbContext concurrency crash on quick pin/archive fixed.
+
+** 2026-06-29 — Obsidian-style vault
+  Recursive .md/.org scanning, relative paths, DB-free DeckFileService,
+  wiki-link navigation with cross-format fallback (+~/.md↔.org),
+  deck-link prompt overlay, pinned/archived fallback resolution.
+
+** 2026-06-30 — AI Tag Inference (Google Gemini)
+  New Tag Inference panel (Ctrl+Shift+T / T / C-c t) using Google
+  Gemini free tier. Auto-suggest 2–15 tags per deck, diff preview
+  before applying, 7 tag formats preserved, frontmatter health check.
+  Model auto-discovery, exponential 429 retry, space→underscore
+  normalization. 8 new files, 14 modified.
