@@ -49,6 +49,18 @@
 
                     <Border Height="1" Background="#334155"/>
 
+                    <TextBlock Text="Flashcards Path" FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0"/>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Command="{Binding BrowseFlashcardsPathCommand}"
+                                Background="#334155" Foreground="#E2E8F0" Padding="12,8"
+                                Content="Browse" FontSize="13" Margin="8,0,0,0"/>
+                        <TextBox Text="{Binding FlashcardsPath}" Watermark="~/magnus/nextlearn/flashcards"
+                                 Padding="8" FontSize="13" Foreground="#E2E8F0"
+                                 Background="#1E293B" BorderBrush="#334155"/>
+                    </DockPanel>
+
+                    <Border Height="1" Background="#334155"/>
+
                     <TextBlock Text="Key Bindings" FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0"/>
                     <ComboBox SelectedItem="{Binding KeyBindingsProfile}" FontSize="13"
                               Foreground="#E2E8F0" Background="#1E293B" BorderBrush="#334155">

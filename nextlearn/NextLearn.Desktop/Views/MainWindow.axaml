@@ -191,6 +191,7 @@ FontSize="20" Foreground="White"
         <ctrls:ArchivedDecksPanel ZIndex="500"/>
         <ctrls:MarketplacePanel ZIndex="500"/>
         <ctrls:HeatmapPanel ZIndex="500"/>
+        <ctrls:FlashcardPanel ZIndex="500"/>
         <ctrls:TagInferencePanel ZIndex="500"/>
         <ctrls:CommandPalette ZIndex="1000"/>
 

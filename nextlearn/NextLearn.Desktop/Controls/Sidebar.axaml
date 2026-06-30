@@ -58,6 +58,14 @@
                                 <TextBlock Text="  Falcon Eye" FontSize="14" VerticalAlignment="Center"/>
                             </DockPanel>
                         </Button>
+                        <Button Command="{Binding ShowFlashcardPanelCommand}"
+                                Background="#334155" Foreground="#E2E8F0" Padding="12,8"
+                                HorizontalAlignment="Stretch">
+                            <DockPanel>
+                                <TextBlock Text="🃏" FontSize="16" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                <TextBlock Text="  Anki Flashcards" FontSize="14" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Button>
                         <Button Command="{Binding ShowTagInferenceCommand}"
                                 Background="#334155" Foreground="#E2E8F0" Padding="12,8"
                                 HorizontalAlignment="Stretch">

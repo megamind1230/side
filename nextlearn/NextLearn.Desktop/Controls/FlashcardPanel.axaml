@@ -2,24 +2,24 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NextLearn.Desktop.ViewModels"
              xmlns:models="using:NextLearn.Desktop.Models"
-             x:Class="NextLearn.Desktop.Controls.TagInferencePanel"
+             x:Class="NextLearn.Desktop.Controls.FlashcardPanel"
              x:DataType="vm:MainWindowViewModel">
-    <Panel IsVisible="{Binding IsTagInferenceOpen}" ZIndex="300">
+    <Panel IsVisible="{Binding IsFlashcardOpen}" ZIndex="300">
         <DockPanel Background="#1E293B">
             <Border DockPanel.Dock="Top" Padding="16,12" Background="#1E293B">
                 <DockPanel>
-                    <Button Command="{Binding CloseTagInferenceCommand}"
+                    <Button Command="{Binding CloseFlashcardPanelCommand}"
                             Background="Transparent" Padding="12,8">
                         <TextBlock Text="← Back" FontSize="16" Foreground="#94A3B8"/>
                     </Button>
-                    <TextBlock Text="🏷 Tag Inference" FontSize="20" FontWeight="Bold"
+                    <TextBlock Text="🃏 Anki Flashcards" FontSize="20" FontWeight="Bold"
                                Foreground="#E2E8F0" VerticalAlignment="Center"
                                Margin="16,0,0,0"/>
                 </DockPanel>
             </Border>
 
-            <Border DockPanel.Dock="Top" Height="4" IsVisible="{Binding TagInferenceViewModel.IsInferring}">
-                <ProgressBar Value="{Binding TagInferenceViewModel.InferenceProgress}"
+            <Border DockPanel.Dock="Top" Height="4" IsVisible="{Binding FlashcardViewModel.IsGenerating}">
+                <ProgressBar Value="{Binding FlashcardViewModel.GenerationProgress}"
                              Minimum="0" Maximum="100"
                              Foreground="#2563EB" Background="#334155" Height="4"/>
             </Border>
@@ -27,12 +27,12 @@
             <ScrollViewer Margin="24">
                 <StackPanel Spacing="16">
 
-                    <TextBlock Text="{Binding TagInferenceViewModel.InferenceStatus}"
-                               IsVisible="{Binding TagInferenceViewModel.IsInferring}"
+                    <TextBlock Text="{Binding FlashcardViewModel.GenerationStatus}"
+                               IsVisible="{Binding FlashcardViewModel.IsGenerating}"
                                Foreground="#94A3B8" FontSize="14"/>
 
-                    <TextBox Text="{Binding TagInferenceViewModel.ErrorMessage}"
-                             IsVisible="{Binding TagInferenceViewModel.HasError}"
+                    <TextBox Text="{Binding FlashcardViewModel.ErrorMessage}"
+                             IsVisible="{Binding FlashcardViewModel.HasError}"
                              IsReadOnly="True"
                              AcceptsReturn="True"
                              TextWrapping="Wrap"
@@ -44,65 +44,84 @@
                              MinHeight="40"
                              MaxHeight="300"/>
 
+                    <!-- Success message after export -->
+                    <Border IsVisible="{Binding FlashcardViewModel.HasSuccessMessage}"
+                            Background="#0F172A" CornerRadius="8" Padding="16"
+                            BorderBrush="#10B981" BorderThickness="1">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="✅ Export Successful" FontSize="16" FontWeight="Bold"
+                                       Foreground="#10B981"/>
+                            <TextBlock Text="{Binding FlashcardViewModel.SuccessMessage}"
+                                       Foreground="#94A3B8" FontSize="13"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
                     <Grid ColumnDefinitions="*,Auto"
-                          IsVisible="{Binding TagInferenceViewModel.ShowDeckList}">
-                        <TextBox Text="{Binding TagInferenceViewModel.SearchText}"
+                          IsVisible="{Binding FlashcardViewModel.ShowDeckList}">
+                        <TextBox Text="{Binding FlashcardViewModel.SearchText}"
                                  Watermark="Search by title, description, #tag, or regex…"
                                  Padding="12" FontSize="14"
                                  Foreground="#E2E8F0" Background="#1E293B" BorderBrush="#334155"/>
                         <CheckBox Grid.Column="1"
-                                  IsChecked="{Binding TagInferenceViewModel.UseRegex}"
+                                  IsChecked="{Binding FlashcardViewModel.UseRegex}"
                                   Content="Regex"
                                   VerticalAlignment="Center"
                                   Margin="8,0,0,0"
                                   Foreground="#94A3B8"/>
                     </Grid>
 
-                    <Border IsVisible="{Binding TagInferenceViewModel.IsPreviewVisible}"
+                    <Border IsVisible="{Binding FlashcardViewModel.IsPreviewVisible}"
                             Background="#1E293B" CornerRadius="12" Padding="20"
                             BorderBrush="#334155" BorderThickness="1">
                         <StackPanel Spacing="12">
-                            <TextBlock Text="Tag Preview" FontSize="16" FontWeight="Bold" Foreground="#E2E8F0"/>
-                            <TextBlock Text="Ensure this file is not being modified externally during inference."
+                            <TextBlock Text="{Binding FlashcardViewModel.PreviewHeader}" FontSize="16" FontWeight="Bold" Foreground="#E2E8F0"/>
+                            <TextBlock Text="Review the TSV content below. Each line is one flashcard. Accept to save or Cancel to discard."
                                        Foreground="#FBBF24" FontSize="12" TextWrapping="Wrap"/>
-                            <Border Background="#0F172A" CornerRadius="8" Padding="16">
-                                <StackPanel Spacing="8">
-                                    <DockPanel>
-                                        <TextBlock Text="Current: " Foreground="#94A3B8" FontSize="13"/>
-                                        <TextBlock Text="{Binding TagInferenceViewModel.ExistingTagsDisplay}"
-                                                   Foreground="#E2E8F0" FontSize="13" TextWrapping="Wrap"/>
-                                    </DockPanel>
-                                    <DockPanel>
-                                        <TextBlock Text="Proposed: " Foreground="#94A3B8" FontSize="13"/>
-                                        <TextBlock Text="{Binding TagInferenceViewModel.ProposedTagsDisplay}"
-                                                   Foreground="#10B981" FontSize="13" TextWrapping="Wrap"
-                                                   FontWeight="SemiBold"/>
-                                    </DockPanel>
-                                </StackPanel>
+                            <Border Background="#0F172A" CornerRadius="8" Padding="16"
+                                    BorderBrush="#334155" BorderThickness="1">
+                                <TextBox Text="{Binding FlashcardViewModel.PreviewText}"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="NoWrap"
+                                         FontFamily="Consolas, Courier New, monospace"
+                                         FontSize="12"
+                                         Foreground="#E2E8F0" Background="#0F172A"
+                                         BorderThickness="0"
+                                         MinHeight="200"
+                                         MaxHeight="400"/>
                             </Border>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
-                                <Button Command="{Binding TagInferenceViewModel.CancelPreviewCommand}"
+                                <Button Command="{Binding FlashcardViewModel.CancelPreviewCommand}"
                                         Background="#334155" Foreground="#94A3B8"
                                         Padding="24,10" FontSize="14" Content="Cancel"/>
-                                <Button Command="{Binding TagInferenceViewModel.ApplyTagsCommand}"
+                                <Button Command="{Binding FlashcardViewModel.AcceptFlashcardsCommand}"
                                         Background="#0D9488" Foreground="White"
-                                        Padding="24,10" FontSize="14" Content="Apply Tags"/>
+                                        Padding="24,10" FontSize="14" Content="Accept &amp; Export"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
 
-                    <ItemsControl ItemsSource="{Binding TagInferenceViewModel.Decks}"
-                                  IsVisible="{Binding TagInferenceViewModel.ShowDeckList}">
+                    <ItemsControl ItemsSource="{Binding FlashcardViewModel.Decks}"
+                                  IsVisible="{Binding FlashcardViewModel.ShowDeckList}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:Deck">
                                 <Border Background="#1E293B" CornerRadius="12" Padding="20" Margin="0,0,0,16"
                                         BorderBrush="#334155" BorderThickness="1">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center">
-                                            <Button Content="Infer Tags →"
-                                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).TagInferenceViewModel.InferTagsCommand}"
-                                                    CommandParameter="{Binding}"
-                                                    Background="#2563EB" Foreground="White" Padding="16,8"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <Button Content="Basic"
+                                                        Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).FlashcardViewModel.GenerateBasicCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Background="#2563EB" Foreground="White"
+                                                        Padding="16,8" FontSize="13"/>
+                                                <Button Content="Cloze"
+                                                        Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).FlashcardViewModel.GenerateClozeCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Background="#7C3AED" Foreground="White"
+                                                        Padding="16,8" FontSize="13"/>
+                                            </StackPanel>
                                         </StackPanel>
                                         <StackPanel Margin="0,0,24,0">
                                             <DockPanel>

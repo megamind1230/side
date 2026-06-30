@@ -80,6 +80,7 @@ is a separate project.
 | Smart code block width               | ✅ Done    | Short code shrink-wraps; long code scrolls at viewport cap                                  |
 | LaTeX math rendering (KaTeX)         | ✅ Done    | Inline ~$..$~ / ~\(..\)~ and display ~$$..$$~ / ~\[..\]~ w/ auto-render                     |
 | AI Tag Inference (Google Gemini)     | ✅ Done    | Open side bar → Tag Inference panel (or profile shortcut: ~T~ Vim, ~C-c t~ Emacs, ~Ctrl+Shift+T~ VS Code). Select a deck → auto-suggest 2–15 tags via Gemini API (free tier). Diff preview before applying. Supports 7 tag formats. Frontmatter health check auto-fills missing ~title~/~desc~/~tags~. |
+| Anki Flashcard Generation (Gemini) | ✅ Done    | Two buttons (Basic/Cloze), dedicated prompts, mode-aware parsing (tab-separated vs {{c1::}}), saves as .basic.txt / .cloze.txt for Anki import |
  
 * Tech Stack
 
@@ -146,6 +147,8 @@ Phase 5 of the clean code initiative is complete:
 | OrgInlineRenderer      | Strategy for .org inline rendering                                 |
 | TagInferenceService    | Gemini API client: model discovery, retry, tag parsing             |
 | DeckFileWriter         | Tag write-back (7 formats) + frontmatter health check (.md/.org)   |
+| FlashcardService       | Gemini API client: model fallback chain, retry, mode-aware TSV/cloze parsing |
+| IFlashcardService      | Interface with mode param                                          |
 
 * Deck File Format
 

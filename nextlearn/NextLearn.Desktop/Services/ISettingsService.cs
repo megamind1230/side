@@ -23,6 +23,12 @@ public interface ISettingsService
     /// <summary>Gets or sets a value indicating whether Falcon Eye (table of contents) is enabled.</summary>
     bool FalconEyeEnabled { get; set; }
 
+    /// <summary>Gets or sets the flashcards export path (may contain $HOME).</summary>
+    string FlashcardsPath { get; set; }
+
+    /// <summary>Gets the resolved flashcards path with $HOME expanded.</summary>
+    string ResolvedFlashcardsPath { get; }
+
     /// <summary>Gets or sets the Gemini API key for AI tag inference.</summary>
     string GeminiApiKey { get; set; }
 

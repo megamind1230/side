@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -16,13 +17,13 @@ using Serilog;
 
 namespace NextLearn.Desktop.ViewModels;
 
-public partial class TagInferenceViewModel : ViewModelBase
+public partial class FlashcardViewModel : ViewModelBase
 {
     private readonly ISettingsService _settingsService;
-    private readonly ITagInferenceService _tagInferenceService;
-    private readonly IDeckFileWriter _deckFileWriter;
+    private readonly IFlashcardService _flashcardService;
     private readonly string _decksPath;
     private List<Deck> _allDecks = [];
+    private int _generationId;
 
     [ObservableProperty]
     private ObservableCollection<Deck> _decks = [];
@@ -34,22 +35,25 @@ public partial class TagInferenceViewModel : ViewModelBase
     private bool _useRegex;
 
     [ObservableProperty]
-    private string? _inferenceStatus;
+    private string? _generationStatus;
 
     [ObservableProperty]
-    private double _inferenceProgress;
+    private double _generationProgress;
 
     [ObservableProperty]
-    private bool _isInferring;
+    private bool _isGenerating;
 
     [ObservableProperty]
     private bool _isPreviewVisible;
 
     [ObservableProperty]
-    private string _existingTagsDisplay = string.Empty;
+    private string _previewText = string.Empty;
 
     [ObservableProperty]
-    private string _proposedTagsDisplay = string.Empty;
+    private string _previewHeader = string.Empty;
+
+    [ObservableProperty]
+    private string? _successMessage;
 
     [ObservableProperty]
     private string? _errorMessage;
@@ -57,30 +61,35 @@ public partial class TagInferenceViewModel : ViewModelBase
     [ObservableProperty]
     private bool _hasError;
 
+    [ObservableProperty]
+    private bool _hasSuccessMessage;
+
+    private Deck? _currentDeck;
+    private string _savedContent = string.Empty;
+    private int _savedCount;
+    private FlashcardGenerationMode? _currentMode;
+
     public bool HasDecks => Decks.Count > 0;
 
-    public bool ShowDeckList => !IsInferring && !IsPreviewVisible && !HasError;
+    public bool ShowDeckList => !IsGenerating && !IsPreviewVisible && !HasError && !HasSuccessMessage;
 
-    partial void OnIsInferringChanged(bool value) => OnPropertyChanged(nameof(ShowDeckList));
+    partial void OnIsGeneratingChanged(bool value) => OnPropertyChanged(nameof(ShowDeckList));
 
     partial void OnIsPreviewVisibleChanged(bool value) => OnPropertyChanged(nameof(ShowDeckList));
 
     partial void OnHasErrorChanged(bool value) => OnPropertyChanged(nameof(ShowDeckList));
 
+    partial void OnHasSuccessMessageChanged(bool value) => OnPropertyChanged(nameof(ShowDeckList));
+
     partial void OnDecksChanged(ObservableCollection<Deck> value) => OnPropertyChanged(nameof(HasDecks));
 
-    private Deck? _currentDeck;
-    private List<string> _suggestedTags = [];
-
-    public TagInferenceViewModel(
+    public FlashcardViewModel(
         ISettingsService settingsService,
-        ITagInferenceService tagInferenceService,
-        IDeckFileWriter deckFileWriter,
+        IFlashcardService flashcardService,
         string? decksPath = null)
     {
         _settingsService = settingsService;
-        _tagInferenceService = tagInferenceService;
-        _deckFileWriter = deckFileWriter;
+        _flashcardService = flashcardService;
         _decksPath = Constants.GetDecksPath(decksPath);
     }
 
@@ -181,8 +190,7 @@ public partial class TagInferenceViewModel : ViewModelBase
                deck.FileName.Contains(token, StringComparison.OrdinalIgnoreCase);
     }
 
-    [RelayCommand]
-    private async Task InferTags(Deck? deck)
+    private async Task Generate(Deck? deck, FlashcardGenerationMode mode)
     {
         if (deck == null)
         {
@@ -192,7 +200,7 @@ public partial class TagInferenceViewModel : ViewModelBase
         var apiKey = _settingsService.GeminiApiKey;
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            Log.Error("Tag inference failed: no API key configured");
+            Log.Error("Flashcard generation failed: no API key configured");
             ErrorMessage = "Configure your Gemini API key in Settings first.";
             HasError = true;
             return;
@@ -201,136 +209,147 @@ public partial class TagInferenceViewModel : ViewModelBase
         var filePath = Path.Combine(_decksPath, deck.FileName);
         if (!File.Exists(filePath))
         {
-            Log.Error("Tag inference failed: deck file not found: {Path}", filePath);
+            Log.Error("Flashcard generation failed: deck file not found: {Path}", filePath);
             ErrorMessage = "Deck file not found.";
             HasError = true;
             return;
         }
 
+        var myId = Interlocked.Increment(ref _generationId);
         _currentDeck = deck;
-        _suggestedTags = [];
+        _currentMode = null;
+        _savedContent = string.Empty;
+        PreviewHeader = string.Empty;
+        PreviewText = string.Empty;
         IsPreviewVisible = false;
-        IsInferring = true;
+        IsGenerating = true;
         HasError = false;
         ErrorMessage = null;
-
-        // Ensure frontmatter is healthy before inferencing
-        InferenceStatus = "Checking frontmatter…";
-        _deckFileWriter.EnsureHealthyFrontmatter(filePath, out _);
-
-        // Reload deck so tags/desc/title reflect any changes
-        var reloaded = DeckFileParser.LoadDeckFromFile(filePath, _decksPath);
-        if (reloaded != null)
-        {
-            _currentDeck = reloaded;
-        }
+        SuccessMessage = null;
+        HasSuccessMessage = false;
 
         try
         {
-            InferenceStatus = "Parsing deck content…";
-            InferenceProgress = 10;
+            GenerationStatus = "Parsing deck content…";
+            GenerationProgress = 10;
             await Task.Delay(100);
 
             var textContent = string.Join("\n", deck.Pages.Select(p => p.TextContent));
-            var existingTags = deck.Tags ?? string.Empty;
 
-            InferenceStatus = "Contacting Gemini…";
-            InferenceProgress = 30;
-
-            var result = await _tagInferenceService.InferTagsAsync(textContent, existingTags, apiKey);
-
-            if (!result.Success)
+            if (string.IsNullOrWhiteSpace(textContent))
             {
-                Log.Error("Tag inference failed: {Error}", result.Error);
-                ErrorMessage = result.Error;
+                Log.Error("Flashcard generation failed: deck has no text content");
+                ErrorMessage = "Deck has no content to generate flashcards from.";
                 HasError = true;
-                IsInferring = false;
-                InferenceStatus = null;
                 return;
             }
 
-            _suggestedTags = result.SuggestedTags;
+            GenerationStatus = "Contacting Gemini…";
+            GenerationProgress = 30;
 
-            InferenceStatus = "Formatting results…";
-            InferenceProgress = 90;
+            var result = await _flashcardService.GenerateFlashcardsAsync(textContent, apiKey, mode);
+
+            if (_generationId != myId)
+            {
+                return;
+            }
+
+            if (!result.Success)
+            {
+                Log.Error("Flashcard generation failed: {Error}", result.Error);
+                ErrorMessage = result.Error;
+                HasError = true;
+                return;
+            }
+
+            _currentMode = result.Mode;
+            _savedContent = result.Content;
+            _savedCount = result.Count;
+
+            GenerationStatus = "Formatting results…";
+            GenerationProgress = 90;
             await Task.Delay(100);
 
-            ExistingTagsDisplay = string.IsNullOrWhiteSpace(existingTags) ? "(none)" : existingTags;
-            ProposedTagsDisplay = string.Join(", ", _suggestedTags);
+            var label = mode == FlashcardGenerationMode.Basic ? "Basic" : "Cloze";
+            PreviewHeader = $"{label} Flashcards ({result.Count} cards)";
+            PreviewText = result.Content;
 
-            InferenceStatus = "Ready";
-            InferenceProgress = 100;
+            GenerationStatus = "Ready";
+            GenerationProgress = 100;
             IsPreviewVisible = true;
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Tag inference unexpected error");
+            Log.Error(ex, "Flashcard generation unexpected error");
             ErrorMessage = $"Unexpected error: {ex.Message}";
             HasError = true;
         }
         finally
         {
-            IsInferring = false;
+            IsGenerating = false;
         }
     }
 
     [RelayCommand]
-    private async Task ApplyTags()
+    private Task GenerateBasic(Deck? deck) => Generate(deck, FlashcardGenerationMode.Basic);
+
+    [RelayCommand]
+    private Task GenerateCloze(Deck? deck) => Generate(deck, FlashcardGenerationMode.Cloze);
+
+    [RelayCommand]
+    private async Task AcceptFlashcards()
     {
-        if (_currentDeck == null || _suggestedTags.Count == 0)
+        if (_currentDeck == null || _currentMode == null || string.IsNullOrEmpty(_savedContent))
         {
             return;
         }
 
-        var filePath = Path.Combine(_decksPath, _currentDeck.FileName);
-        if (!File.Exists(filePath))
+        var flashcardsPath = _settingsService.ResolvedFlashcardsPath;
+        Directory.CreateDirectory(flashcardsPath);
+
+        var baseName = Path.GetFileName(_currentDeck.FileName);
+        var suffix = _currentMode == FlashcardGenerationMode.Basic ? ".basic.txt" : ".cloze.txt";
+        var savePath = Path.Combine(flashcardsPath, baseName + suffix);
+
+        try
         {
-            Log.Error("Tag apply failed: deck file not found: {Path}", filePath);
-            ErrorMessage = "Deck file not found. It may have been moved or deleted.";
-            HasError = true;
-            return;
+            await File.WriteAllTextAsync(savePath, _savedContent);
+
+            var label = _currentMode == FlashcardGenerationMode.Basic ? "basic" : "cloze";
+            SuccessMessage = $"✓ Saved {label} ({_savedCount} cards) to:\n  {savePath}";
+
+            HasSuccessMessage = true;
+
+            await Task.Delay(3000);
+            ResetToDeckList();
         }
-
-        if (_deckFileWriter.AppendTags(filePath, _suggestedTags, out var error))
+        catch (Exception ex)
         {
-            var reloaded = DeckFileParser.LoadDeckFromFile(filePath, _decksPath);
-            if (reloaded != null)
-            {
-                var idx = _allDecks.FindIndex(d => d.Id == _currentDeck.Id);
-                if (idx >= 0)
-                {
-                    _allDecks[idx] = reloaded;
-                }
-
-                var idx2 = Decks.IndexOf(_currentDeck);
-                if (idx2 >= 0)
-                {
-                    Decks[idx2] = reloaded;
-                }
-            }
-
-            CancelPreview();
-        }
-        else
-        {
-            Log.Error("Tag apply failed to write tags: {Error}", error);
-            ErrorMessage = error ?? "Failed to write tags to file.";
+            Log.Error(ex, "Failed to save flashcards");
+            ErrorMessage = $"Failed to save flashcards: {ex.Message}";
             HasError = true;
         }
-
-        await Task.CompletedTask;
     }
 
     [RelayCommand]
     private void CancelPreview()
     {
+        ResetToDeckList();
+    }
+
+    private void ResetToDeckList()
+    {
         IsPreviewVisible = false;
-        InferenceStatus = null;
-        InferenceProgress = 0;
+        SuccessMessage = null;
+        HasSuccessMessage = false;
+        GenerationStatus = null;
+        GenerationProgress = 0;
         _currentDeck = null;
-        _suggestedTags = [];
-        ExistingTagsDisplay = string.Empty;
-        ProposedTagsDisplay = string.Empty;
+        _currentMode = null;
+        _savedContent = string.Empty;
+        _savedCount = 0;
+        PreviewHeader = string.Empty;
+        PreviewText = string.Empty;
         HasError = false;
         ErrorMessage = null;
     }

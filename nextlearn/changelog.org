@@ -48,8 +48,15 @@
   deck-link prompt overlay, pinned/archived fallback resolution.
 
 ** 2026-06-30 — AI Tag Inference (Google Gemini)
-  New Tag Inference panel (Ctrl+Shift+T / T / C-c t) using Google
-  Gemini free tier. Auto-suggest 2–15 tags per deck, diff preview
-  before applying, 7 tag formats preserved, frontmatter health check.
-  Model auto-discovery, exponential 429 retry, space→underscore
-  normalization. 8 new files, 14 modified.
+   New Tag Inference panel (Ctrl+Shift+T / T / C-c t) using Google
+   Gemini free tier. Auto-suggest 2–15 tags per deck, diff preview
+   before applying, 7 tag formats preserved, frontmatter health check.
+   Model auto-discovery, exponential 429 retry, space→underscore
+   normalization. 8 new files, 14 modified.
+
+** 2026-06-30 — Anki Flashcard Generation (Google Gemini)
+   New Anki Flashcards sidebar panel with separate [Basic] and [Cloze]
+   buttons. Two dedicated prompts (tab-separated Q&A vs single-line
+   {{c1::}} sentences). Mode-aware response parsing. Cards saved as
+   .basic.txt / .cloze.txt for direct Anki import. Model fallback chain,
+   exponential retry. 6 new files, 7 modified.

@@ -306,3 +306,162 @@ Same ~HttpClient~ + API key infra supports:
   response parsing, error handling
 - ~TagInferenceViewModelTests~ — progress states, apply/cancel flow
 - Existing ~DeckFileParserTests~ — verify parser unchanged
+
+* DONE Anki Flashcard Generation — Google Gemini
+
+** What
+New "Anki Flashcards" sidebar panel with two dedicated buttons: [Basic] and
+[Cloze]. Each generates one card type via a separate focused prompt. Preview
+raw output → accept saves as ~.basic.txt~ / ~.cloze.txt~ under
+~$HOME/magnus/nextlearn/flashcards~ for direct Anki import.
+
+** Key decisions
+- Two independent buttons instead of one mixed request: user controls type,
+  no partial-merge complexity
+- Separate ~.basic.txt~ / ~.cloze.txt~ files so Anki import maps each file to
+  correct note type (mixed types in one import file not supported by Anki)
+- Cloze format is single-line (no tabs): ~sentence with {{c1::blank}}~ —
+  Anki's Cloze note type has only one text field
+- ~_generationId~ counter discards stale responses if user clicks a new
+  generation before previous one completes
+- Each prompt says "Cover EVERY section — do not skip any part" to prevent
+  lazy/partial generation
+- Flashcards path defaults to ~$HOME/magnus/nextlearn/flashcards~ (same
+  pattern as DecksPath: configurable in Settings with Browse button)
+- File naming: ~<deck-filename>.basic.txt~ and ~<deck-filename>.cloze.txt~
+
+** Basic prompt
+- File: ~Services/FlashcardService.cs~ — ~BuildBasicPrompt~
+- Requests TSV (tab-separated) format: ~term TAB definition/answer~
+- One card per line, no markdown, no code fences
+
+** Cloze prompt
+- File: ~Services/FlashcardService.cs~ — ~BuildClozePrompt~
+- Requests single-line format (no tabs): ~sentence with {{c1::blank}}~
+- One blank per card, no markdown, no code fences
+
+** New files
+
+*** 1. Services/FlashcardGenerationMode.cs
+Enum: ~Basic~, ~Cloze~
+
+*** 2. Services/FlashcardResult.cs
+Simple DTO:
+- ~FlashcardGenerationMode Mode~ — which mode produced the result
+- ~string Content~ — raw output text (TSV lines or cloze lines)
+- ~int Count~ — number of valid cards
+- ~bool Success~
+- ~string? Error~
+
+*** 3. Services/IFlashcardService.cs
+- ~Task<FlashcardResult> GenerateFlashcardsAsync(string deckContent, string apiKey, FlashcardGenerationMode mode)~
+
+*** 4. Services/FlashcardService.cs
+Gemini API implementation (same infrastructure as TagInferenceService):
+- ~HttpClient~ POST with retry/backoff, model fallback chain, model discovery
+- Token estimation + truncation at 700K
+- Two dedicated prompts: ~BuildBasicPrompt~ (TSV) / ~BuildClozePrompt~ (no tabs, {{c1::}})
+- Mode-aware response parsing: ~ParseSuccessfulResponse(responseBody, mode)~
+  - Basic: filters lines containing ~\t~
+  - Cloze: filters lines containing ~{{c1::}}~
+- Error messages include mode-specific format hint ("tab-separated" vs "cloze ({{c1::}})")
+
+*** 5. ViewModels/FlashcardViewModel.cs
+Page ViewModel (follows TagInferenceViewModel pattern):
+- ~ObservableCollection<Deck> Decks~ — searchable deck list
+- ~string SearchText~ — filter decks (multi-token AND, #tag prefix, regex toggle)
+- ~bool UseRegex~ — regex search toggle
+- ~string? GenerationStatus~ — current step text
+- ~double GenerationProgress~ — 0–100 progress bar
+- ~string PreviewText~ — raw output preview
+- ~string PreviewHeader~ — dynamic header ("Basic Flashcards (N cards)" / "Cloze...")
+- ~string? SuccessMessage~ — shown after save
+- ~bool IsPreviewVisible~, ~IsGenerating~, ~HasError~, ~HasSuccessMessage~
+- ~int _generationId~ — anti-stale response counter
+- ~FlashcardGenerationMode? _currentMode~ — tracks which mode generated the preview
+
+Commands:
+- ~GenerateBasic(Deck)~ — sends to Gemini with ~Basic~ mode
+- ~GenerateCloze(Deck)~ — sends to Gemini with ~Cloze~ mode
+- ~AcceptFlashcards~ — saves ~.basic.txt~ or ~.cloze.txt~, shows success, returns to list
+- ~CancelPreview~ — same as TagInference
+
+State machine:
+| Step | Progress | Status text |
+|------|----------|-------------|
+| 1    | 10%      | "Parsing deck content…" |
+| 2    | 30%      | "Contacting Gemini…" |
+| 3    | 70%      | "Generating flashcards…" |
+| 4    | 90%      | "Formatting results…" |
+| 5    | 100%     | "Ready" |
+
+After accept: show success message → auto-return to deck list after ~3s.
+
+*** 6. Controls/FlashcardPanel.axaml + .axaml.cs
+New panel view:
+- Header: "🃏 Anki Flashcards"
+- Search box (top) with regex ☐ toggle
+- Deck list with [Basic] (blue) and [Cloze] (purple) buttons (no learn/pin/archive)
+- Progress bar + status text during generation
+- Raw output preview in read-only ~TextBox~ (multi-line, monospace)
+- Accept / Cancel buttons
+- Success message overlay after save
+
+** Modified files
+
+*** 7. Models/AppSettings.cs
+- Add ~string FlashcardsPath~ default ~"$HOME/magnus/nextlearn/flashcards"~
+
+*** 8. Services/ISettingsService.cs + SettingsService.cs
+- Add ~string FlashcardsPath~ get/set
+- Add ~string ResolvedFlashcardsPath~ (resolved via ~AppSettings.ResolvePath~)
+- ~Load()~ / ~Save()~ handle it
+
+*** 9. Controls/SettingsPanel.axaml
+- Add "Flashcards Path" section with Browse button (same pattern as DecksPath)
+
+*** 10. Controls/Sidebar.axaml
+- Add nav item between "Falcon Eye" and "Tag Inference":
+  ~<Button Command="{Binding ShowFlashcardPanelCommand}" ...>~
+  ~    <TextBlock Text="🃏"/> <TextBlock Text="  Anki Flashcards"/>~
+  ~</Button>~
+
+*** 11. ViewModels/MainWindowViewModel.cs
+- Add ~IFlashcardService~ field (new ~FlashcardService(new HttpClient())~ in constructor)
+- Add ~FlashcardViewModel~ property
+- Add ~bool IsFlashcardOpen~ (observable)
+- Add ~string FlashcardsPath~ (observable, wired in Load/Save/Reset)
+- Add ~ShowFlashcardPanelCommand~ → ~[RelayCommand] void ShowFlashcardPanel()~
+  (closes other panels, calls ~FlashcardViewModel.LoadDecks()~, sets ~IsFlashcardOpen = true~)
+- Add ~CloseFlashcardPanelCommand~ → closes panel + cancels preview
+- Add ~BrowseFlashcardsPathCommand~ → folder picker dialog
+- Wire ~FlashcardsPath~ in ~LoadSettings()~ / ~SaveSettings()~ / ~ResetSettings()~
+
+*** 12. Views/MainWindow.axaml
+- Add ~<ctrls:FlashcardPanel ZIndex="500"/>~ alongside other panels
+
+** Edge cases
+
+| Case | Behavior |
+|---|---|
+| No API key | "Configure Gemini API key in Settings" |
+| No internet | "No internet connection. Check and try again." |
+| Deck too large (>900K tokens) | "Deck too large. Split into smaller files." |
+| Gemini returns no valid lines | Show raw response with mode-specific format hint |
+| Output directory doesn't exist | Create it automatically |
+| File already exists | Overwrite without prompt (same pattern as TagInference Apply) |
+| Empty deck | "Deck has no content to generate flashcards from." |
+| Gemini returns malformed output | Show raw preview anyway; user can decide to accept or reject |
+| User clicks second gen before first finishes | Stale response discarded via ~_generationId~ |
+
+** File naming examples
+| Deck file | Basic output | Cloze output |
+|-----------|---|----|
+| ~biology-ch2.md~ | ~biology-ch2.md.basic.txt~ | ~biology-ch2.md.cloze.txt~ |
+| ~programming/python.org~ | ~programming/python.org.basic.txt~ | ~programming/python.org.cloze.txt~ |
+
+** Future reuse
+Same ~IFlashcardService~ infra can be extended for:
+- True/False question generation
+- Fill-in-the-blank worksheets
+- Summary/notes extraction

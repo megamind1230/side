@@ -20,6 +20,9 @@ public class AppSettings
     [YamlMember(Alias = "falconEyeEnabled")]
     public bool FalconEyeEnabled { get; set; } = false;
 
+    [YamlMember(Alias = "flashcardsPath")]
+    public string FlashcardsPath { get; set; } = "$HOME/magnus/nextlearn/flashcards";
+
     [YamlMember(Alias = "geminiApiKey")]
     public string GeminiApiKey { get; set; } = string.Empty;
 

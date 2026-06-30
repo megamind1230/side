@@ -67,6 +67,14 @@ public class SettingsService : ISettingsService
         set => _settings.FalconEyeEnabled = value;
     }
 
+    public string FlashcardsPath
+    {
+        get => _settings.FlashcardsPath;
+        set => _settings.FlashcardsPath = value;
+    }
+
+    public string ResolvedFlashcardsPath => AppSettings.ResolvePath(FlashcardsPath);
+
     public string GeminiApiKey
     {
         get => _settings.GeminiApiKey;

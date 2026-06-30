@@ -30,6 +30,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly ISettingsService _settingsService;
     private readonly IKeyBindingService _keyBindingService;
     private readonly ITagInferenceService _tagInferenceService;
+    private readonly IFlashcardService _flashcardService;
     private readonly IDeckFileWriter _deckFileWriter;
     private List<CommandPaletteEntry> _allCommandPaletteEntries;
 
@@ -67,6 +68,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isTagInferenceOpen;
 
     [ObservableProperty]
+    private bool _isFlashcardOpen;
+
+    [ObservableProperty]
     private int _todayMinutes;
 
     [ObservableProperty]
@@ -98,6 +102,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _decksPath = string.Empty;
+
+    [ObservableProperty]
+    private string _flashcardsPath = string.Empty;
 
     [ObservableProperty]
     private string _keyBindingsProfile = string.Empty;
@@ -275,6 +282,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public TagInferenceViewModel TagInferenceViewModel { get; private set; }
 
+    public FlashcardViewModel FlashcardViewModel { get; private set; }
+
     public MainWindowViewModel()
     {
         _context = new AppDbContext();
@@ -287,6 +296,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _settingsService = new SettingsService();
         _keyBindingService = new KeyBindingService();
         _tagInferenceService = new TagInferenceService(new HttpClient());
+        _flashcardService = new FlashcardService(new HttpClient());
         _deckFileWriter = new DeckFileWriter();
         _allCommandPaletteEntries = BuildCommandPaletteEntries();
         var htmlContentBuilder = new HtmlContentService();
@@ -317,6 +327,7 @@ public partial class MainWindowViewModel : ViewModelBase
         HomeViewModel = new HomeViewModel(_deckService, _deckFileService, this, decksPath);
         LearningViewModel = new LearningViewModel(_deckService, _userService, htmlContentBuilder, this, decksPath);
         TagInferenceViewModel = new TagInferenceViewModel(_settingsService, _tagInferenceService, _deckFileWriter, decksPath);
+        FlashcardViewModel = new FlashcardViewModel(_settingsService, _flashcardService, decksPath);
 
         CurrentView = HomeViewModel;
     }
@@ -419,6 +430,7 @@ public partial class MainWindowViewModel : ViewModelBase
         Theme = _settingsService.Theme;
         Font = _settingsService.Font;
         DecksPath = _settingsService.DecksPath;
+        FlashcardsPath = _settingsService.FlashcardsPath;
         KeyBindingsProfile = _settingsService.KeyBindingsProfile;
         IsFalconEyeEnabled = _settingsService.FalconEyeEnabled;
         GeminiApiKey = _settingsService.GeminiApiKey;
@@ -430,6 +442,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _settingsService.Theme = Theme;
         _settingsService.Font = Font;
         _settingsService.DecksPath = DecksPath;
+        _settingsService.FlashcardsPath = FlashcardsPath;
         _settingsService.KeyBindingsProfile = KeyBindingsProfile;
         _settingsService.FalconEyeEnabled = IsFalconEyeEnabled;
         _settingsService.GeminiApiKey = GeminiApiKey;
@@ -461,6 +474,7 @@ public partial class MainWindowViewModel : ViewModelBase
         Theme = defaults.Theme;
         Font = defaults.Font;
         DecksPath = defaults.DecksPath;
+        FlashcardsPath = defaults.FlashcardsPath;
         KeyBindingsProfile = defaults.KeyBindingsProfile;
         IsFalconEyeEnabled = defaults.FalconEyeEnabled;
         GeminiApiKey = defaults.GeminiApiKey;
@@ -475,6 +489,19 @@ public partial class MainWindowViewModel : ViewModelBase
             if (result != null)
             {
                 DecksPath = result;
+            }
+        }
+    }
+
+    [RelayCommand]
+    private async Task BrowseFlashcardsPathAsync()
+    {
+        if (PickFolderHandler != null)
+        {
+            var result = await PickFolderHandler(FlashcardsPath);
+            if (result != null)
+            {
+                FlashcardsPath = result;
             }
         }
     }
@@ -795,6 +822,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsSettingsOpen = false;
         IsHeatmapOpen = false;
         IsMarketplaceOpen = false;
+        IsFlashcardOpen = false;
         TagInferenceViewModel.LoadDecks();
         IsTagInferenceOpen = true;
     }
@@ -804,6 +832,27 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         IsTagInferenceOpen = false;
         TagInferenceViewModel.CancelPreviewCommand.Execute(null);
+    }
+
+    [RelayCommand]
+    public void ShowFlashcardPanel()
+    {
+        IsSidebarOpen = false;
+        IsPinnedViewOpen = false;
+        IsArchivedViewOpen = false;
+        IsSettingsOpen = false;
+        IsHeatmapOpen = false;
+        IsMarketplaceOpen = false;
+        IsTagInferenceOpen = false;
+        FlashcardViewModel.LoadDecks();
+        IsFlashcardOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseFlashcardPanel()
+    {
+        IsFlashcardOpen = false;
+        FlashcardViewModel.CancelPreviewCommand.Execute(null);
     }
 
     [RelayCommand]
